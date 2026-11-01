@@ -56,6 +56,7 @@ Qué verifican hoy (`pruebas/`):
 - **horarios:** rangos válidos y rangos que se cruzan.
 - **negocios y usuarios:** sede y configuración por defecto, reglas de roles y formato del teléfono.
 - **mensajes:** un mensaje reenviado por Meta no se duplica; coherencia entre emisor y dirección; modo humano.
+- **disponibilidad:** horarios libres según el horario del barbero, bloqueos, citas activas (incluidas las `por_aprobar`), duración total de varios servicios, intervalo alineado al reloj, anticipación mínima y máxima, y validación de la consulta. El cálculo puro se prueba sin base de datos; el servicio, contra la base real.
 
 ## Qué hay hecho
 
@@ -68,12 +69,20 @@ src/
 │   ├── pool.ts            Conexión a PostgreSQL (rol turnoo_app)
 │   ├── contexto.ts        conNegocio() y conSistema(): aislamiento entre negocios
 │   └── previas.ts         Las dos consultas anteriores al contexto (webhook y login)
+├── modulos/
+│   └── citas/
+│       ├── disponibilidad.ts       Cálculo puro de horarios libres (sin base de datos)
+│       ├── citas.servicio.ts       consultarDisponibilidad(): reglas y orquestación
+│       ├── citas.repositorio.ts    SQL del módulo
+│       └── citas.tipos.ts          Tipos del módulo
 └── compartido/
     ├── errores.ts         Errores del negocio y traducción de errores de PostgreSQL
-    └── logger.ts          Registro de eventos (oculta datos sensibles)
+    ├── logger.ts          Registro de eventos (oculta datos sensibles)
+    ├── tiempo.ts          ÚNICO lugar con cuentas de fechas y zonas horarias
+    └── validacion.ts      Validaciones pequeñas (uuid)
 ```
 
-Los módulos del negocio (`modulos/`) y las tareas programadas (`tareas/`) se agregan a medida que se construyen.
+Los demás módulos del negocio (`modulos/`) y las tareas programadas (`tareas/`) se agregan a medida que se construyen.
 
 ## La regla más importante
 
