@@ -9,9 +9,12 @@
   },
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file=.env dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:pruebas": "tsx --env-file=.env --env-file=../.env scripts/preparar-base-pruebas.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "express": "^5.3.0",
@@ -25,6 +28,7 @@
     "@types/pg": "^8.23.1",
     "pino-pretty": "^13.2.0",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   }
 }
