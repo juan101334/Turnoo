@@ -31,9 +31,31 @@ curl localhost:3000/salud
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Arranca con recarga automática y registros legibles. |
-| `npm run typecheck` | Revisa los tipos sin generar archivos. |
-| `npm run build` | Compila a `dist/`. |
+| `npm run typecheck` | Revisa los tipos de todo el código (incluidas las pruebas). |
+| `npm run build` | Compila `src/` a `dist/`. |
 | `npm start` | Corre lo compilado (`dist/`). |
+| `npm run db:pruebas` | Crea desde cero la base `turnoo_test` y le aplica las migraciones. |
+| `npm test` | Corre todas las pruebas automáticas. |
+| `npm run test:watch` | Corre las pruebas y las repite al guardar cambios. |
+
+## Pruebas automáticas
+
+Las pruebas corren contra una base de datos PostgreSQL real llamada `turnoo_test`, en el mismo servidor de Docker pero **separada de tu base de desarrollo** (`turnoo`): nunca la tocan. Hay un seguro que aborta si la base no termina en `_test`.
+
+```bash
+npm run db:pruebas   # una vez, y cada vez que agregues una migración
+npm test
+```
+
+`db:pruebas` usa las credenciales de administrador del `.env` de la raíz (`POSTGRES_USER` y `POSTGRES_PASSWORD`) para crear la base.
+
+Qué verifican hoy (`pruebas/`):
+
+- **aislamiento:** un negocio no ve, escribe ni modifica datos de otro; las claves foráneas impiden mezclar negocios; funciones previas al contexto.
+- **citas:** no hay citas dobles, las canceladas liberan el hueco, las transiciones de estado válidas e inválidas, y los servicios de una cita deben ser del mismo barbero.
+- **horarios:** rangos válidos y rangos que se cruzan.
+- **negocios y usuarios:** sede y configuración por defecto, reglas de roles y formato del teléfono.
+- **mensajes:** un mensaje reenviado por Meta no se duplica; coherencia entre emisor y dirección; modo humano.
 
 ## Qué hay hecho
 
