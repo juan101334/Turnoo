@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:17
+    container_name: turnoo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: UTC
+    # Solo accesible desde esta misma máquina (desarrollo).
+    # Puerto 5433 en tu equipo -> 5432 dentro del contenedor
+    # (el 5432 de tu equipo ya lo usa otro programa).
+    # En producción se elimina "ports" y solo los otros contenedores lo ven.
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - turnoo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  turnoo_pgdata:

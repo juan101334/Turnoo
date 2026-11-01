@@ -1,0 +1,19 @@
+# Secretos y entorno
+.env
+.env.*
+!.env.example
+
+# Dependencias y builds
+node_modules/
+dist/
+.next/
+
+# Sistema y editor
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# Copias de seguridad de la base de datos
+backups/
+*.dump
