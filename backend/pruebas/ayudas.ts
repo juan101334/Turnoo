@@ -83,6 +83,37 @@ export async function crearCliente(n: NegocioDePrueba, nombre = 'Cliente'): Prom
   return id;
 }
 
+export async function crearHorario(
+  n: NegocioDePrueba,
+  profesionalId: string,
+  diaSemana: number,
+  horaInicio: string,
+  horaFin: string,
+): Promise<void> {
+  await conNegocio(n.negocioId, (tx) =>
+    tx.consultar(
+      `INSERT INTO horarios_trabajo (negocio_id, profesional_id, dia_semana, hora_inicio, hora_fin)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [n.negocioId, profesionalId, diaSemana, horaInicio, horaFin],
+    ),
+  );
+}
+
+/** Bloqueo de un barbero; si `profesionalId` es null, bloquea todo el negocio. */
+export async function crearBloqueo(
+  n: NegocioDePrueba,
+  profesionalId: string | null,
+  inicio: Date,
+  fin: Date,
+): Promise<void> {
+  await conNegocio(n.negocioId, (tx) =>
+    tx.consultar(
+      'INSERT INTO bloqueos (negocio_id, profesional_id, inicio, fin) VALUES ($1, $2, $3, $4)',
+      [n.negocioId, profesionalId, inicio, fin],
+    ),
+  );
+}
+
 export interface DatosCita {
   profesionalId: string;
   clienteId: string;
