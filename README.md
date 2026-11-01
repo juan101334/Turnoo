@@ -10,7 +10,8 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 |---|---|
 | Diseño de producto y reglas del negocio | Hecho |
 | Base de datos (PostgreSQL, migraciones 001 y 002) | Hecho |
-| Backend (Express + TypeScript) | Por empezar |
+| Backend: esqueleto (configuración, conexión a la base, aislamiento por negocio, errores, `/salud`) | Hecho |
+| Backend: webhook de WhatsApp, IA, citas, tareas | Por empezar |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |
 
@@ -68,7 +69,7 @@ Turnoo/
     └── CONVENCIONES.md       Cómo se escribe y se versiona el código
 ```
 
-`backend/` y `panel/` se crean cuando empiece cada uno.
+`panel/` se crea cuando empiece. Para correr el backend, ver [backend/README.md](backend/README.md).
 
 ## Documentación
 

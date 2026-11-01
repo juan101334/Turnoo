@@ -1,0 +1,30 @@
+import { z } from 'zod';
+
+/**
+ * Variables de entorno de la aplicación, validadas al arrancar.
+ * Si falta alguna o es inválida, el programa se detiene con un mensaje claro.
+ * Cuando agregues una variable, agrégala también a backend/.env.example.
+ */
+const esquema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  LOG_LEVEL: z
+    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+    .default('info'),
+  DATABASE_URL: z
+    .string()
+    .min(1, 'es obligatoria')
+    .regex(/^postgres(ql)?:\/\//, 'debe empezar con postgresql://'),
+});
+
+const resultado = esquema.safeParse(process.env);
+
+if (!resultado.success) {
+  console.error('Configuración inválida. Revisa tu archivo backend/.env:');
+  for (const problema of resultado.error.issues) {
+    console.error(`  - ${problema.path.join('.')}: ${problema.message}`);
+  }
+  process.exit(1);
+}
+
+export const entorno = resultado.data;

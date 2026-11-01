@@ -61,6 +61,7 @@ Así, una regla (por ejemplo "cancelar solo hasta 2 horas antes") vive en un ún
 - Funciones y variables en `camelCase` (`crearCita`), tipos en `PascalCase` (`Cita`), constantes en `MAYUSCULAS_CON_GUION_BAJO`.
 - En SQL, `snake_case`. El repositorio convierte a `camelCase` en la frontera, para que el resto del código no vea `snake_case`.
 - Nombres que dicen qué hacen: `calcularDisponibilidad`, no `procesar` ni `manejarDatos`.
+- **Imports con extensión `.js`.** El proyecto usa módulos ES (`"type": "module"`), así que en TypeScript se importa `from './pool.js'` aunque el archivo sea `pool.ts`. Es normal; TypeScript lo resuelve solo.
 
 ## 4. Acceso a la base de datos
 
