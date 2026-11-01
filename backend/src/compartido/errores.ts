@@ -74,7 +74,13 @@ export function traducirErrorPostgres(error: unknown): unknown {
   const { code, message } = error as { code?: unknown; message?: unknown };
   const texto = typeof message === 'string' ? message : '';
 
-  if (code === '23P01') return new HorarioNoDisponible(); // choque de agenda
+  if (code === '23P01') {
+    // Restricción de exclusión: distinguir el choque de CITAS de otros cruces de horario.
+    const { constraint } = error as { constraint?: unknown };
+    return constraint === 'citas_sin_solapes'
+      ? new HorarioNoDisponible()
+      : new DatosInvalidos('El horario se cruza con otro ya registrado');
+  }
   if (code === '23505') return new Duplicado(); // restricción UNIQUE
   if (code === '23514' && texto.startsWith('Transición de cita no permitida')) {
     return new TransicionNoPermitida(texto);
