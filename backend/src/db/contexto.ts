@@ -1,5 +1,6 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 import { traducirErrorPostgres } from '../compartido/errores.js';
+import { esUuid } from '../compartido/validacion.js';
 import { pool } from './pool.js';
 
 /**
@@ -18,8 +19,6 @@ export interface Transaccion {
     parametros?: unknown[],
   ): Promise<QueryResult<T>>;
 }
-
-const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function ejecutar<T>(
   ajustes: Record<string, string>,
@@ -50,7 +49,7 @@ export function conNegocio<T>(
   negocioId: string,
   trabajo: (tx: Transaccion) => Promise<T>,
 ): Promise<T> {
-  if (!FORMATO_UUID.test(negocioId)) {
+  if (!esUuid(negocioId)) {
     throw new Error('conNegocio: el id del negocio no es un uuid válido');
   }
   return ejecutar({ 'app.negocio_id': negocioId }, trabajo);
