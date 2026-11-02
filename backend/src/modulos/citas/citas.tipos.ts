@@ -13,9 +13,58 @@ export interface Intervalo {
 
 export interface ReglasDeAgenda {
   zonaHoraria: string;
+  estadoNegocio: string;
   intervaloMinutos: number;
   anticipacionMinMinutos: number;
   anticipacionMaxDias: number;
+  /** null = sin límite. */
+  maxCitasActivasCliente: number | null;
+  horasLimiteCancelacion: number;
+  maxInasistencias: number;
+  ventanaInasistenciasDias: number;
+  horasEsperaAprobacion: number;
+  aprobacionMinutosAntesCita: number;
+  /** Límite de citas al mes del plan; null = sin plan o sin límite. */
+  maxCitasMes: number | null;
+}
+
+export type EstadoCita =
+  | 'por_aprobar'
+  | 'pendiente'
+  | 'confirmada'
+  | 'completada'
+  | 'cancelada'
+  | 'no_asistio';
+
+/** Estados que ocupan el hueco del barbero. */
+export const ESTADOS_ACTIVOS: readonly EstadoCita[] = ['por_aprobar', 'pendiente', 'confirmada'];
+
+/** Quién pide el cambio. Un cliente solo puede tocar SUS citas; el backend (no la IA) pone el clienteId. */
+export type Actor = { tipo: 'cliente'; clienteId: string } | { tipo: 'negocio' };
+
+export interface Cita {
+  id: string;
+  profesionalId: string;
+  clienteId: string;
+  inicio: Date;
+  fin: Date;
+  estado: EstadoCita;
+  precioTotalCop: number;
+  aprobacionExpiraEn: Date | null;
+}
+
+export interface CitaCreada extends Cita {
+  servicios: ServicioDeCita[];
+}
+
+export interface EntradaCita {
+  profesionalId: string;
+  clienteId: string;
+  servicioIds: string[];
+  inicio: Date;
+  notas?: string;
+  origen?: 'whatsapp' | 'panel';
+  creadaPorUsuarioId?: string;
 }
 
 export interface ServicioDeCita {

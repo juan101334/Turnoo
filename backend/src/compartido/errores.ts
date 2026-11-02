@@ -63,6 +63,18 @@ export class LimiteDelPlan extends ErrorDominio {
   }
 }
 
+export class FueraDePlazo extends ErrorDominio {
+  constructor(mensaje = 'Ya pasó el plazo para hacer este cambio') {
+    super('FUERA_DE_PLAZO', mensaje, 409);
+  }
+}
+
+export class LimiteDeCitas extends ErrorDominio {
+  constructor(mensaje = 'Alcanzaste el máximo de citas activas') {
+    super('LIMITE_DE_CITAS', mensaje, 409);
+  }
+}
+
 /**
  * Convierte los errores de PostgreSQL que significan una regla del negocio
  * en errores del dominio. Cualquier otro error se devuelve sin cambios.

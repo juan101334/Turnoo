@@ -88,3 +88,17 @@ export function redondearArriba(instante: Date, intervaloMinutos: number, zona: 
   const resto = msDelDia % rejilla;
   return resto === 0 ? instante : new Date(instante.getTime() + (rejilla - resto));
 }
+
+/** Instante `minutos` después de `instante` (negativo = antes). */
+export function sumarMinutos(instante: Date, minutos: number): Date {
+  return new Date(instante.getTime() + minutos * 60_000);
+}
+
+export function minutosEntre(desde: Date, hasta: Date): number {
+  return Math.round((hasta.getTime() - desde.getTime()) / 60_000);
+}
+
+/** 'AAAA-MM-01' del mes local en que cae el instante (el `periodo` de uso_mensual). */
+export function primerDiaDelMes(instante: Date, zona: string): string {
+  return local(instante, zona).startOf('month').toFormat('yyyy-MM-dd');
+}
