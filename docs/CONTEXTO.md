@@ -84,11 +84,12 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Aislamiento: `conNegocio`, `conSistema`, funciones previas | `backend/src/db/` |
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
-| **85 pruebas automáticas en verde** contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
+| **113 pruebas automáticas en verde** (85 + 28 de gestión de citas) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 
 **Pendiente de confirmar al abrir una sesión nueva:** que la rama `feat/disponibilidad-citas` ya esté fusionada a `main` (ejecutar `git status` y `git log --oneline -5`).
 
-**No existe todavía:** crear/cancelar/reprogramar citas, webhook de WhatsApp, integración de la IA, tareas programadas, autenticación, rutas HTTP de negocio, panel, despliegue.
+**No existe todavía:** webhook de WhatsApp, integración de la IA, tareas programadas, autenticación, rutas HTTP de negocio (`citas.rutas.ts`), panel, despliegue.
 
 **Comandos habituales** (desde `backend/`):
 
@@ -96,7 +97,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 85 pruebas
+npm test              # 113 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -194,3 +195,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | Sesión | Qué se hizo |
 |---|---|
 | 1 | Se eligió la idea y se definió todo el producto con preguntas por rondas. Se diseñó y se aplicó la base de datos (migraciones 001 y 002), se escribió la guía (README, ARQUITECTURA, CONVENCIONES), se montó el esqueleto del backend con aislamiento por negocio, se agregaron 85 pruebas automáticas y se construyó el cálculo de disponibilidad de citas. |
+| 2 | Se implementó el segundo tramo del módulo de citas (crear, cancelar, reprogramar, aprobar/rechazar, marcar) con 28 pruebas nuevas; se verificó rompiendo cada regla a propósito. Decisiones: una `por_aprobar` sin tiempo para el plazo se rechaza con mensaje de contactar al negocio; `por_aprobar` no se reprograma; marcar solo desde la hora de inicio; el límite del plan se cuenta de forma atómica al final de la transacción. Siguiente: autenticación o webhook de WhatsApp (sección 6). |
