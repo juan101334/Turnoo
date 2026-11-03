@@ -105,3 +105,21 @@ export interface Disponibilidad {
   /** Solo los días que tienen al menos un hueco. */
   dias: DiaDisponible[];
 }
+
+/** Cita lista para mostrar en el panel: con cliente, barbero y servicios (copiados al agendar). */
+export interface CitaDetalle extends Cita {
+  clienteNombre: string | null;
+  clienteTelefono: string;
+  profesionalNombre: string;
+  notas: string | null;
+  servicios: { nombre: string; duracionMinutos: number; precioCop: number }[];
+}
+
+export interface FiltroCitas {
+  /** Citas que EMPIEZAN desde este instante (incluido)... */
+  desde: Date;
+  /** ...hasta este (excluido). */
+  hasta: Date;
+  profesionalId?: string;
+  estados?: EstadoCita[];
+}

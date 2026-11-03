@@ -2,7 +2,9 @@ import type { Transaccion } from '../../db/contexto.js';
 import {
   ESTADOS_ACTIVOS,
   type Cita,
+  type CitaDetalle,
   type EstadoCita,
+  type FiltroCitas,
   type HorarioTrabajo,
   type Intervalo,
   type ReglasDeAgenda,
@@ -317,4 +319,64 @@ export async function reprogramar(
     [citaId, inicio, fin],
   );
   return aCita(rows[0]!);
+}
+
+const DETALLE_SQL = `
+  SELECT c.id, c.profesional_id, c.cliente_id, c.inicio, c.fin, c.estado, c.precio_total_cop,
+         c.aprobacion_expira_en, c.notas,
+         cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono, p.nombre AS profesional_nombre,
+         COALESCE((SELECT json_agg(json_build_object('nombre', s.nombre,
+                                                     'duracionMinutos', s.duracion_minutos,
+                                                     'precioCop', s.precio_cop) ORDER BY s.orden)
+                     FROM cita_servicios s WHERE s.cita_id = c.id), '[]'::json) AS servicios
+    FROM citas c
+    JOIN clientes cl ON cl.id = c.cliente_id
+    JOIN profesionales p ON p.id = c.profesional_id`;
+
+interface FilaDetalle extends FilaCita {
+  notas: string | null;
+  cliente_nombre: string | null;
+  cliente_telefono: string;
+  profesional_nombre: string;
+  servicios: CitaDetalle['servicios'];
+}
+
+function aDetalle(f: FilaDetalle): CitaDetalle {
+  return {
+    ...aCita(f),
+    notas: f.notas,
+    clienteNombre: f.cliente_nombre,
+    clienteTelefono: f.cliente_telefono,
+    profesionalNombre: f.profesional_nombre,
+    servicios: f.servicios,
+  };
+}
+
+export const LIMITE_LISTA_CITAS = 500;
+
+export async function listarCitas(tx: Transaccion, f: FiltroCitas): Promise<CitaDetalle[]> {
+  const { rows } = await tx.consultar<FilaDetalle>(
+    `${DETALLE_SQL}
+      WHERE c.inicio >= $1 AND c.inicio < $2
+        AND ($3::uuid IS NULL OR c.profesional_id = $3)
+        AND ($4::text[] IS NULL OR c.estado = ANY($4))
+      ORDER BY c.inicio, c.id
+      LIMIT ${LIMITE_LISTA_CITAS}`,
+    [f.desde, f.hasta, f.profesionalId ?? null, f.estados ?? null],
+  );
+  return rows.map(aDetalle);
+}
+
+export async function obtenerCitaDetalle(tx: Transaccion, citaId: string): Promise<CitaDetalle | null> {
+  const { rows } = await tx.consultar<FilaDetalle>(`${DETALLE_SQL} WHERE c.id = $1`, [citaId]);
+  return rows[0] ? aDetalle(rows[0]) : null;
+}
+
+/** Barbero asociado a un usuario del panel (un empleado solo ve la agenda de ESE barbero). */
+export async function profesionalDeUsuario(tx: Transaccion, usuarioId: string): Promise<string | null> {
+  const { rows } = await tx.consultar<{ id: string }>(
+    'SELECT id FROM profesionales WHERE usuario_id = $1 AND activo',
+    [usuarioId],
+  );
+  return rows[0]?.id ?? null;
 }

@@ -28,10 +28,13 @@ import {
   type Actor,
   type Cita,
   type CitaCreada,
+  type CitaDetalle,
   type ConsultaDisponibilidad,
   type DiaDisponible,
   type Disponibilidad,
   type EntradaCita,
+  type EstadoCita,
+  type FiltroCitas,
   type ReglasDeAgenda,
 } from './citas.tipos.js';
 
@@ -432,4 +435,40 @@ export async function marcarCita(
     }
     return repositorio.cambiarEstado(tx, cita.id, estado); // el trigger de la base valida la transición
   });
+}
+
+// ---------------------------------------------------------------------
+// Lectura para el panel
+// ---------------------------------------------------------------------
+
+const MAX_DIAS_LISTA = 62;
+const ESTADOS_VALIDOS: readonly EstadoCita[] = [
+  'por_aprobar', 'pendiente', 'confirmada', 'completada', 'cancelada', 'no_asistio',
+];
+
+export async function listarCitas(negocioId: string, filtro: FiltroCitas): Promise<CitaDetalle[]> {
+  validarInstante(filtro.desde);
+  validarInstante(filtro.hasta);
+  if (filtro.hasta <= filtro.desde) throw new DatosInvalidos('"hasta" debe ser posterior a "desde"');
+  if (minutosEntre(filtro.desde, filtro.hasta) > MAX_DIAS_LISTA * 24 * MINUTOS_POR_HORA) {
+    throw new DatosInvalidos(`Puedes consultar hasta ${MAX_DIAS_LISTA} días a la vez`);
+  }
+  if (filtro.profesionalId !== undefined && !esUuid(filtro.profesionalId)) {
+    throw new DatosInvalidos('El barbero indicado no es válido');
+  }
+  if (filtro.estados?.some((e) => !ESTADOS_VALIDOS.includes(e))) {
+    throw new DatosInvalidos('Alguno de los estados no es válido');
+  }
+  return conNegocio(negocioId, (tx) => repositorio.listarCitas(tx, filtro));
+}
+
+export async function obtenerCita(negocioId: string, citaId: string): Promise<CitaDetalle> {
+  if (!esUuid(citaId)) throw new DatosInvalidos('La cita indicada no es válida');
+  const cita = await conNegocio(negocioId, (tx) => repositorio.obtenerCitaDetalle(tx, citaId));
+  if (!cita) throw new NoEncontrado('La cita');
+  return cita;
+}
+
+export async function profesionalDeUsuario(negocioId: string, usuarioId: string): Promise<string | null> {
+  return conNegocio(negocioId, (tx) => repositorio.profesionalDeUsuario(tx, usuarioId));
 }
