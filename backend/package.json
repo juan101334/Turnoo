@@ -12,11 +12,13 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file=.env dist/index.js",
     "typecheck": "tsc --noEmit",
+    "superadmin": "tsx --env-file=.env scripts/crear-superadmin.ts",
     "db:pruebas": "tsx --env-file=.env --env-file=../.env scripts/preparar-base-pruebas.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "argon2": "^0.45.1",
     "express": "^5.3.0",
     "luxon": "^3.7.2",
     "pg": "^8.23.1",
