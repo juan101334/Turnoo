@@ -5,7 +5,7 @@
 > Detalle técnico completo: [ARQUITECTURA.md](ARQUITECTURA.md) y [CONVENCIONES.md](CONVENCIONES.md).
 > Cómo correr cada parte: [README.md](../README.md) y [backend/README.md](../backend/README.md).
 >
-> **Última actualización:** fin de la sesión 3 (ver el registro al final). Quien trabaje en el proyecto
+> **Última actualización:** fin de la sesión 4 (ver el registro al final). Quien trabaje en el proyecto
 > debe actualizar este archivo al terminar cada sesión (sección 10).
 
 ## 1. Cómo se trabaja en este proyecto
@@ -85,14 +85,16 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **131 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **151 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| Clientes: `obtenerOCrearCliente` (busca por teléfono, lo crea si no existe, atómico) y `normalizarTelefono` (deja el formato de WhatsApp; a un celular colombiano de 10 dígitos le agrega el 57). Lo reutilizará el webhook | `backend/src/modulos/clientes/` |
+| Rutas HTTP de citas para el panel: `GET /citas` (rango, barbero, estado), `GET /citas/:id`, `GET /citas/disponibilidad`, `POST /citas` (con `cliente:{telefono,nombre}`), `POST /citas/:id/{cancelar,reprogramar,aprobar,rechazar,marcar}`. Dos roles: el dueño maneja todo el negocio; el empleado solo las citas de SU barbero (`profesionales.usuario_id`) | `backend/src/modulos/citas/citas.rutas.ts` |
 | Migración 003: tabla `sesiones` y RLS en `tokens_usuario` | `db/migrations/003_sesiones.sql` |
 | Autenticación: login con argon2, sesiones en la base (7 días, revocables), invitaciones (72 h) y recuperación (1 h) con enlace de un solo uso, roles; rutas `/auth/*` | `backend/src/modulos/auth/` |
 | Script del primer superadmin: `npm run superadmin -- correo "Nombre"` (imprime el enlace para fijar la contraseña) | `backend/scripts/crear-superadmin.ts` |
 
 **Pendiente de confirmar al abrir una sesión nueva:** que la rama `feat/disponibilidad-citas` ya esté fusionada a `main` (ejecutar `git status` y `git log --oneline -5`).
 
-**No existe todavía:** webhook de WhatsApp, integración de la IA, tareas programadas, rutas HTTP de citas (`citas.rutas.ts`) y de negocio, panel, despliegue, límite de intentos de login, envío de correo.
+**No existe todavía:** webhook de WhatsApp, integración de la IA, tareas programadas, panel, despliegue, límite de intentos de login, envío de correo, rutas para administrar barberos, servicios, horarios, clientes y usuarios.
 
 **Comandos habituales** (desde `backend/`):
 
@@ -100,7 +102,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 131 pruebas
+npm test              # 151 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -111,7 +113,7 @@ sudo docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 
 
 ## 5. Reglas de crear, cancelar, reprogramar y aprobar citas (HECHO en la sesión 2)
 
-> Ya implementado y probado. Se conserva como referencia de las reglas. **El siguiente paso es la sesión 4:** webhook de WhatsApp (sección 6) o rutas HTTP de citas (`citas.rutas.ts`, usando `exigirSesion`/`exigirRol` de `modulos/auth`).
+> Ya implementado y probado. Se conserva como referencia de las reglas. **El siguiente paso es la sesión 5:** webhook de WhatsApp (sección 6) o las rutas para administrar barberos, servicios y horarios.
 
 Es el segundo tramo del módulo `backend/src/modulos/citas/`. Todo dentro de **una transacción** con `conNegocio`, con la lógica en el servicio y el SQL en el repositorio. Lista de reglas que debe aplicar, en orden:
 
@@ -202,3 +204,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | 1 | Se eligió la idea y se definió todo el producto con preguntas por rondas. Se diseñó y se aplicó la base de datos (migraciones 001 y 002), se escribió la guía (README, ARQUITECTURA, CONVENCIONES), se montó el esqueleto del backend con aislamiento por negocio, se agregaron 85 pruebas automáticas y se construyó el cálculo de disponibilidad de citas. |
 | 2 | Se implementó el segundo tramo del módulo de citas (crear, cancelar, reprogramar, aprobar/rechazar, marcar) con 28 pruebas nuevas; se verificó rompiendo cada regla a propósito. Decisiones: una `por_aprobar` sin tiempo para el plazo se rechaza con mensaje de contactar al negocio; `por_aprobar` no se reprograma; marcar solo desde la hora de inicio; el límite del plan se cuenta de forma atómica al final de la transacción. Siguiente: autenticación o webhook de WhatsApp (sección 6). |
 | 3 | Autenticación y usuarios. Decisiones: sesión en la base (revocable), argon2, invitaciones y recuperación SIN correo (el backend entrega el enlace al dueño/superadmin, que se lo pasa a la persona; nunca a quien lo pide, para que nadie pueda robar cuentas). El enlace lleva el token en el fragmento `#token=` para que no quede en registros. Verificado rompiendo 10 reglas de seguridad a propósito. Pendientes: límite de intentos de login, correo, rutas de citas, webhook. |
+| 4 | Rutas HTTP de citas para el panel y módulo de clientes. Decisiones: el panel agenda enviando teléfono y nombre (se busca o se crea el cliente); un empleado solo ve y maneja las citas de su barbero y una cita ajena responde 404; el superadmin no entra a citas de un negocio; los rangos de fechas se piden en ISO con zona y el máximo es 62 días. Verificado rompiendo 8 reglas de permisos y de clientes a propósito. Pendientes: webhook, rutas de administración (barberos, servicios, horarios, clientes, usuarios), límite de intentos de login. |
