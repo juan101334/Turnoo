@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { ErrorDominio } from './compartido/errores.js';
 import { logger } from './compartido/logger.js';
 import { pool } from './db/pool.js';
+import { rutasAuth } from './modulos/auth/auth.rutas.js';
 
 export function crearApp() {
   const app = express();
@@ -19,7 +20,8 @@ export function crearApp() {
     res.json({ estado: 'ok' });
   });
 
-  // Aquí se registran las rutas de cada módulo (auth, citas, etc.).
+  // Rutas de cada módulo.
+  app.use('/auth', rutasAuth);
 
   app.use((_req, res) => {
     res.status(404).json({

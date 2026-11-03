@@ -15,6 +15,8 @@ const esquema = z.object({
     .string()
     .min(1, 'es obligatoria')
     .regex(/^postgres(ql)?:\/\//, 'debe empezar con postgresql://'),
+  // Dirección del panel web; con ella se arman los enlaces de invitación y recuperación.
+  PANEL_URL: z.url().default('http://localhost:3001'),
 });
 
 const resultado = esquema.safeParse(process.env);
