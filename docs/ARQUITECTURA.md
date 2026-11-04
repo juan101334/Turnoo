@@ -62,7 +62,7 @@ flowchart LR
 - **Webhook:** valida la firma de Meta, responde 200 enseguida y encola el trabajo.
 - **Procesador de mensajes:** hace todo el trabajo pesado (guardar, llamar a la IA, responder) fuera de la petición HTTP.
 - **API REST:** atiende al panel.
-- **Tareas programadas:** recordatorios, expiración de citas por aprobar, autocompletado de citas y regreso de conversaciones a la IA.
+- **Tareas programadas:** recordatorios, expiración de citas por aprobar, autocompletado de citas y avisos de derivación. El regreso de una conversación a la IA no es una tarea: se evalúa cuando llega el siguiente mensaje (sección 7).
 
 ## 5. Aislamiento entre negocios
 
@@ -96,7 +96,7 @@ Migraciones en `db/migrations/`. Resumen por áreas:
 | Área | Tablas |
 |---|---|
 | Plataforma | `planes`, `negocios`, `configuracion_negocio`, `uso_mensual`, `pagos` |
-| Acceso | `usuarios`, `tokens_usuario` |
+| Acceso | `usuarios`, `tokens_usuario`, `sesiones` |
 | Operación | `sedes`, `profesionales`, `horarios_trabajo`, `bloqueos`, `servicios` |
 | Citas | `clientes`, `citas`, `cita_servicios` |
 | WhatsApp e IA | `whatsapp_cuentas`, `conversaciones`, `mensajes`, `conocimiento`, `derivaciones` |
@@ -186,7 +186,7 @@ Reglas de seguridad (no negociables):
 ## 12. Seguridad y datos personales
 
 - Los secretos viven solo en `.env` (nunca en Git). El token de Meta se guarda cifrado en la base; la clave de cifrado vive fuera de ella.
-- Contraseñas con hash (argon2 o bcrypt); tokens de invitación y recuperación guardados solo como hash.
+- Contraseñas con hash argon2; tokens de sesión, invitación y recuperación guardados solo como hash.
 - La base de datos no se expone a internet: solo la ven los otros contenedores.
 - Copias de seguridad diarias fuera del servidor, y probar la restauración.
 - Ley 1581 de 2012 (Colombia): política de tratamiento de datos, registro de la autorización en `consentimientos` y anonimización (`clientes.anonimizado_en`) cuando alguien pida borrar sus datos.
