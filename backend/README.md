@@ -64,6 +64,7 @@ Qué verifican hoy (`pruebas/`):
 - **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
 - **rutas de negocios:** alta, plan y estado por el superadmin; datos y configuración por el dueño; permisos y negocio suspendido.
 - **barberos y usuarios:** administración de barberos, límite del plan, citas futuras, asociación con usuarios, invitar, desactivar, reenviar invitación y último dueño activo, incluidas operaciones simultáneas.
+- **servicios, horarios y bloqueos:** gestión por dueño y empleado, citas afectadas, zona horaria del negocio, negocio suspendido, barbero desactivado y el recorrido completo desde crear un barbero hasta agendar.
 
 ## Qué hay hecho
 
@@ -100,6 +101,10 @@ src/
 │   │   ├── negocios.repositorio.ts SQL del módulo
 │   │   └── negocios.tipos.ts       Tipos del módulo
 │   └── profesionales/
+│       ├── agenda.rutas.ts              Servicios y horarios de un barbero, y rutas /bloqueos
+│       ├── agenda.servicio.ts           Reglas de la agenda y citas afectadas
+│       ├── agenda.repositorio.ts        SQL de la agenda
+│       ├── agenda.tipos.ts              Tipos de la agenda
 │       ├── profesionales.rutas.ts       Rutas /profesionales
 │       ├── profesionales.servicio.ts    Administrar barberos y asociarlos a un usuario
 │       ├── profesionales.reglas.ts      Asociación, para usar también desde auth

@@ -17,7 +17,7 @@ Dos tipos de negocio objetivo:
 |---|---|
 | `superadmin` | Crear negocios, asignar planes, ver el uso, registrar pagos y suspender cuentas. No pertenece a ningún negocio. |
 | `dueno` | Ver y gestionar todo su negocio: barberos, servicios, horarios, citas, conocimiento de la IA y configuración. |
-| `empleado` | Ver su propia agenda y gestionar sus propios servicios y horario. |
+| `empleado` | Ver su propia agenda y gestionar sus propios servicios, horario y bloqueos. |
 
 ## 3. Decisiones de producto
 
@@ -26,7 +26,7 @@ Dos tipos de negocio objetivo:
 | Modelo | SaaS multi-negocio (meta: más de 5 negocios). |
 | WhatsApp | API oficial de WhatsApp Cloud. Un número por negocio. El modelo permite también un número por barbero (`whatsapp_cuentas.profesional_id`), pero no se implementa en el MVP. |
 | Sedes | Una sola por negocio por ahora; el modelo ya tiene sedes. |
-| Agenda | Cada barbero define su propio horario de trabajo (varios rangos por día) y puede marcar días libres o bloqueos. |
+| Agenda | Cada barbero define su propio horario de trabajo (varios rangos por día) y puede marcar días libres o bloqueos. Si un bloqueo o un cambio de horario choca con citas, se guarda y se listan las citas afectadas para que el negocio decida; no se cancelan solas. |
 | Servicios | Cada barbero registra los suyos, con su duración y precio. |
 | Cita | Una persona por cita, con uno o varios servicios del mismo barbero; la duración total es la suma. El cliente puede agendar varias citas seguidas. |
 | Datos del cliente | Nombre, teléfono (viene de WhatsApp), hora, servicios y notas libres. |
