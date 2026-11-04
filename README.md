@@ -9,9 +9,12 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Parte | Estado |
 |---|---|
 | Diseño de producto y reglas del negocio | Hecho |
-| Base de datos (PostgreSQL, migraciones 001 y 002) | Hecho |
+| Base de datos (PostgreSQL, migraciones 001 a 003) | Hecho |
 | Backend: esqueleto (configuración, conexión a la base, aislamiento por negocio, errores, `/salud`) | Hecho |
-| Backend: webhook de WhatsApp, IA, citas, tareas | Por empezar |
+| Backend: citas (disponibilidad, gestión y rutas HTTP) | Hecho |
+| Backend: autenticación (login, sesiones, invitaciones y recuperación) | Hecho |
+| Backend: rutas de administración (negocios, barberos, servicios, horarios, bloqueos, clientes y usuarios) | Pendiente |
+| Backend: límite de intentos de login, tareas, webhook de WhatsApp e IA | Pendiente |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |
 
@@ -42,6 +45,7 @@ Aplicar las migraciones, en orden:
 ```bash
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/001_init.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/002_inasistencias_y_aprobacion.sql
+docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/003_sesiones.sql
 ```
 
 Después se le pone contraseña al rol que usa la aplicación, de forma interactiva:

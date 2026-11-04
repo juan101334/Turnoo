@@ -34,6 +34,7 @@ curl localhost:3000/salud
 | `npm run typecheck` | Revisa los tipos de todo el código (incluidas las pruebas). |
 | `npm run build` | Compila `src/` a `dist/`. |
 | `npm start` | Corre lo compilado (`dist/`). |
+| `npm run superadmin -- correo "Nombre"` | Crea el primer superadmin e imprime el enlace para fijar su contraseña. |
 | `npm run db:pruebas` | Crea desde cero la base `turnoo_test` y le aplica las migraciones. |
 | `npm test` | Corre todas las pruebas automáticas. |
 | `npm run test:watch` | Corre las pruebas y las repite al guardar cambios. |
@@ -57,6 +58,10 @@ Qué verifican hoy (`pruebas/`):
 - **negocios y usuarios:** sede y configuración por defecto, reglas de roles y formato del teléfono.
 - **mensajes:** un mensaje reenviado por Meta no se duplica; coherencia entre emisor y dirección; modo humano.
 - **disponibilidad:** horarios libres según el horario del barbero, bloqueos, citas activas (incluidas las `por_aprobar`), duración total de varios servicios, intervalo alineado al reloj, anticipación mínima y máxima, y validación de la consulta. El cálculo puro se prueba sin base de datos; el servicio, contra la base real.
+- **gestión de citas:** crear, cancelar, reprogramar, aprobar, rechazar y marcar, con sus reglas.
+- **autenticación:** sesiones, invitaciones, recuperación de contraseña y sus rutas HTTP.
+- **clientes:** normalización del teléfono y `obtenerOCrearCliente`.
+- **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
 
 ## Qué hay hecho
 
@@ -70,16 +75,31 @@ src/
 │   ├── contexto.ts        conNegocio() y conSistema(): aislamiento entre negocios
 │   └── previas.ts         Las dos consultas anteriores al contexto (webhook y login)
 ├── modulos/
-│   └── citas/
-│       ├── disponibilidad.ts       Cálculo puro de horarios libres (sin base de datos)
-│       ├── citas.servicio.ts       consultarDisponibilidad(): reglas y orquestación
-│       ├── citas.repositorio.ts    SQL del módulo
-│       └── citas.tipos.ts          Tipos del módulo
+│   ├── auth/
+│   │   ├── auth.rutas.ts           Rutas /auth/*
+│   │   ├── auth.middleware.ts      exigirSesion y exigirRol
+│   │   ├── auth.servicio.ts        Login, sesiones, invitaciones y recuperación
+│   │   ├── auth.repositorio.ts     SQL del módulo
+│   │   └── auth.tipos.ts           Tipos del módulo
+│   ├── citas/
+│   │   ├── citas.rutas.ts          Rutas /citas para el panel, con permisos por rol
+│   │   ├── disponibilidad.ts       Cálculo puro de horarios libres (sin base de datos)
+│   │   ├── citas.servicio.ts       Disponibilidad, crear, cancelar, reprogramar, aprobar, rechazar y marcar
+│   │   ├── citas.repositorio.ts    SQL del módulo
+│   │   └── citas.tipos.ts          Tipos del módulo
+│   └── clientes/
+│       ├── clientes.servicio.ts    obtenerOCrearCliente y normalizarTelefono
+│       ├── clientes.repositorio.ts SQL del módulo
+│       └── clientes.tipos.ts       Tipos del módulo
 └── compartido/
     ├── errores.ts         Errores del negocio y traducción de errores de PostgreSQL
     ├── logger.ts          Registro de eventos (oculta datos sensibles)
     ├── tiempo.ts          ÚNICO lugar con cuentas de fechas y zonas horarias
-    └── validacion.ts      Validaciones pequeñas (uuid)
+    └── validacion.ts      Validaciones pequeñas (uuid y esquemas de Zod)
+
+scripts/
+├── preparar-base-pruebas.ts   Recrea la base turnoo_test
+└── crear-superadmin.ts        Crea el primer superadmin
 ```
 
 Los demás módulos del negocio (`modulos/`) y las tareas programadas (`tareas/`) se agregan a medida que se construyen.
