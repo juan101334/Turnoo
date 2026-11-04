@@ -41,6 +41,7 @@ Dos tipos de negocio objetivo:
 | Aprobación | Una cita `por_aprobar` reserva el hueco. El barbero tiene 2 horas para responder (sin pasar de 1 hora antes de la cita); si no, se libera y se avisa al cliente. Las inasistencias son por negocio, no se comparten. |
 | Datos personales | Aviso de tratamiento de datos en el primer mensaje; se entiende aceptado al seguir conversando. Se guarda fecha y versión en `consentimientos`. |
 | Cobro a negocios | Mensualidad por cantidad de barberos o de citas. Prueba de 15 días. En el MVP el cobro es manual y se registra en `pagos`. |
+| Negocio suspendido | Puede iniciar sesión y consultar, pero no modificar nada. El superadmin lo suspende a mano y puede ayudarle a recuperar el acceso. |
 | Costos | La mensualidad cubre los mensajes de WhatsApp, la IA y la transcripción. Cada plan tiene límites de barberos, citas al mes y conversaciones de IA al mes. |
 | Panel | Roles `dueno` y `empleado`. Bandeja de chats en la fase 2. |
 

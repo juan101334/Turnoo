@@ -13,7 +13,8 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Backend: esqueleto (configuración, conexión a la base, aislamiento por negocio, errores, `/salud`) | Hecho |
 | Backend: citas (disponibilidad, gestión y rutas HTTP) | Hecho |
 | Backend: autenticación (login, sesiones, invitaciones y recuperación) | Hecho |
-| Backend: rutas de administración (negocios, barberos, servicios, horarios, bloqueos, clientes y usuarios) | Pendiente |
+| Backend: negocios y su configuración | Hecho |
+| Backend: rutas de administración (barberos, servicios, horarios, bloqueos, clientes y usuarios) | Pendiente |
 | Backend: límite de intentos de login, tareas, webhook de WhatsApp e IA | Pendiente |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |
