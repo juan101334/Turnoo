@@ -1,5 +1,6 @@
 import { DatosInvalidos } from '../../compartido/errores.js';
 import { conNegocio } from '../../db/contexto.js';
+import { exigirNegocioOperativo } from '../negocios/negocios.reglas.js';
 import * as repositorio from './clientes.repositorio.js';
 import type { ClienteResumen, EntradaCliente } from './clientes.tipos.js';
 
@@ -28,5 +29,8 @@ export async function obtenerOCrearCliente(
   if (nombre && nombre.length > MAX_NOMBRE) {
     throw new DatosInvalidos(`El nombre no puede pasar de ${MAX_NOMBRE} caracteres`);
   }
-  return conNegocio(negocioId, (tx) => repositorio.obtenerOCrear(tx, negocioId, telefono, nombre));
+  return conNegocio(negocioId, async (tx) => {
+    await exigirNegocioOperativo(tx, negocioId);
+    return repositorio.obtenerOCrear(tx, negocioId, telefono, nombre);
+  });
 }
