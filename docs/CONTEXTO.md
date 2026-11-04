@@ -5,7 +5,7 @@
 > Detalle técnico completo: [ARQUITECTURA.md](ARQUITECTURA.md) y [CONVENCIONES.md](CONVENCIONES.md).
 > Cómo correr cada parte: [README.md](../README.md) y [backend/README.md](../backend/README.md).
 >
-> **Última actualización:** fin de la sesión 4 (ver el registro al final). Quien trabaje en el proyecto
+> **Última actualización:** sesión 5 (ver el registro al final). Quien trabaje en el proyecto
 > debe actualizar este archivo al terminar cada sesión (sección 10).
 
 ## 1. Cómo se trabaja en este proyecto
@@ -92,9 +92,23 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Autenticación: login con argon2, sesiones en la base (7 días, revocables), invitaciones (72 h) y recuperación (1 h) con enlace de un solo uso, roles; rutas `/auth/*` | `backend/src/modulos/auth/` |
 | Script del primer superadmin: `npm run superadmin -- correo "Nombre"` (imprime el enlace para fijar la contraseña) | `backend/scripts/crear-superadmin.ts` |
 
-**Pendiente de confirmar al abrir una sesión nueva:** que la rama `feat/disponibilidad-citas` ya esté fusionada a `main` (ejecutar `git status` y `git log --oneline -5`).
+**No existe todavía:**
 
-**No existe todavía:** webhook de WhatsApp, integración de la IA, tareas programadas, panel, despliegue, límite de intentos de login, envío de correo, rutas para administrar barberos, servicios, horarios, clientes y usuarios.
+- Webhook de WhatsApp, integración de la IA, panel, despliegue y envío de correo.
+- Tareas programadas: no hay carpeta `src/tareas` y `pg-boss` no está instalado.
+- Límite de intentos de login.
+- Creación de negocios y edición de su configuración, por ruta o por script.
+- Rutas para administrar barberos, servicios, horarios, bloqueos y clientes, y para listar o desactivar usuarios. El módulo de clientes solo tiene `obtenerOCrearCliente` y `normalizarTelefono`.
+- CORS y `trust proxy` en `app.ts`: hacen falta para el panel y para el despliegue detrás de Caddy.
+
+**Huecos conocidos del código actual** (los corrige el plan de la sección 6.1):
+
+- Sin SQL manual no se puede dar de alta un negocio: no hay ningún `INSERT INTO negocios` en `src/` ni en `scripts/`.
+- `definirPassword` deja `activo = true` también al recuperar la contraseña (`auth.repositorio.ts`), así que un enlace de recuperación reactivaría a un usuario desactivado.
+- Un empleado invitado no tiene acceso a citas hasta que se le asigne un barbero, y hoy eso solo se puede hacer con SQL.
+- Una invitación vencida no se puede reenviar: volver a invitar el mismo correo da `Duplicado`.
+- Una cita `por_aprobar` vencida ya no se puede aprobar, pero retiene el hueco hasta que alguien la rechace, porque no existe la tarea que la libera.
+- La suspensión de un negocio es parcial: solo la exigen crear, cancelar y reprogramar. Un negocio suspendido aún inicia sesión, consulta, aprueba, rechaza y marca.
 
 **Comandos habituales** (desde `backend/`):
 
@@ -113,7 +127,7 @@ sudo docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 
 
 ## 5. Reglas de crear, cancelar, reprogramar y aprobar citas (HECHO en la sesión 2)
 
-> Ya implementado y probado. Se conserva como referencia de las reglas. **El siguiente paso es la sesión 5:** webhook de WhatsApp (sección 6) o las rutas para administrar barberos, servicios y horarios.
+> Ya implementado y probado. Se conserva como referencia de las reglas. **El siguiente paso está en la sección 6.1.**
 
 Es el segundo tramo del módulo `backend/src/modulos/citas/`. Todo dentro de **una transacción** con `conNegocio`, con la lógica en el servicio y el SQL en el repositorio. Lista de reglas que debe aplicar, en orden:
 
@@ -129,13 +143,13 @@ Es el segundo tramo del módulo `backend/src/modulos/citas/`. Todo dentro de **u
 
 **Cancelar:** el cliente solo hasta `horas_limite_cancelacion` antes; el negocio siempre. Guarda `cancelada_por` y `cancelada_en`. El aviso al cliente por WhatsApp lo envía una tarea, no el servicio.
 
-**Reprogramar:** cambia `inicio` y `fin` de la misma cita, reinicia `recordatorio_enviado_en` y revalida la disponibilidad **excluyendo la propia cita** (hay que agregar un parámetro `excluirCitaId` a `obtenerOcupados` y a la consulta). Mismas reglas de plazo que cancelar.
+**Reprogramar:** cambia `inicio` y `fin` de la misma cita, reinicia `recordatorio_enviado_en` y revalida la disponibilidad **excluyendo la propia cita** (parámetro `excluirCitaId`). Mismas reglas de plazo que cancelar.
 
 **Aprobar o rechazar** (`por_aprobar`): aprobar pasa a `pendiente` y limpia `aprobacion_expira_en`; rechazar pasa a `cancelada` con `cancelada_por = 'negocio'`.
 
 **Marcar** `completada` o `no_asistio`: solo el negocio. El autocompletado a las 24 h será una tarea programada.
 
-**Decisión abierta para este paso:** si una cita `por_aprobar` no alcanza el margen mínimo (el plazo calculado ya pasó), se propone rechazarla con el mensaje de que debe comunicarse con el negocio. Confirmar con Juan José.
+**Decidido en la sesión 2:** si una cita `por_aprobar` no alcanza el margen mínimo (el plazo calculado ya pasó), se rechaza con el mensaje de que debe comunicarse con el negocio.
 
 Cada regla necesita su prueba (en `backend/pruebas/`) y, para las más importantes, una verificación de que la prueba falla si se rompe la regla.
 
@@ -145,7 +159,38 @@ Cada regla necesita su prueba (en `backend/pruebas/`) y, para las más important
 2. **Fase 2:** bandeja de chats, botones de confirmar o cancelar en el recordatorio, lista de espera, ficha del cliente.
 3. **Fase 3:** pagos o anticipos con pasarela (por ejemplo Wompi), reactivación de clientes, reseñas y métricas.
 
-Orden previsto del MVP: citas (crear, cancelar, reprogramar, aprobar) → autenticación y usuarios → webhook de WhatsApp (firma `X-Hub-Signature-256` sobre el cuerpo sin procesar, idempotencia por `wa_message_id`, cola) → integración de la IA con sus funciones → tareas programadas (recordatorios, aprobaciones vencidas, autocompletar, regreso de modo humano, avisos de derivación) → rutas HTTP y panel Next.js → despliegue con backups.
+Ya hecho del MVP: citas (crear, cancelar, reprogramar, aprobar, con sus rutas HTTP), autenticación y usuarios. Orden de lo que falta: rutas de administración → límite de intentos de login → tareas internas → webhook de WhatsApp (firma `X-Hub-Signature-256` sobre el cuerpo sin procesar, idempotencia por `wa_message_id`, cola) → integración de la IA con sus funciones → tareas con WhatsApp (recordatorios, avisos de derivación y aviso de aprobaciones vencidas) → panel Next.js → despliegue con backups.
+
+El regreso del modo humano **no es una tarea**: se evalúa cuando llega el siguiente mensaje (ARQUITECTURA.md, sección 7).
+
+### 6.1 Plan acordado y siguiente paso (sesión 5)
+
+Una rama y un pull request por punto, con el flujo de la sección 1:
+
+0. Actualizar la documentación.
+1. Negocios y su configuración.
+2. Barberos y usuarios: asignar, desactivar, reenviar invitación y la corrección de la reactivación.
+3. Servicios, horarios y bloqueos.
+4. Clientes.
+5. Límite de intentos de login (exige configurar `trust proxy` para ver la IP real).
+6. Tareas internas: autocompletar citas y expirar `por_aprobar`.
+7. Webhook de WhatsApp.
+
+**Siguiente paso:** punto 1, cuando Juan José dé el visto bueno al punto 0.
+
+Decisiones ya tomadas para estos puntos:
+
+- **Superadmin:** crea el negocio, invita al dueño y cambia plan y estado. No opera barberos ni agenda.
+- **Asociar usuario y barbero:** invitar a un empleado exige `profesionalId`, en la misma transacción. Una ruta aparte vincula o cambia el usuario de un barbero, y sirve también para un dueño que atiende.
+- **Alcance del empleado:** sus servicios, su horario y sus propios bloqueos. Los bloqueos de todo el negocio son solo del dueño.
+- **Clientes:** el empleado ve solo los que tienen citas con su barbero. Solo el dueño edita o anonimiza.
+- **Desactivar un barbero con citas futuras:** se rechaza con un error que indica cuántas tiene, hasta que se cancelen.
+- **Bloqueo o cambio de horario que choca con citas:** se guarda y la respuesta lista las citas afectadas para que el negocio decida.
+- **Negocio suspendido:** puede iniciar sesión y consultar, pero no modificar nada.
+- **Borrado:** barberos y servicios se desactivan, no se borran. Horarios y bloqueos sí se borran.
+- **Dueños:** nadie puede desactivar al último dueño activo.
+- **Límite del plan:** crear un barbero respeta `planes.max_profesionales`; `plan_id` nulo significa sin límite.
+- **Reactivación:** la recuperación de contraseña no reactiva usuarios desactivados; solo la invitación activa.
 
 ## 7. Pendientes por decidir
 
@@ -172,27 +217,34 @@ Orden previsto del MVP: citas (crear, cancelar, reprogramar, aprobar) → autent
 - **Meta:** las respuestas dentro de la ventana de 24 h no tienen costo; los recordatorios y avisos al dueño son plantillas de utilidad con costo. Los mensajes de promoción son mucho más caros (fase 3).
 - **Seguridad:** secretos solo en `.env`; token de Meta cifrado en la base con la clave fuera de ella; no registrar contenido de mensajes ni teléfonos completos en los logs.
 
-## 8.1 Qué funciona ya, en una línea
+## 8.1 Qué funciona ya
 
-`consultarDisponibilidad(negocioId, { profesionalId, servicioIds, desde, hasta })` devuelve, por día, las horas en que puede empezar una cita para esa combinación de servicios, descontando horario del barbero, bloqueos y citas activas, con intervalo alineado al reloj y respetando anticipación mínima y máxima.
+- **Autenticación:** login, sesiones revocables, invitaciones y recuperación por `/auth/*`, y el script del primer superadmin.
+- **Citas por HTTP:** listar, consultar, crear, cancelar, reprogramar, aprobar, rechazar y marcar por `/citas`, con permisos por rol.
+- **Disponibilidad:** `consultarDisponibilidad(negocioId, { profesionalId, servicioIds, desde, hasta })` devuelve, por día, las horas en que puede empezar una cita para esa combinación de servicios, descontando horario del barbero, bloqueos y citas activas, con intervalo alineado al reloj y respetando anticipación mínima y máxima.
+
+Negocios, barberos, servicios y horarios todavía se crean con SQL, por lo que aún no se puede operar sin tocar la base.
 
 ## 9. Mapa de archivos
 
 ```
 Turnoo/
 ├── README.md, docker-compose.yml, .env.example, .gitignore
-├── db/migrations/            001_init.sql, 002_inasistencias_y_aprobacion.sql
+├── db/migrations/            001_init.sql, 002_inasistencias_y_aprobacion.sql, 003_sesiones.sql
 ├── docs/                     CONTEXTO.md (este), ARQUITECTURA.md, CONVENCIONES.md
 └── backend/
-    ├── package.json, tsconfig.json, tsconfig.build.json, vitest.config.ts, .env.example
-    ├── scripts/preparar-base-pruebas.ts
+    ├── package.json, tsconfig.json, tsconfig.build.json, vitest.config.ts, .env.example, README.md
+    ├── scripts/              preparar-base-pruebas.ts, crear-superadmin.ts
     ├── pruebas/              ayudas.ts, configuracion.ts y los *.test.ts
     └── src/
         ├── index.ts, app.ts
         ├── config/entorno.ts
         ├── db/               pool.ts, contexto.ts, previas.ts
         ├── compartido/       errores.ts, logger.ts, tiempo.ts, validacion.ts
-        └── modulos/citas/    disponibilidad.ts, citas.servicio.ts, citas.repositorio.ts, citas.tipos.ts
+        └── modulos/
+            ├── auth/         auth.rutas.ts, auth.middleware.ts, auth.servicio.ts, auth.repositorio.ts, auth.tipos.ts
+            ├── citas/        citas.rutas.ts, disponibilidad.ts, citas.servicio.ts, citas.repositorio.ts, citas.tipos.ts
+            └── clientes/     clientes.servicio.ts, clientes.repositorio.ts, clientes.tipos.ts
 ```
 
 ## 10. Cómo mantener este archivo y registro de sesiones
@@ -205,3 +257,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | 2 | Se implementó el segundo tramo del módulo de citas (crear, cancelar, reprogramar, aprobar/rechazar, marcar) con 28 pruebas nuevas; se verificó rompiendo cada regla a propósito. Decisiones: una `por_aprobar` sin tiempo para el plazo se rechaza con mensaje de contactar al negocio; `por_aprobar` no se reprograma; marcar solo desde la hora de inicio; el límite del plan se cuenta de forma atómica al final de la transacción. Siguiente: autenticación o webhook de WhatsApp (sección 6). |
 | 3 | Autenticación y usuarios. Decisiones: sesión en la base (revocable), argon2, invitaciones y recuperación SIN correo (el backend entrega el enlace al dueño/superadmin, que se lo pasa a la persona; nunca a quien lo pide, para que nadie pueda robar cuentas). El enlace lleva el token en el fragmento `#token=` para que no quede en registros. Verificado rompiendo 10 reglas de seguridad a propósito. Pendientes: límite de intentos de login, correo, rutas de citas, webhook. |
 | 4 | Rutas HTTP de citas para el panel y módulo de clientes. Decisiones: el panel agenda enviando teléfono y nombre (se busca o se crea el cliente); un empleado solo ve y maneja las citas de su barbero y una cita ajena responde 404; el superadmin no entra a citas de un negocio; los rangos de fechas se piden en ISO con zona y el máximo es 62 días. Verificado rompiendo 8 reglas de permisos y de clientes a propósito. Pendientes: webhook, rutas de administración (barberos, servicios, horarios, clientes, usuarios), límite de intentos de login. |
+| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Siguiente: punto 1 del plan, negocios y su configuración. |
