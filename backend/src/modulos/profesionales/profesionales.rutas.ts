@@ -1,8 +1,9 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { NoEncontrado, Prohibido } from '../../compartido/errores.js';
+import { NoEncontrado } from '../../compartido/errores.js';
 import { validarEsquema } from '../../compartido/validacion.js';
-import { exigirRol, exigirSesion, usuarioDe } from '../auth/auth.middleware.js';
+import { exigirRol, exigirSesion, negocioDeSesion as negocioDe, usuarioDe } from '../auth/auth.middleware.js';
+import { rutasAgendaDelBarbero } from './agenda.rutas.js';
 import * as servicio from './profesionales.servicio.js';
 import type { Profesional } from './profesionales.tipos.js';
 
@@ -16,15 +17,11 @@ rutasProfesionales.use(exigirSesion, exigirRol('dueno', 'empleado'));
 const soloDueno = exigirRol('dueno');
 const nombre = z.strictObject({ nombre: z.string().trim().min(1, 'El nombre es obligatorio').max(100) });
 
-function negocioDe(req: Request): string {
-  const { negocioId } = usuarioDe(req);
-  if (!negocioId) throw new Prohibido();
-  return negocioId;
-}
-
 async function barberoDelEmpleado(req: Request): Promise<Profesional | null> {
   return servicio.profesionalDelUsuario(negocioDe(req), usuarioDe(req).usuarioId);
 }
+
+rutasProfesionales.use('/:id', rutasAgendaDelBarbero);
 
 rutasProfesionales.get('/', async (req, res) => {
   if (usuarioDe(req).rol === 'dueno') {
