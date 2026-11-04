@@ -9,6 +9,7 @@ import {
 import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio, conSistema, type Transaccion } from '../../db/contexto.js';
 import { usuarioParaLogin } from '../../db/previas.js';
+import { estadoDeNegocio } from '../negocios/negocios.reglas.js';
 import * as repositorio from './auth.repositorio.js';
 import type {
   EnlaceUnico,
@@ -156,6 +157,21 @@ function negocioDeAccion(actor: UsuarioAutenticado, negocioId: string | undefine
   return actor.negocioId;
 }
 
+/**
+ * El negocio debe existir, y un dueño no administra usuarios si está suspendido.
+ * El superadmin sí puede, para ayudar a recuperar el acceso mientras se regulariza.
+ */
+async function exigirNegocioAdministrable(
+  tx: Transaccion,
+  actor: UsuarioAutenticado,
+  negocioId: string,
+): Promise<void> {
+  const estado = await estadoDeNegocio(tx, negocioId);
+  if (actor.rol !== 'superadmin' && estado === 'suspendido') {
+    throw new Prohibido('El negocio está suspendido');
+  }
+}
+
 export async function invitarUsuario(
   actor: UsuarioAutenticado,
   entrada: EntradaInvitacion,
@@ -167,6 +183,7 @@ export async function invitarUsuario(
   const expiraEn = sumarHoras(ahora, HORAS_INVITACION);
 
   const usuarioId = await conNegocio(negocioId, async (tx) => {
+    await exigirNegocioAdministrable(tx, actor, negocioId);
     const id = await repositorio.crearUsuarioInvitado(tx, {
       negocioId,
       email: entrada.email.trim(),
@@ -240,6 +257,7 @@ export async function generarRecuperacion(
   const expiraEn = sumarHoras(ahora, HORAS_RECUPERACION);
 
   await conNegocio(destino, async (tx) => {
+    await exigirNegocioAdministrable(tx, actor, destino);
     const objetivo = await repositorio.obtenerUsuario(tx, usuarioId);
     if (!objetivo) throw new NoEncontrado('El usuario');
     if (actor.rol === 'dueno' && objetivo.rol !== 'empleado') throw new Prohibido();

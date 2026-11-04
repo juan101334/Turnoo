@@ -85,7 +85,8 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **151 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **182 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| Negocios: el superadmin los crea (en prueba por 15 días), los lista y cambia plan y estado por `/negocios`; el dueño consulta y edita su negocio y su configuración por `/negocio`. Un negocio suspendido solo inicia sesión y consulta | `backend/src/modulos/negocios/` |
 | Clientes: `obtenerOCrearCliente` (busca por teléfono, lo crea si no existe, atómico) y `normalizarTelefono` (deja el formato de WhatsApp; a un celular colombiano de 10 dígitos le agrega el 57). Lo reutilizará el webhook | `backend/src/modulos/clientes/` |
 | Rutas HTTP de citas para el panel: `GET /citas` (rango, barbero, estado), `GET /citas/:id`, `GET /citas/disponibilidad`, `POST /citas` (con `cliente:{telefono,nombre}`), `POST /citas/:id/{cancelar,reprogramar,aprobar,rechazar,marcar}`. Dos roles: el dueño maneja todo el negocio; el empleado solo las citas de SU barbero (`profesionales.usuario_id`) | `backend/src/modulos/citas/citas.rutas.ts` |
 | Migración 003: tabla `sesiones` y RLS en `tokens_usuario` | `db/migrations/003_sesiones.sql` |
@@ -97,18 +98,17 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 - Webhook de WhatsApp, integración de la IA, panel, despliegue y envío de correo.
 - Tareas programadas: no hay carpeta `src/tareas` y `pg-boss` no está instalado.
 - Límite de intentos de login.
-- Creación de negocios y edición de su configuración, por ruta o por script.
+- Creación de planes: la tabla `planes` sigue vacía a propósito (sección 7), así que hoy solo se puede asignar un plan creado con SQL.
 - Rutas para administrar barberos, servicios, horarios, bloqueos y clientes, y para listar o desactivar usuarios. El módulo de clientes solo tiene `obtenerOCrearCliente` y `normalizarTelefono`.
 - CORS y `trust proxy` en `app.ts`: hacen falta para el panel y para el despliegue detrás de Caddy.
 
-**Huecos conocidos del código actual** (los corrige el plan de la sección 6.1):
+**Huecos conocidos del código actual** (los corrige el plan de la sección 6.1, salvo que se indique otra cosa):
 
-- Sin SQL manual no se puede dar de alta un negocio: no hay ningún `INSERT INTO negocios` en `src/` ni en `scripts/`.
 - `definirPassword` deja `activo = true` también al recuperar la contraseña (`auth.repositorio.ts`), así que un enlace de recuperación reactivaría a un usuario desactivado.
 - Un empleado invitado no tiene acceso a citas hasta que se le asigne un barbero, y hoy eso solo se puede hacer con SQL.
 - Una invitación vencida no se puede reenviar: volver a invitar el mismo correo da `Duplicado`.
 - Una cita `por_aprobar` vencida ya no se puede aprobar, pero retiene el hueco hasta que alguien la rechace, porque no existe la tarea que la libera.
-- La suspensión de un negocio es parcial: solo la exigen crear, cancelar y reprogramar. Un negocio suspendido aún inicia sesión, consulta, aprueba, rechaza y marca.
+- `prueba_hasta` y `pagado_hasta` solo se guardan: vencerlos no suspende el negocio. Por ahora la suspensión es manual, coherente con el cobro manual del MVP; esto no está en el plan.
 
 **Comandos habituales** (desde `backend/`):
 
@@ -116,7 +116,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 151 pruebas
+npm test              # 182 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -176,11 +176,12 @@ Una rama y un pull request por punto, con el flujo de la sección 1:
 6. Tareas internas: autocompletar citas y expirar `por_aprobar`.
 7. Webhook de WhatsApp.
 
-**Siguiente paso:** punto 1, cuando Juan José dé el visto bueno al punto 0.
+**Estado:** puntos 0 y 1 hechos. **Siguiente paso:** punto 2, cuando Juan José dé el visto bueno al punto 1.
 
 Decisiones ya tomadas para estos puntos:
 
-- **Superadmin:** crea el negocio, invita al dueño y cambia plan y estado. No opera barberos ni agenda.
+- **Superadmin:** crea el negocio, invita al dueño y cambia plan y estado. No opera barberos ni agenda. Puede invitar y generar recuperación en un negocio suspendido, para ayudar a recuperar el acceso.
+- **Mi negocio:** `/negocio` es solo del dueño; el empleado no ve la configuración ni los datos del plan. El negocio sale siempre de la sesión, nunca de la URL.
 - **Asociar usuario y barbero:** invitar a un empleado exige `profesionalId`, en la misma transacción. Una ruta aparte vincula o cambia el usuario de un barbero, y sirve también para un dueño que atiende.
 - **Alcance del empleado:** sus servicios, su horario y sus propios bloqueos. Los bloqueos de todo el negocio son solo del dueño.
 - **Clientes:** el empleado ve solo los que tienen citas con su barbero. Solo el dueño edita o anonimiza.
@@ -220,10 +221,11 @@ Decisiones ya tomadas para estos puntos:
 ## 8.1 Qué funciona ya
 
 - **Autenticación:** login, sesiones revocables, invitaciones y recuperación por `/auth/*`, y el script del primer superadmin.
+- **Negocios:** alta, plan y estado por `/negocios` (superadmin); datos y configuración por `/negocio` (dueño).
 - **Citas por HTTP:** listar, consultar, crear, cancelar, reprogramar, aprobar, rechazar y marcar por `/citas`, con permisos por rol.
 - **Disponibilidad:** `consultarDisponibilidad(negocioId, { profesionalId, servicioIds, desde, hasta })` devuelve, por día, las horas en que puede empezar una cita para esa combinación de servicios, descontando horario del barbero, bloqueos y citas activas, con intervalo alineado al reloj y respetando anticipación mínima y máxima.
 
-Negocios, barberos, servicios y horarios todavía se crean con SQL, por lo que aún no se puede operar sin tocar la base.
+Barberos, servicios y horarios todavía se crean con SQL, por lo que aún no se puede operar sin tocar la base.
 
 ## 9. Mapa de archivos
 
@@ -244,7 +246,8 @@ Turnoo/
         └── modulos/
             ├── auth/         auth.rutas.ts, auth.middleware.ts, auth.servicio.ts, auth.repositorio.ts, auth.tipos.ts
             ├── citas/        citas.rutas.ts, disponibilidad.ts, citas.servicio.ts, citas.repositorio.ts, citas.tipos.ts
-            └── clientes/     clientes.servicio.ts, clientes.repositorio.ts, clientes.tipos.ts
+            ├── clientes/     clientes.servicio.ts, clientes.repositorio.ts, clientes.tipos.ts
+            └── negocios/     negocios.rutas.ts, negocios.servicio.ts, negocios.reglas.ts, negocios.repositorio.ts, negocios.tipos.ts
 ```
 
 ## 10. Cómo mantener este archivo y registro de sesiones
@@ -257,4 +260,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | 2 | Se implementó el segundo tramo del módulo de citas (crear, cancelar, reprogramar, aprobar/rechazar, marcar) con 28 pruebas nuevas; se verificó rompiendo cada regla a propósito. Decisiones: una `por_aprobar` sin tiempo para el plazo se rechaza con mensaje de contactar al negocio; `por_aprobar` no se reprograma; marcar solo desde la hora de inicio; el límite del plan se cuenta de forma atómica al final de la transacción. Siguiente: autenticación o webhook de WhatsApp (sección 6). |
 | 3 | Autenticación y usuarios. Decisiones: sesión en la base (revocable), argon2, invitaciones y recuperación SIN correo (el backend entrega el enlace al dueño/superadmin, que se lo pasa a la persona; nunca a quien lo pide, para que nadie pueda robar cuentas). El enlace lleva el token en el fragmento `#token=` para que no quede en registros. Verificado rompiendo 10 reglas de seguridad a propósito. Pendientes: límite de intentos de login, correo, rutas de citas, webhook. |
 | 4 | Rutas HTTP de citas para el panel y módulo de clientes. Decisiones: el panel agenda enviando teléfono y nombre (se busca o se crea el cliente); un empleado solo ve y maneja las citas de su barbero y una cita ajena responde 404; el superadmin no entra a citas de un negocio; los rangos de fechas se piden en ISO con zona y el máximo es 62 días. Verificado rompiendo 8 reglas de permisos y de clientes a propósito. Pendientes: webhook, rutas de administración (barberos, servicios, horarios, clientes, usuarios), límite de intentos de login. |
-| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Siguiente: punto 1 del plan, negocios y su configuración. |
+| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Punto 1: módulo de negocios y suspensión completa (ya no se crea un cliente ni se administran usuarios estando suspendido), con 31 pruebas nuevas; se verificó rompiendo reglas a propósito. Corrección: la versión anterior de este archivo decía que un negocio suspendido podía aprobar, rechazar y marcar, y era falso; esas acciones ya lo impedían. Siguiente: punto 2 del plan, barberos y usuarios. |

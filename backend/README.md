@@ -62,6 +62,7 @@ Qué verifican hoy (`pruebas/`):
 - **autenticación:** sesiones, invitaciones, recuperación de contraseña y sus rutas HTTP.
 - **clientes:** normalización del teléfono y `obtenerOCrearCliente`.
 - **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
+- **rutas de negocios:** alta, plan y estado por el superadmin; datos y configuración por el dueño; permisos y negocio suspendido.
 
 ## Qué hay hecho
 
@@ -87,10 +88,16 @@ src/
 │   │   ├── citas.servicio.ts       Disponibilidad, crear, cancelar, reprogramar, aprobar, rechazar y marcar
 │   │   ├── citas.repositorio.ts    SQL del módulo
 │   │   └── citas.tipos.ts          Tipos del módulo
-│   └── clientes/
-│       ├── clientes.servicio.ts    obtenerOCrearCliente y normalizarTelefono
-│       ├── clientes.repositorio.ts SQL del módulo
-│       └── clientes.tipos.ts       Tipos del módulo
+│   ├── clientes/
+│   │   ├── clientes.servicio.ts    obtenerOCrearCliente y normalizarTelefono
+│   │   ├── clientes.repositorio.ts SQL del módulo
+│   │   └── clientes.tipos.ts       Tipos del módulo
+│   └── negocios/
+│       ├── negocios.rutas.ts       Rutas /negocios (superadmin) y /negocio (dueño)
+│       ├── negocios.servicio.ts    Alta, plan y estado, datos del negocio y configuración
+│       ├── negocios.reglas.ts      Estado del negocio, para usar desde otros módulos
+│       ├── negocios.repositorio.ts SQL del módulo
+│       └── negocios.tipos.ts       Tipos del módulo
 └── compartido/
     ├── errores.ts         Errores del negocio y traducción de errores de PostgreSQL
     ├── logger.ts          Registro de eventos (oculta datos sensibles)
