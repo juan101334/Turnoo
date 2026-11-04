@@ -16,7 +16,7 @@ import {
   restablecerContrasena,
 } from '../src/modulos/auth/auth.servicio.js';
 import type { Rol, UsuarioAutenticado } from '../src/modulos/auth/auth.tipos.js';
-import { crearNegocio, limpiar, type NegocioDePrueba } from './ayudas.js';
+import { crearNegocio, crearProfesional, limpiar, type NegocioDePrueba } from './ayudas.js';
 
 const CLAVE = 'clave-de-prueba-1';
 const ahora = new Date('2030-06-09T12:00:00Z');
@@ -114,7 +114,7 @@ describe('autenticación', () => {
     it('un negocio no puede ver las sesiones ni los tokens de otro', async () => {
       const ua = await crearUsuario(a, 'dueno');
       await iniciarSesion(ua.email, CLAVE, ahora);
-      await invitarUsuario(await comoActor(ua.email), { email: correo(), nombre: 'X', rol: 'empleado' }, ahora);
+      await invitarUsuario(await comoActor(ua.email), { email: correo(), nombre: 'X', rol: 'empleado', profesionalId: await crearProfesional(a) }, ahora);
       for (const tabla of ['sesiones', 'tokens_usuario']) {
         const vistoPorB = await conNegocio(b.negocioId, async (tx) => (await tx.consultar(`SELECT 1 FROM ${tabla}`)).rowCount);
         expect(vistoPorB).toBe(0);
@@ -126,7 +126,7 @@ describe('autenticación', () => {
     it('el dueño invita, la persona define su contraseña y entra', async () => {
       const dueno = await comoActor((await crearUsuario(a, 'dueno')).email);
       const email = correo();
-      const inv = await invitarUsuario(dueno, { email, nombre: 'Nuevo Barbero', rol: 'empleado' }, ahora);
+      const inv = await invitarUsuario(dueno, { email, nombre: 'Nuevo Barbero', rol: 'empleado', profesionalId: await crearProfesional(a) }, ahora);
       await expect(iniciarSesion(email, CLAVE, ahora)).rejects.toBeInstanceOf(NoAutorizado); // aún no acepta
 
       await aceptarInvitacion(inv.token, CLAVE, ahora);
@@ -136,20 +136,20 @@ describe('autenticación', () => {
 
     it('el enlace sirve una sola vez, vence a las 72 h y no sirve de otro tipo', async () => {
       const dueno = await comoActor((await crearUsuario(a, 'dueno')).email);
-      const uno = await invitarUsuario(dueno, { email: correo(), nombre: 'U', rol: 'empleado' }, ahora);
+      const uno = await invitarUsuario(dueno, { email: correo(), nombre: 'U', rol: 'empleado', profesionalId: await crearProfesional(a) }, ahora);
       await aceptarInvitacion(uno.token, CLAVE, ahora);
       await expect(aceptarInvitacion(uno.token, CLAVE, ahora)).rejects.toBeInstanceOf(NoAutorizado);
 
-      const vence = await invitarUsuario(dueno, { email: correo(), nombre: 'V', rol: 'empleado' }, ahora);
+      const vence = await invitarUsuario(dueno, { email: correo(), nombre: 'V', rol: 'empleado', profesionalId: await crearProfesional(a) }, ahora);
       await expect(aceptarInvitacion(vence.token, CLAVE, horas(73))).rejects.toBeInstanceOf(NoAutorizado);
 
-      const otro = await invitarUsuario(dueno, { email: correo(), nombre: 'W', rol: 'empleado' }, ahora);
+      const otro = await invitarUsuario(dueno, { email: correo(), nombre: 'W', rol: 'empleado', profesionalId: await crearProfesional(a) }, ahora);
       await expect(restablecerContrasena(otro.token, CLAVE, ahora)).rejects.toBeInstanceOf(NoAutorizado);
     });
 
     it('exige una contraseña de 10 a 128 caracteres', async () => {
       const dueno = await comoActor((await crearUsuario(a, 'dueno')).email);
-      const inv = await invitarUsuario(dueno, { email: correo(), nombre: 'P', rol: 'empleado' }, ahora);
+      const inv = await invitarUsuario(dueno, { email: correo(), nombre: 'P', rol: 'empleado', profesionalId: await crearProfesional(a) }, ahora);
       for (const mala of ['corta', 'x'.repeat(129), 12345678901234, undefined]) {
         await expect(aceptarInvitacion(inv.token, mala, ahora)).rejects.toBeInstanceOf(DatosInvalidos);
       }
@@ -160,20 +160,20 @@ describe('autenticación', () => {
       const empleado = await comoActor((await crearUsuario(a, 'empleado')).email);
       const dueno = await comoActor((await crearUsuario(a, 'dueno')).email);
       const admin = await comoActor((await crearUsuario(null, 'superadmin')).email);
-      const nuevo = { nombre: 'N', rol: 'empleado' as const };
+      const nuevo = { nombre: 'N', rol: 'empleado' as const, profesionalId: await crearProfesional(a) };
 
       await expect(invitarUsuario(empleado, { ...nuevo, email: correo() }, ahora)).rejects.toBeInstanceOf(Prohibido);
       await expect(invitarUsuario(dueno, { ...nuevo, email: correo(), negocioId: b.negocioId }, ahora)).rejects.toBeInstanceOf(Prohibido);
       await expect(invitarUsuario(admin, { ...nuevo, email: correo() }, ahora)).rejects.toBeInstanceOf(DatosInvalidos); // falta negocio
 
-      const inv = await invitarUsuario(admin, { ...nuevo, rol: 'dueno', email: correo(), negocioId: b.negocioId }, ahora);
+      const inv = await invitarUsuario(admin, { nombre: 'N', rol: 'dueno', email: correo(), negocioId: b.negocioId }, ahora);
       const filas = await conNegocio(b.negocioId, async (tx) => (await tx.consultar('SELECT 1 FROM usuarios WHERE id = $1', [inv.usuarioId])).rowCount);
       expect(filas).toBe(1);
     });
 
     it('valida correo, nombre y rol, y no repite correos', async () => {
       const dueno = await comoActor((await crearUsuario(a, 'dueno')).email);
-      const base = { email: correo(), nombre: 'Ok', rol: 'empleado' as const };
+      const base = { email: correo(), nombre: 'Ok', rol: 'empleado' as const, profesionalId: await crearProfesional(a) };
       for (const caso of [{ ...base, email: 'sin-arroba' }, { ...base, nombre: '  ' }, { ...base, rol: 'superadmin' as never }]) {
         await expect(invitarUsuario(dueno, caso, ahora)).rejects.toBeInstanceOf(DatosInvalidos);
       }
@@ -252,7 +252,7 @@ describe('autenticación', () => {
       expect(sesion.token).toBeTypeOf('string');
 
       const email = correo();
-      const res = await pedir('/auth/usuarios/invitar', 'POST', { email, nombre: 'Por HTTP', rol: 'empleado' }, sesion.token);
+      const res = await pedir('/auth/usuarios/invitar', 'POST', { email, nombre: 'Por HTTP', rol: 'empleado', profesionalId: await crearProfesional(a) }, sesion.token);
       expect(res.status).toBe(201);
       expect(res.headers.get('cache-control')).toBe('no-store');
       const { enlace } = await res.json();

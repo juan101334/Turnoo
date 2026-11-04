@@ -1,6 +1,7 @@
 import argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  Conflicto,
   DatosInvalidos,
   NoAutorizado,
   NoEncontrado,
@@ -10,12 +11,14 @@ import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio, conSistema, type Transaccion } from '../../db/contexto.js';
 import { usuarioParaLogin } from '../../db/previas.js';
 import { estadoDeNegocio } from '../negocios/negocios.reglas.js';
+import { asociarUsuarioABarbero } from '../profesionales/profesionales.reglas.js';
 import * as repositorio from './auth.repositorio.js';
 import type {
   EnlaceUnico,
   EntradaInvitacion,
   SesionIniciada,
   UsuarioAutenticado,
+  UsuarioDelNegocio,
 } from './auth.tipos.js';
 
 const MS_POR_HORA = 3_600_000;
@@ -144,6 +147,12 @@ function validarInvitacion(e: EntradaInvitacion): void {
   if (e.rol !== 'dueno' && e.rol !== 'empleado') {
     throw new DatosInvalidos('El rol debe ser dueno o empleado');
   }
+  if (e.rol === 'empleado' && e.profesionalId === undefined) {
+    throw new DatosInvalidos('Para invitar a un empleado debes indicar su barbero');
+  }
+  if (e.rol === 'dueno' && e.profesionalId !== undefined) {
+    throw new DatosInvalidos('Un dueño se asocia a un barbero después de crearse, no en la invitación');
+  }
 }
 
 /** Negocio sobre el que puede actuar quien hace la petición. */
@@ -190,6 +199,10 @@ export async function invitarUsuario(
       nombre: entrada.nombre.trim(),
       rol: entrada.rol,
     });
+    if (entrada.profesionalId !== undefined) {
+      // Una invitación no le quita el acceso a quien ya atiende con ese barbero.
+      await asociarUsuarioABarbero(tx, entrada.profesionalId, id, { reemplazar: false });
+    }
     await repositorio.crearToken(tx, { usuarioId: id, tipo: 'invitacion', tokenHash: hash, expiraEn });
     return id;
   });
@@ -233,8 +246,16 @@ async function usarToken(
   await enAmbito(leido.negocioId, async (tx) => {
     const usuarioId = await repositorio.consumirToken(tx, leido.hash, tipo, ahora);
     if (!usuarioId) throw new NoAutorizado(MENSAJE_ENLACE);
-    await repositorio.definirPassword(tx, usuarioId, await argon2.hash(password));
-    if (tipo === 'recuperacion') await repositorio.revocarSesionesDeUsuario(tx, usuarioId, ahora);
+    const passwordHash = await argon2.hash(password);
+    if (tipo === 'invitacion') {
+      await repositorio.activarConPassword(tx, usuarioId, passwordHash);
+      return;
+    }
+    // La recuperación nunca reactiva: a un usuario desactivado su enlace no le sirve.
+    if (!(await repositorio.cambiarPasswordDeActivo(tx, usuarioId, passwordHash))) {
+      throw new NoAutorizado(MENSAJE_ENLACE);
+    }
+    await repositorio.revocarSesionesDeUsuario(tx, usuarioId, ahora);
   });
 }
 
@@ -261,7 +282,83 @@ export async function generarRecuperacion(
     const objetivo = await repositorio.obtenerUsuario(tx, usuarioId);
     if (!objetivo) throw new NoEncontrado('El usuario');
     if (actor.rol === 'dueno' && objetivo.rol !== 'empleado') throw new Prohibido();
+    if (!objetivo.activo) {
+      throw new Conflicto('El usuario no está activo: usa reenviar invitación');
+    }
     await repositorio.crearToken(tx, { usuarioId, tipo: 'recuperacion', tokenHash: hash, expiraEn });
+  });
+  return { token, expiraEn };
+}
+
+// ---------------------------------------------------------------------
+// Administración de usuarios del negocio
+// ---------------------------------------------------------------------
+
+export async function listarUsuarios(
+  actor: UsuarioAutenticado,
+  negocioId?: string,
+): Promise<UsuarioDelNegocio[]> {
+  const destino = negocioDeAccion(actor, negocioId);
+  return conNegocio(destino, async (tx) => {
+    await estadoDeNegocio(tx, destino);
+    return repositorio.listarUsuarios(tx);
+  });
+}
+
+/**
+ * Corta el acceso de inmediato: cierra sus sesiones y anula sus enlaces pendientes, para que una
+ * invitación vieja no lo reactive. Solo una invitación NUEVA vuelve a dar acceso.
+ */
+export async function desactivarUsuario(
+  actor: UsuarioAutenticado,
+  usuarioId: string,
+  negocioId?: string,
+  ahora: Date = new Date(),
+): Promise<void> {
+  if (!esUuid(usuarioId)) throw new DatosInvalidos('El usuario indicado no es válido');
+  const destino = negocioDeAccion(actor, negocioId);
+
+  await conNegocio(destino, async (tx) => {
+    await exigirNegocioAdministrable(tx, actor, destino);
+    const objetivo = await repositorio.obtenerUsuario(tx, usuarioId);
+    if (!objetivo) throw new NoEncontrado('El usuario');
+    if (objetivo.rol === 'dueno') {
+      const activos = await repositorio.bloquearDuenosActivos(tx);
+      if (activos.length === 1 && activos[0] === usuarioId) {
+        throw new Conflicto('No se puede desactivar al último dueño activo del negocio');
+      }
+    }
+    await repositorio.desactivarUsuario(tx, usuarioId);
+    await repositorio.revocarSesionesDeUsuario(tx, usuarioId, ahora);
+    await repositorio.invalidarTokensDeUsuario(tx, usuarioId, ahora);
+  });
+}
+
+/**
+ * Nuevo enlace para un usuario pendiente (su invitación venció o se perdió) o desactivado (es la
+ * forma de reactivarlo). Anula los anteriores. Quien recibe el enlace define la contraseña, así que
+ * el dueño solo puede pedirlo para empleados, igual que la recuperación.
+ */
+export async function reenviarInvitacion(
+  actor: UsuarioAutenticado,
+  usuarioId: string,
+  negocioId?: string,
+  ahora: Date = new Date(),
+): Promise<EnlaceUnico> {
+  if (!esUuid(usuarioId)) throw new DatosInvalidos('El usuario indicado no es válido');
+  const destino = negocioDeAccion(actor, negocioId);
+  const { token, hash } = generarToken(destino);
+  const expiraEn = sumarHoras(ahora, HORAS_INVITACION);
+
+  await conNegocio(destino, async (tx) => {
+    await exigirNegocioAdministrable(tx, actor, destino);
+    const objetivo = await repositorio.obtenerUsuario(tx, usuarioId);
+    if (!objetivo) throw new NoEncontrado('El usuario');
+    if (actor.rol === 'dueno' && objetivo.rol !== 'empleado') throw new Prohibido();
+    if (objetivo.activo) throw new Conflicto('El usuario ya está activo: usa recuperación de contraseña');
+
+    await repositorio.invalidarTokensDeUsuario(tx, usuarioId, ahora);
+    await repositorio.crearToken(tx, { usuarioId, tipo: 'invitacion', tokenHash: hash, expiraEn });
   });
   return { token, expiraEn };
 }

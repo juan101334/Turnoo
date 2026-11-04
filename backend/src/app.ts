@@ -6,6 +6,7 @@ import { pool } from './db/pool.js';
 import { rutasAuth } from './modulos/auth/auth.rutas.js';
 import { rutasCitas } from './modulos/citas/citas.rutas.js';
 import { rutasMiNegocio, rutasNegocios } from './modulos/negocios/negocios.rutas.js';
+import { rutasProfesionales } from './modulos/profesionales/profesionales.rutas.js';
 
 export function crearApp() {
   const app = express();
@@ -27,6 +28,7 @@ export function crearApp() {
   app.use('/citas', rutasCitas);
   app.use('/negocios', rutasNegocios);
   app.use('/negocio', rutasMiNegocio);
+  app.use('/profesionales', rutasProfesionales);
 
   app.use((_req, res) => {
     res.status(404).json({

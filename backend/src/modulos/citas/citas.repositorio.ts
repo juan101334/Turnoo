@@ -71,6 +71,21 @@ export async function obtenerProfesionalActivo(
   return rows[0] ? { sedeId: rows[0].sede_id } : null;
 }
 
+/**
+ * Igual, para quien va a escribir una cita. FOR SHARE mantiene la fila bloqueada hasta el final de
+ * la transacción: quien desactiva al barbero espera, y así cuenta también esta cita.
+ */
+export async function bloquearProfesionalActivo(
+  tx: Transaccion,
+  profesionalId: string,
+): Promise<{ sedeId: string } | null> {
+  const { rows } = await tx.consultar<{ sede_id: string }>(
+    'SELECT sede_id FROM profesionales WHERE id = $1 AND activo FOR SHARE',
+    [profesionalId],
+  );
+  return rows[0] ? { sedeId: rows[0].sede_id } : null;
+}
+
 /** Servicios activos de ese barbero cuyo id esté en la lista (los que no coincidan no aparecen). */
 export async function obtenerServiciosDelProfesional(
   tx: Transaccion,

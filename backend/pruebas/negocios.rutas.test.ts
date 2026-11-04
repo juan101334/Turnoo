@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
-import { crearNegocio, limpiar, type NegocioDePrueba } from './ayudas.js';
+import { crearNegocio, crearProfesional, limpiar, type NegocioDePrueba } from './ayudas.js';
 
 const CLAVE = 'clave-de-prueba-1';
 const DIA_MS = 86_400_000;
@@ -350,14 +350,23 @@ describe('rutas de negocios', () => {
 
     it('su dueño no invita ni genera recuperación; el superadmin sí puede', async () => {
       await fijarEstado(a, 'suspendido');
-      const invitar = { email: `${randomUUID()}@prueba.com`, nombre: 'Nueva', rol: 'empleado' };
+      const invitar = {
+        email: `${randomUUID()}@prueba.com`, nombre: 'Nueva', rol: 'empleado', profesionalId: await crearProfesional(a),
+      };
       expect((await pedir('/auth/usuarios/invitar', tokens.duenoA, 'POST', invitar)).status).toBe(403);
 
       const hecha = await pedir('/auth/usuarios/invitar', tokens.superadmin, 'POST', { ...invitar, negocioId: a.negocioId });
       expect(hecha.status).toBe(201);
-      const { usuarioId } = await hecha.json();
 
-      const ruta = `/auth/usuarios/${usuarioId}/recuperacion`;
+      // La recuperación es para usuarios activos: uno recién invitado todavía no lo está.
+      const { rows } = await conNegocio(a.negocioId, (tx) =>
+        tx.consultar<{ id: string }>(
+          `INSERT INTO usuarios (negocio_id, email, nombre, rol, activo, password_hash)
+           VALUES ($1, $2, 'Activa', 'empleado', true, 'hash') RETURNING id`,
+          [a.negocioId, `${randomUUID()}@prueba.com`],
+        ),
+      );
+      const ruta = `/auth/usuarios/${rows[0]!.id}/recuperacion`;
       expect((await pedir(ruta, tokens.duenoA, 'POST', {})).status).toBe(403);
       expect((await pedir(ruta, tokens.superadmin, 'POST', { negocioId: a.negocioId })).status).toBe(201);
     });

@@ -1,4 +1,5 @@
 import {
+  Conflicto,
   DatosInvalidos,
   FueraDePlazo,
   HorarioNoDisponible,
@@ -247,7 +248,7 @@ export async function crearCita(
   return conNegocio(negocioId, async (tx) => {
     const reglas = await reglasDelNegocio(tx, negocioId);
 
-    const profesional = await repositorio.obtenerProfesionalActivo(tx, entrada.profesionalId);
+    const profesional = await repositorio.bloquearProfesionalActivo(tx, entrada.profesionalId);
     if (!profesional) throw new NoEncontrado('El barbero');
     if (!(await repositorio.existeCliente(tx, entrada.clienteId))) throw new NoEncontrado('El cliente');
 
@@ -368,6 +369,10 @@ export async function reprogramarCita(
       );
     }
     exigirPlazo(cita, actor, reglas, ahora);
+    // Una cita vieja sin marcar no puede devolverle agenda a un barbero desactivado.
+    if (!(await repositorio.bloquearProfesionalActivo(tx, cita.profesionalId))) {
+      throw new Conflicto('El barbero de esta cita está desactivado');
+    }
 
     const duracionMinutos = minutosEntre(cita.inicio, cita.fin);
     await exigirHuecoLibre(

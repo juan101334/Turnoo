@@ -41,11 +41,29 @@ rutasAuth.post('/usuarios/invitar', exigirSesion, exigirRol('superadmin', 'dueno
       nombre: z.string(),
       rol: z.enum(['dueno', 'empleado']),
       negocioId: z.string().optional(),
+      profesionalId: z.string().optional(),
     }),
     req.body,
   );
   const { usuarioId, token, expiraEn } = await servicio.invitarUsuario(usuarioDe(req), entrada);
   res.status(201).json({ usuarioId, enlace: enlace('/aceptar-invitacion', token), expiraEn });
+});
+
+rutasAuth.get('/usuarios', exigirSesion, exigirRol('superadmin', 'dueno'), async (req, res) => {
+  const { negocioId } = validarEsquema(z.object({ negocioId: z.string().optional() }), req.query);
+  res.json({ usuarios: await servicio.listarUsuarios(usuarioDe(req), negocioId) });
+});
+
+rutasAuth.post('/usuarios/:id/desactivar', exigirSesion, exigirRol('superadmin', 'dueno'), async (req, res) => {
+  const { negocioId } = validarEsquema(z.object({ negocioId: z.string().optional() }), req.body ?? {});
+  await servicio.desactivarUsuario(usuarioDe(req), String(req.params.id), negocioId);
+  res.status(204).end();
+});
+
+rutasAuth.post('/usuarios/:id/reenviar-invitacion', exigirSesion, exigirRol('superadmin', 'dueno'), async (req, res) => {
+  const { negocioId } = validarEsquema(z.object({ negocioId: z.string().optional() }), req.body ?? {});
+  const { token, expiraEn } = await servicio.reenviarInvitacion(usuarioDe(req), String(req.params.id), negocioId);
+  res.status(201).json({ enlace: enlace('/aceptar-invitacion', token), expiraEn });
 });
 
 rutasAuth.post('/usuarios/:id/recuperacion', exigirSesion, exigirRol('superadmin', 'dueno'), async (req, res) => {
