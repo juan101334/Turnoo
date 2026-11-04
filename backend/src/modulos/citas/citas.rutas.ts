@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { DatosInvalidos, NoEncontrado, Prohibido } from '../../compartido/errores.js';
-import { validarEsquema } from '../../compartido/validacion.js';
+import { instanteIso as instante, validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, usuarioDe } from '../auth/auth.middleware.js';
 import { obtenerOCrearCliente } from '../clientes/clientes.servicio.js';
 import * as servicio from './citas.servicio.js';
@@ -14,8 +14,6 @@ import type { EstadoCita } from './citas.tipos.js';
 export const rutasCitas = Router();
 rutasCitas.use(exigirSesion, exigirRol('dueno', 'empleado'));
 
-const instante = z.iso.datetime({ offset: true, message: 'Debe ser fecha y hora ISO con zona, ej. 2030-06-10T09:00:00-05:00' })
-  .transform((texto) => new Date(texto));
 const estado = z.enum(['por_aprobar', 'pendiente', 'confirmada', 'completada', 'cancelada', 'no_asistio']);
 
 interface Alcance {

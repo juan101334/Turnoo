@@ -1,8 +1,7 @@
-import { Router, type Request } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
-import { Prohibido } from '../../compartido/errores.js';
 import { validarEsquema } from '../../compartido/validacion.js';
-import { exigirRol, exigirSesion, usuarioDe } from '../auth/auth.middleware.js';
+import { exigirRol, exigirSesion, negocioDeSesion as negocioDe } from '../auth/auth.middleware.js';
 import * as servicio from './negocios.servicio.js';
 
 const nombre = z.string().trim().min(1, 'El nombre es obligatorio').max(100);
@@ -52,12 +51,6 @@ rutasNegocios.patch('/:id', async (req, res) => {
 /** El negocio de quien hace la petición: el id sale de la sesión, nunca de la URL. */
 export const rutasMiNegocio = Router();
 rutasMiNegocio.use(exigirSesion, exigirRol('dueno'));
-
-function negocioDe(req: Request): string {
-  const { negocioId } = usuarioDe(req);
-  if (!negocioId) throw new Prohibido();
-  return negocioId;
-}
 
 rutasMiNegocio.get('/', async (req, res) => {
   res.json(await servicio.obtenerMiNegocio(negocioDe(req)));
