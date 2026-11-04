@@ -6,6 +6,7 @@ import { crearApp } from '../src/app.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
 import { aceptarInvitacion, iniciarSesion } from '../src/modulos/auth/auth.servicio.js';
 import { bloquearProfesionalActivo } from '../src/modulos/citas/citas.repositorio.js';
+import { bloquearLimiteDeBarberos } from '../src/modulos/profesionales/profesionales.repositorio.js';
 import {
   crearCita,
   crearCliente,
@@ -235,6 +236,33 @@ describe('barberos y usuarios', () => {
       expect(reactivar.status).toBe(403);
       expect(reactivar.json.error.codigo).toBe('LIMITE_DEL_PLAN');
       expect((await api(dueno.token, 'POST', `/profesionales/${dos}/activar`)).status).toBe(200);
+    });
+
+    it('un alta espera a la que está en curso y cuenta ese barbero', async () => {
+      const n = await negocioNuevo();
+      const dueno = await persona(n, 'dueno');
+      await asignarPlan(n, 1);
+      let avisarBloqueo!: () => void;
+      let soltar!: () => void;
+      const bloqueado = new Promise<void>((r) => { avisarBloqueo = r; });
+      const liberado = new Promise<void>((r) => { soltar = r; });
+
+      const enCurso = conNegocio(n.negocioId, async (tx) => {
+        await bloquearLimiteDeBarberos(tx, n.negocioId);
+        avisarBloqueo();
+        await liberado;
+        await tx.consultar(
+          'INSERT INTO profesionales (negocio_id, sede_id, nombre) VALUES ($1, $2, $3)',
+          [n.negocioId, n.sedeId, 'En curso'],
+        );
+      });
+      await bloqueado;
+      const segunda = api(dueno.token, 'POST', '/profesionales', { nombre: 'Segundo' });
+      await new Promise((r) => setTimeout(r, 150));
+      soltar();
+      await enCurso;
+
+      expect((await segunda).status).toBe(403);
     });
 
     it('dos altas simultáneas no pasan el límite', async () => {
