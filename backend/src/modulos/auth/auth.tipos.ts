@@ -21,7 +21,22 @@ export interface EntradaInvitacion {
   nombre: string;
   rol: Exclude<Rol, 'superadmin'>;
   /** Solo lo indica el superadmin; el dueño siempre invita a SU negocio. */
-  negocioId?: string;
+  negocioId?: string | undefined;
+  /** Obligatorio para un empleado: sin barbero no tendría acceso a nada. */
+  profesionalId?: string | undefined;
+}
+
+export type EstadoUsuario = 'activo' | 'pendiente' | 'desactivado';
+
+/** Lo que el panel ve de un usuario. Nunca incluye la contraseña ni sus tokens. */
+export interface UsuarioDelNegocio {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: Rol;
+  estado: EstadoUsuario;
+  ultimoLoginEn: Date | null;
+  profesionalId: string | null;
 }
 
 /** Enlace de un solo uso (invitación o recuperación). */

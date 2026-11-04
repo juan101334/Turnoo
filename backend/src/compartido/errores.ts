@@ -45,6 +45,13 @@ export class Duplicado extends ErrorDominio {
   }
 }
 
+/** La acción es válida, pero el estado actual de los datos no la permite. */
+export class Conflicto extends ErrorDominio {
+  constructor(mensaje: string) {
+    super('CONFLICTO', mensaje, 409);
+  }
+}
+
 export class HorarioNoDisponible extends ErrorDominio {
   constructor(mensaje = 'Ese horario ya no está disponible') {
     super('HORARIO_NO_DISPONIBLE', mensaje, 409);
