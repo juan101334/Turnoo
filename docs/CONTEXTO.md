@@ -42,7 +42,7 @@ Sistema de citas para **barberías y salones de belleza**. El cliente escribe al
 
 La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3. Lo esencial:
 
-**Tecnología:** Node.js 22 + TypeScript (módulos ES, imports con extensión `.js`) + Express 5 + SQL directo con `pg` (sin ORM). PostgreSQL 17 en Docker (puerto **5433** en el equipo de desarrollo). Panel en Next.js (aún no creado). Las tareas internas corren con un temporizador simple dentro de la API; pg-boss (usa la misma base de datos) sigue propuesto para procesar mensajes con la IA y se decide en ese punto: el webhook no lo necesitó. Despliegue en un VPS con Docker Compose y Caddy para HTTPS. Un solo repositorio con `backend/` y `panel/`.
+**Tecnología:** Node.js 22 + TypeScript (módulos ES, imports con extensión `.js`) + Express 5 + SQL directo con `pg` (sin ORM). PostgreSQL 17 en Docker (puerto **5433** en el equipo de desarrollo). Panel en Next.js (aún no creado). Las tareas internas corren con un temporizador simple dentro de la API; Los mensajes para la IA se procesarán con una marca de pendiente en la conversación y `SKIP LOCKED`, sin pg-boss (decidido en la sesión 6). Despliegue en un VPS con Docker Compose y Caddy para HTTPS. Un solo repositorio con `backend/` y `panel/`.
 
 **WhatsApp:** API oficial (Cloud API de Meta). Un número por negocio (`whatsapp_cuentas`); el modelo permite un número por barbero (`profesional_id` opcional) pero no se implementa en el MVP.
 
@@ -60,11 +60,11 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 
 **Inasistencias:** el barbero marca "no asistió" con un toque; si no marca nada en 24 h la cita se completa sola. Con 3 inasistencias en 30 días del mismo cliente en ese negocio, sus citas nuevas quedan `por_aprobar`: reservan el hueco, el barbero tiene 2 h para aprobar (nunca más allá de 1 h antes de la cita) y si no responde se libera y se avisa al cliente. Las banderas son **por negocio**, no se comparten entre negocios (privacidad). Las inasistencias se cuentan desde las citas, no hay contador.
 
-**IA:** habla solo de temas del negocio usando una base de conocimiento por negocio; si no sabe, deriva a una persona en lugar de inventar. Al derivar, la conversación pasa a `humano` (la IA calla), se avisa al dueño por WhatsApp con plantilla y vuelve sola a la IA a las 2 h. En el MVP no hay bandeja de chats: la persona contacta al cliente por fuera. **El backend, nunca la IA, pone el negocio y el cliente.** Funciones de la IA: `listar_profesionales_y_servicios`, `consultar_disponibilidad`, `crear_cita`, `listar_mis_citas`, `cancelar_cita`, `reprogramar_cita`, `derivar_a_humano`. Los audios se transcriben (servicio aparte); las imágenes se guardan y se adjuntan a la cita.
+**IA:** habla solo de temas del negocio usando una base de conocimiento por negocio; si no sabe, deriva a una persona en lugar de inventar. Al derivar, la conversación pasa a `humano` (la IA calla), se avisa al dueño por WhatsApp con plantilla y vuelve sola a la IA a las 2 h. En el MVP no hay bandeja de chats: la persona contacta al cliente por fuera. **El backend, nunca la IA, pone el negocio y el cliente.** **Proveedor: OpenAI** (Juan José ya tiene saldo cargado), con el modelo en una variable de entorno y toda la llamada al proveedor en un solo archivo, para poder cambiarlo sin tocar el resto. Funciones de la IA: `listar_profesionales_y_servicios`, `consultar_disponibilidad`, `crear_cita`, `listar_mis_citas`, `cancelar_cita`, `reprogramar_cita`, `derivar_a_humano`. Los audios se transcriben (servicio aparte); las imágenes se guardan y se adjuntan a la cita.
 
 **Recordatorio:** uno solo, ~11 h antes, con plantilla de WhatsApp (casi siempre cae fuera de la ventana de 24 h, así que tiene costo). No se envía de noche (07:00 a 21:00, valor propuesto que falta validar).
 
-**Datos personales:** aviso de tratamiento de datos en el primer mensaje; se entiende aceptado al seguir conversando (decisión de Juan José; se le advirtió del riesgo con la Ley 1581 de 2012 y que debe revisarse con un abogado). Se registra en `consentimientos`.
+**Datos personales:** aviso de tratamiento de datos en el primer mensaje, que nombra a Meta y a OpenAI como terceros que reciben los datos; se entiende aceptado al seguir conversando (decisión de Juan José; se le advirtió del riesgo con la Ley 1581 de 2012 y que debe revisarse con un abogado). Se registra en `consentimientos`.
 
 **Modelo de negocio:** cobro mensual por cantidad de barberos o de citas, prueba de 15 días, cobro **manual** en el MVP (estados `prueba` / `activo` / `suspendido`, tabla `pagos`). Turnoo asume los costos de WhatsApp, IA y transcripción: la mensualidad debe cubrirlos y dejar ganancia. Cada plan tendrá límites de barberos, citas al mes y conversaciones de IA al mes (al 80% se avisa al dueño; al 100% la IA deja de responder y deriva).
 
@@ -85,7 +85,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **468 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **520 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 | Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
@@ -95,6 +95,8 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Migración 003: tabla `sesiones` y RLS en `tokens_usuario` | `db/migrations/003_sesiones.sql` |
 | Migración 007: `mensajes.media_id`, para descargar audios e imágenes después | `db/migrations/007_media_id_mensajes.sql` |
 | Webhook de WhatsApp en `/webhooks/whatsapp`: verificación de la URL (`GET`) y recepción (`POST`) con firma `X-Hub-Signature-256` sobre el cuerpo sin procesar. Guarda cliente, conversación y mensaje en una transacción, sin duplicar reenvíos, e ignora negocios suspendidos. Vuelve a la IA al vencer el modo humano. **Probado con WhatsApp real el 5 de noviembre de 2026, solo con mensajes de texto** (ver sección 6.1) | `backend/src/modulos/whatsapp/` |
+| Envío de mensajes de texto por WhatsApp (`enviarMensaje`): exige la ventana de 24 h, guarda el mensaje saliente antes de enviarlo y anota `enviado` o `fallido`. Aún no lo llama nada: lo usará la IA | `backend/src/modulos/whatsapp/whatsapp.envio.ts` |
+| Cuentas de WhatsApp: el superadmin las registra, lista y cambia por `/negocios/:id/whatsapp`. El token de Meta se guarda cifrado con AES-256-GCM (clave en `CLAVE_CIFRADO_TOKENS`) y nunca se devuelve | `backend/src/modulos/whatsapp/whatsapp.cuentas.ts`, `backend/src/compartido/cifrado.ts` |
 | Migración 006: `citas.cancelada_por` admite `sistema` | `db/migrations/006_cancelada_por_sistema.sql` |
 | Tareas internas, al arrancar y cada minuto: expirar `por_aprobar` vencidas (liberan el hueco), autocompletar citas pasadas `horas_autocompletar_cita` desde su fin (hasta 500 por ciclo cada una) y limpiar `intentos_login` vencidos | `backend/src/tareas/` |
 | Migración 005: tabla `intentos_login`, visible solo en el contexto de sistema | `db/migrations/005_intentos_login.sql` |
@@ -106,8 +108,9 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 
 **No existe todavía:**
 
-- Integración de la IA, envío de mensajes por WhatsApp, panel, despliegue y envío de correo.
-- Del webhook falta: aviso de tratamiento de datos y su consentimiento, descarga de audios e imágenes, estados de entrega y una ruta para registrar la cuenta de WhatsApp de un negocio (hoy se hace con SQL).
+- Integración de la IA, panel, despliegue y envío de correo.
+- Del webhook falta: aviso de tratamiento de datos y su consentimiento, descarga de audios e imágenes y estados de entrega (los `statuses` de Meta).
+- Del envío falta: plantillas (fuera de la ventana de 24 h) y la prueba con WhatsApp real.
 - Tareas con WhatsApp: recordatorios, avisos de derivación y avisos al cliente.
 - Creación de planes: la tabla `planes` sigue vacía a propósito (sección 7), así que hoy solo se puede asignar un plan creado con SQL.
 - CORS en `app.ts`: hace falta para el panel.
@@ -128,7 +131,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 468 pruebas
+npm test              # 520 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -139,7 +142,7 @@ sudo docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 
 
 ## 5. Reglas de crear, cancelar, reprogramar y aprobar citas (HECHO en la sesión 2)
 
-> Ya implementado y probado. Se conserva como referencia de las reglas. **El siguiente paso está en la sección 6.1.**
+> Ya implementado y probado. Se conserva como referencia de las reglas. **El siguiente paso está en la sección 6.2.**
 
 Es el segundo tramo del módulo `backend/src/modulos/citas/`. Todo dentro de **una transacción** con `conNegocio`, con la lógica en el servicio y el SQL en el repositorio. Lista de reglas que debe aplicar, en orden:
 
@@ -188,14 +191,14 @@ Una rama y un pull request por punto, con el flujo de la sección 1:
 6. Tareas internas: autocompletar citas, expirar `por_aprobar` y limpiar `intentos_login` vencidos.
 7. Webhook de WhatsApp.
 
-**Estado:** puntos 0 a 7 hechos y webhook probado con WhatsApp real. **Siguiente paso:** acordar el plan de la integración de la IA.
+**Estado:** puntos 0 a 7 hechos y webhook probado con WhatsApp real. Sigue el plan de la sección 6.2.
 
 **Conectar una cuenta de WhatsApp al webhook:**
 
 1. `WHATSAPP_APP_SECRET` y `WHATSAPP_VERIFY_TOKEN` en `backend/.env`. Se configuran una vez por app de Meta, no por negocio.
 2. URL pública con HTTPS, terminada en `/webhooks/whatsapp`, configurada en WhatsApp > Configuración de la app de Meta, con el mismo token de verificación. En desarrollo sirve un túnel: `cloudflared tunnel --url http://localhost:3000`. Expone toda la API, así que se cierra al terminar, y al reabrirlo la dirección cambia.
 3. Suscripción al campo `messages`, el único que Turnoo procesa. El botón Test de Meta confirma el túnel y la firma: usa el número ficticio `123456123`, así que la API registra "cuenta de WhatsApp desconocida" y no guarda nada.
-4. Una fila en `whatsapp_cuentas` con el `Phone Number ID` y el `WABA ID` de la cuenta. Hoy se hace con SQL.
+4. Registrar la cuenta con `POST /negocios/:id/whatsapp` (sesión de superadmin): `phoneNumberId`, `wabaId`, `numeroVisible` y `token`. El token debe ser permanente (de un usuario del sistema de Meta): el temporal del panel vence en horas. Requiere `CLAVE_CIFRADO_TOKENS` en `backend/.env`; si esa clave se pierde, hay que volver a registrar el token de cada cuenta con `PATCH /negocios/:id/whatsapp/:cuentaId`.
 5. **Suscribir la app a la cuenta de WhatsApp Business (WABA).** Sin este paso, la prueba del paso 3 funciona, pero Meta no envía los mensajes reales. Se hace una vez por cuenta, con un token de acceso de la app:
 
 ```bash
@@ -231,11 +234,46 @@ Decisiones ya tomadas para estos puntos:
 - **Bloqueos:** el dueño debe enviar `profesionalId`, o `null` para todo el negocio, para que un olvido no cierre el negocio. El empleado solo actúa sobre su barbero y ve también los cierres del negocio. Un bloqueo o un horario se cambia borrándolo y creándolo de nuevo.
 - **Reenviar invitación:** solo para usuarios pendientes o desactivados, y anula los enlaces anteriores. Igual que la recuperación, el dueño solo puede pedirla para empleados, porque el enlace define la contraseña.
 
+### 6.2 Plan de la IA (acordado en la sesión 6)
+
+**Decisiones:**
+
+- **Proveedor:** OpenAI, porque Juan José ya tiene saldo cargado. Se usa el modelo mini más barato que siga vigente, con el nombre en una variable de entorno. Toda la llamada al proveedor queda en un solo archivo. La clave de API va solo en `backend/.env`.
+- **Modelo, por confirmar:** el 5 de noviembre de 2026, la documentación de OpenAI muestra `gpt-5.4-mini` como el único mini vigente sin aviso de retiro (USD 0,75 / 4,50 por millón de tokens de entrada / salida). `gpt-5-mini` es más barato (USD 0,25 / 2,00), pero OpenAI lo retira el 11 de diciembre de 2026. `gpt-6-luna` no se llama mini, pero es más barato (USD 0,10 / 0,50) y es el reemplazo que OpenAI indica para varios minis.
+- **Procesamiento:** una marca de pendiente en la conversación y un proceso dentro de la API que la toma con `SKIP LOCKED`, de a una por conversación y en orden. Sin pg-boss.
+- **Mensajes seguidos:** se espera 5 segundos desde el último y se responde todo junto.
+- **Token de Meta:** uno por cuenta, cifrado con AES-256-GCM. La clave vive en `backend/.env`, nunca en la base. Hace falta un token permanente de usuario del sistema.
+- **Aviso de datos:** el primer mensaje recibe solo el aviso y no pasa por la IA. El consentimiento se registra cuando el cliente vuelve a escribir. El aviso nombra a Meta y a OpenAI como terceros que reciben los datos.
+- **Confirmación:** antes de crear la cita, la IA confirma día, hora, barbero y servicios, y espera el sí del cliente.
+- **Fallos de la IA:** hasta 3 reintentos en pocos minutos. Si sigue fallando, deriva con motivo `error` y avisa al cliente que una persona lo contactará.
+- **Audios e imágenes:** primero solo texto. Deben quedar hechos antes de atender clientes reales.
+
+**Reglas para que un modelo barato agende bien:**
+
+- La IA no calcula fechas: el backend le entrega la fecha de hoy y el día de la semana en la zona del negocio, y las funciones reciben fechas ya resueltas.
+- Siempre consulta la disponibilidad con la función antes de ofrecer horarios, y nunca inventa horarios ni precios.
+- El teléfono del cliente nunca se envía al modelo, y lo que escribe el cliente se trata como texto no confiable.
+- Un reintento nunca puede crear una cita doble.
+- Las pruebas automáticas usan un modelo simulado. Además hay un conjunto de 15 a 20 conversaciones de prueba en español con casos difíciles: cambia de hora, pide algo imposible, escribe mal, pregunta fuera de tema, o usa fechas como "mañana" o "el otro viernes". Si el modelo no las pasa todas, se sube de modelo cambiando solo la variable de entorno.
+- **Antes de correr pruebas reales con costo (OpenAI o WhatsApp), se pide el visto bueno de Juan José.**
+
+**Puntos, un pull request por cada uno:**
+
+1. Enviar mensajes por WhatsApp y guardar el token cifrado. **Hecho** (falta la prueba con WhatsApp real).
+2. Aviso de datos y consentimiento, más la revisión de los mensajes sin `from`.
+3. Procesamiento de mensajes pendientes, con la espera de 5 segundos.
+4. Rutas para que el dueño administre la base de conocimiento.
+5. IA con sus 7 funciones, solo texto, y el conjunto de conversaciones de prueba.
+6. Derivación, conteo de tokens y límites del plan.
+7. Audios e imágenes.
+
+**Antes de atender clientes reales** también hace falta el aviso al dueño cuando la IA deriva, que usa una plantilla y entra con las tareas de WhatsApp. Antes del despliegue se propondrá una tarea aparte para llevar el control de las migraciones aplicadas.
+
 ## 7. Pendientes por decidir
 
 - Planes: nombres, precios y límites concretos (la tabla `planes` está vacía a propósito).
 - Cómo se factura WhatsApp a Meta para que lo pague Turnoo (por defecto Meta le cobra al dueño de cada cuenta) y cómo se da de alta cada negocio (manual al inicio; el registro integrado de Meta exige verificación de la empresa).
-- Proveedor y modelo de IA, y servicio de transcripción de audio (la API de Claude no recibe audio, como se sabe hasta hoy).
+- Servicio de transcripción de audio. El proveedor de IA ya está decidido (OpenAI, sección 6.2); falta confirmar el modelo.
 - Servicio de envío de correos (invitaciones y recuperación de contraseña).
 - Política de retención de mensajes y audios.
 - Revisión legal del texto de autorización de datos y de la política de tratamiento (Ley 1581 de 2012).
@@ -305,3 +343,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | 3 | Autenticación y usuarios. Decisiones: sesión en la base (revocable), argon2, invitaciones y recuperación SIN correo (el backend entrega el enlace al dueño/superadmin, que se lo pasa a la persona; nunca a quien lo pide, para que nadie pueda robar cuentas). El enlace lleva el token en el fragmento `#token=` para que no quede en registros. Verificado rompiendo 10 reglas de seguridad a propósito. Pendientes: límite de intentos de login, correo, rutas de citas, webhook. |
 | 4 | Rutas HTTP de citas para el panel y módulo de clientes. Decisiones: el panel agenda enviando teléfono y nombre (se busca o se crea el cliente); un empleado solo ve y maneja las citas de su barbero y una cita ajena responde 404; el superadmin no entra a citas de un negocio; los rangos de fechas se piden en ISO con zona y el máximo es 62 días. Verificado rompiendo 8 reglas de permisos y de clientes a propósito. Pendientes: webhook, rutas de administración (barberos, servicios, horarios, clientes, usuarios), límite de intentos de login. |
 | 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Punto 1: módulo de negocios y suspensión completa (ya no se crea un cliente ni se administran usuarios estando suspendido), con 31 pruebas nuevas; se verificó rompiendo reglas a propósito. Corrección: la versión anterior de este archivo decía que un negocio suspendido podía aprobar, rechazar y marcar, y era falso; esas acciones ya lo impedían. Punto 2: barberos y usuarios, con 46 pruebas nuevas; la recuperación ya no reactiva usuarios y se verificó rompiendo reglas a propósito, incluidas las carreras con bloqueos. Punto 3: servicios, horarios y bloqueos, con 57 pruebas nuevas; se verificó rompiendo reglas a propósito y de punta a punta, sin SQL, hasta agendar una cita. Punto 4: clientes, con la migración 004 y 58 pruebas nuevas; se verificó rompiendo reglas a propósito, incluidas las carreras entre agendar y anonimizar. Se agregó una excepción a la suspensión: el dueño puede anonimizar, por la Ley 1581. Punto 5: límite de intentos de login y `SALTOS_PROXY`, con la migración 005 y 33 pruebas nuevas; se verificó rompiendo reglas a propósito, incluidas las peticiones simultáneas. Punto 6: tareas internas con temporizador simple, la migración 006 y 35 pruebas nuevas; se verificó rompiendo reglas a propósito y arrancando el servidor real contra `turnoo_test`. Punto 7: webhook de WhatsApp con la migración 007 y 56 pruebas nuevas; se verificó rompiendo reglas a propósito y con peticiones firmadas al servidor real contra `turnoo_test`, sin WhatsApp real porque la cuenta de Meta aún no está lista. Después se probó con WhatsApp real: faltaba suscribir la app a la cuenta de WhatsApp Business, y con ese paso llegaron y se guardaron dos mensajes de texto. Siguiente: acordar el plan de la IA. |
+| 6 | Se acordó el plan de la IA (sección 6.2): OpenAI con el modelo en una variable de entorno, procesamiento propio con `SKIP LOCKED` sin pg-boss, aviso de datos antes de la IA y consentimiento al seguir conversando, y reglas para que un modelo barato agende bien. Se corrigió `ARQUITECTURA.md`: decía que el consentimiento se registraba al enviar el aviso. Punto 1: envío de mensajes de texto y registro de cuentas de WhatsApp con el token cifrado (AES-256-GCM), con 52 pruebas nuevas; se verificó rompiendo reglas a propósito (34 de 37 detectadas; una era un hueco real y se agregó su prueba, las otras dos no cambian el comportamiento). Sin prueba con WhatsApp real todavía. |
