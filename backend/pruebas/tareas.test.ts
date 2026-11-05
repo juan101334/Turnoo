@@ -376,6 +376,17 @@ describe('tareas internas', () => {
       expect(JSON.stringify(datos)).not.toContain('573001234567');
     });
 
+    it('un ciclo real corre las tres tareas', async () => {
+      const completar = await citaQueTermina(a, antes(30 * HORA_MS));
+      const expirar = await porAprobar(a, antes(1000));
+      await conSistema((tx) => tx.consultar("INSERT INTO intentos_login VALUES ('del-ciclo', 1, $1)", [antes(HORA_MS)]));
+      await ejecutarCiclo(AHORA);
+      expect((await leerCita(a, completar)).estado).toBe('completada');
+      expect((await leerCita(a, expirar)).estado).toBe('cancelada');
+      const { rowCount } = await conSistema((tx) => tx.consultar("SELECT 1 FROM intentos_login WHERE clave = 'del-ciclo'"));
+      expect(rowCount).toBe(0);
+    });
+
     it('un ciclo real no registra datos de clientes', async () => {
       const cliente = await crearCliente(a, 'Nombre Privado');
       const { rows } = await conNegocio(a.negocioId, (tx) =>
