@@ -10,16 +10,26 @@ import { rutasClientes } from './modulos/clientes/clientes.rutas.js';
 import { rutasMiNegocio, rutasNegocios } from './modulos/negocios/negocios.rutas.js';
 import { rutasBloqueos } from './modulos/profesionales/agenda.rutas.js';
 import { rutasProfesionales } from './modulos/profesionales/profesionales.rutas.js';
+import { crearRutasWhatsapp } from './modulos/whatsapp/whatsapp.rutas.js';
+import type { ConfiguracionWebhook } from './modulos/whatsapp/whatsapp.tipos.js';
 
-export function crearApp({ saltosProxy = entorno.SALTOS_PROXY }: { saltosProxy?: number } = {}) {
+interface OpcionesApp {
+  saltosProxy?: number;
+  whatsapp?: ConfiguracionWebhook;
+}
+
+export function crearApp({
+  saltosProxy = entorno.SALTOS_PROXY,
+  whatsapp = { appSecret: entorno.WHATSAPP_APP_SECRET, verifyToken: entorno.WHATSAPP_VERIFY_TOKEN },
+}: OpcionesApp = {}) {
   const app = express();
   app.disable('x-powered-by');
   // Define de dónde sale req.ip, que usa el límite de intentos de login.
   app.set('trust proxy', saltosProxy);
 
   // IMPORTANTE: el webhook de WhatsApp necesita el cuerpo SIN procesar para
-  // verificar la firma de Meta. Cuando exista, su router se registra ANTES de
-  // la siguiente línea, con su propio express.raw().
+  // verificar la firma de Meta. Por eso va ANTES de express.json().
+  app.use('/webhooks/whatsapp', crearRutasWhatsapp(whatsapp));
   app.use(express.json({ limit: '100kb' }));
 
   // Comprobación de que la API y la base de datos responden.

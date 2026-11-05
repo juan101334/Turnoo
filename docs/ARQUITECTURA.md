@@ -147,7 +147,7 @@ stateDiagram-v2
 
 ## 8. Recorrido de un mensaje entrante
 
-1. Meta llama al webhook. Se verifica la firma `X-Hub-Signature-256` sobre el cuerpo sin procesar, se responde 200 y se encola.
+1. Meta llama al webhook. Se verifica la firma `X-Hub-Signature-256` sobre el cuerpo sin procesar. Se guarda el mensaje (pasos 2 y 3) y luego se responde 200, de modo que si la base falla Meta lo reenvía. Hoy el recorrido llega hasta el paso 3 y el regreso del modo humano; lo demás se construye con el envío de mensajes y la IA.
 2. `fn_buscar_cuenta_whatsapp` identifica el negocio. Si está suspendido, se ignora. Se abre la transacción con su contexto.
 3. Se guarda el mensaje (`ON CONFLICT (wa_message_id) DO NOTHING`; si ya existía, se detiene) y se busca o crea el cliente y la conversación.
 4. Si es el primer contacto, se envía el aviso de tratamiento de datos y se registra el consentimiento.

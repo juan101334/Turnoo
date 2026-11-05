@@ -19,6 +19,9 @@ const esquema = z.object({
   PANEL_URL: z.url().default('http://localhost:3001'),
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
   // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
+  // Webhook de WhatsApp. Vacíos, el webhook rechaza todo: así la API arranca sin cuenta de Meta.
+  WHATSAPP_APP_SECRET: z.string().default(''),
+  WHATSAPP_VERIFY_TOKEN: z.string().default(''),
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 });
 

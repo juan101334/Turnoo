@@ -1,4 +1,4 @@
-import { logger } from '../compartido/logger.js';
+import { errorParaLog, logger } from '../compartido/logger.js';
 import { conSistema, type Transaccion } from '../db/contexto.js';
 import { inicioDeVentanaVigente } from '../modulos/auth/auth.intentos.js';
 import { borrarIntentosVencidos } from '../modulos/auth/auth.repositorio.js';
@@ -59,7 +59,6 @@ const TAREAS: Tarea[] = [
 
 /**
  * Corre cada tarea una vez y nunca lanza: el fallo de una no frena a las demás ni tumba la API.
- * Del error solo se registra lo necesario: el `detail` de PostgreSQL puede traer datos de la fila.
  */
 export async function ejecutarCiclo(ahora: Date, tareas: Tarea[] = TAREAS): Promise<void> {
   for (const { nombre, ejecutar } of tareas) {
@@ -73,8 +72,7 @@ export async function ejecutarCiclo(ahora: Date, tareas: Tarea[] = TAREAS): Prom
         logger.debug({ tarea: nombre, cantidad, duracionMs }, 'Tarea interna sin cambios');
       }
     } catch (error) {
-      const { message, code, stack } = error as { message?: string; code?: string; stack?: string };
-      logger.error({ tarea: nombre, fallo: { mensaje: message, codigo: code, stack } }, 'Falló una tarea interna');
+      logger.error({ tarea: nombre, fallo: errorParaLog(error) }, 'Falló una tarea interna');
     }
   }
 }
