@@ -5,6 +5,7 @@ import { crearApp } from '../src/app.js';
 import { logger } from '../src/compartido/logger.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
 import { anonimizarCliente } from '../src/modulos/clientes/clientes.servicio.js';
+import { firmaValida } from '../src/modulos/whatsapp/whatsapp.firma.js';
 import * as repositorio from '../src/modulos/whatsapp/whatsapp.repositorio.js';
 import { procesarEvento } from '../src/modulos/whatsapp/whatsapp.servicio.js';
 import { crearNegocio, limpiar, type NegocioDePrueba } from './ayudas.js';
@@ -204,6 +205,12 @@ describe('webhook de WhatsApp', () => {
       });
     });
 
+    it('con clave vacía ninguna firma es válida, ni siquiera la correcta', () => {
+      const cuerpo = Buffer.from('{}');
+      expect(firmaValida(cuerpo, firmar(cuerpo, ''), '')).toBe(false);
+      expect(firmaValida(cuerpo, firmar(cuerpo), SECRETO)).toBe(true);
+    });
+
     it('un cuerpo mayor al límite responde 413', async () => {
       const cuerpo = Buffer.alloc(3 * 1024 * 1024 + 1, 'a');
       expect((await enviar(cuerpo, firmar(cuerpo))).status).toBe(413);
@@ -401,6 +408,13 @@ describe('webhook de WhatsApp', () => {
       ['lista', []],
     ])('%s responde 200', async (_nombre, datos) => {
       expect((await enviarEvento(datos)).status).toBe(200);
+    });
+
+    it('un evento válido de otro producto no se guarda', async () => {
+      const telefono = nuevoTelefono();
+      const r = await enviarEvento({ ...evento(cuentaA, [mensajeDeTexto(telefono)]), object: 'page' });
+      expect(r.status).toBe(200);
+      expect(await clienteDe(a, telefono)).toBeUndefined();
     });
 
     it('un cuerpo firmado que no es JSON responde 200: reenviarlo no lo arregla', async () => {
