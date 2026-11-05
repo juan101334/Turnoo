@@ -13,9 +13,18 @@ export interface MensajeEntrante {
   enviadoEn: Date;
 }
 
+/** Un cliente nuevo para esta versión del aviso de datos: hay que enviárselo. */
+export interface AvisoPendiente {
+  negocioId: string;
+  conversacionId: string;
+  clienteId: string;
+}
+
 export interface ResultadoEvento {
   /** Mensajes que no se pudieron guardar por un fallo que puede ser pasajero. */
   fallidos: number;
+  /** Uno por cliente, aunque haya escrito varios mensajes en el mismo evento. */
+  avisos: AvisoPendiente[];
 }
 
 /** Una cuenta de WhatsApp de un negocio, tal como la ve el superadmin. Nunca incluye el token. */
@@ -60,4 +69,6 @@ export type RespuestaMeta =
 export interface ConfiguracionWebhook {
   appSecret: string;
   verifyToken: string;
+  /** Solo en pruebas: reemplaza la llamada a Meta al enviar el aviso de datos. */
+  pedir?: typeof fetch;
 }
