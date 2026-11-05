@@ -579,4 +579,206 @@ describe('webhook de WhatsApp', () => {
       expect((await mensajesDe(a, telefono)).map((f) => f.contenido)).toEqual(['Mensaje nuevo']);
     });
   });
+
+  describe('clientes por BSUID (nombre de usuario de WhatsApp)', () => {
+    let bsuids = 0;
+    const nuevoBsuid = () => `CO.${Date.now()}${String(++bsuids).padStart(4, '0')}`;
+
+    /** Mensaje con BSUID y, si se indica, también teléfono. Sin `from` cuando no hay teléfono. */
+    function mensajeConBsuid(bsuid: string | null, telefono: string | null, cuerpo = 'Hola') {
+      return {
+        id: `wamid.${randomUUID()}`,
+        ...(telefono !== null && { from: telefono }),
+        ...(bsuid !== null && { from_user_id: bsuid }),
+        timestamp: segundos(AHORA),
+        type: 'text',
+        text: { body: cuerpo },
+      };
+    }
+
+    const contacto = (bsuid: string, nombre: string, telefono?: string) => ({
+      profile: { name: nombre, username: 'usuario.de.prueba' },
+      user_id: bsuid,
+      ...(telefono && { wa_id: telefono }),
+    });
+
+    interface FilaCliente {
+      id: string;
+      nombre: string | null;
+      telefono: string | null;
+      wa_user_id: string | null;
+    }
+
+    const clientesDe = (n: NegocioDePrueba, condicion: string, valor: string) =>
+      conNegocio(n.negocioId, async (tx) =>
+        (
+          await tx.consultar<FilaCliente>(
+            `SELECT id, nombre, telefono, wa_user_id FROM clientes WHERE ${condicion} = $1 ORDER BY created_at, id`,
+            [valor],
+          )
+        ).rows,
+      );
+
+    const mensajesDelCliente = (n: NegocioDePrueba, clienteId: string) =>
+      conNegocio(n.negocioId, async (tx) =>
+        (
+          await tx.consultar<{ contenido: string }>(
+            `SELECT m.contenido FROM mensajes m JOIN conversaciones c ON c.id = m.conversacion_id
+              WHERE c.cliente_id = $1 ORDER BY m.creado_en, m.id`,
+            [clienteId],
+          )
+        ).rows.map((f) => f.contenido),
+      );
+
+    it('sin teléfono crea el cliente con su BSUID y el nombre de su contacto', async () => {
+      const bsuid = nuevoBsuid();
+      const r = await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, 'Sin teléfono')], [contacto(bsuid, 'Ana Usuario')]));
+      expect(r.status).toBe(200);
+      const [cliente, ...otros] = await clientesDe(a, 'wa_user_id', bsuid);
+      expect(otros).toEqual([]);
+      expect(cliente).toMatchObject({ telefono: null, wa_user_id: bsuid, nombre: 'Ana Usuario' });
+      expect(await mensajesDelCliente(a, cliente!.id)).toEqual(['Sin teléfono']);
+    });
+
+    it('con teléfono y BSUID guarda ambos; después, solo con BSUID, es el mismo cliente', async () => {
+      const bsuid = nuevoBsuid();
+      const telefono = nuevoTelefono();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, telefono, 'Uno')], [contacto(bsuid, 'Beto', telefono)]));
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, 'Dos')]));
+      const clientes = await clientesDe(a, 'wa_user_id', bsuid);
+      expect(clientes).toHaveLength(1);
+      expect(clientes[0]).toMatchObject({ telefono, nombre: 'Beto' });
+      expect(await mensajesDelCliente(a, clientes[0]!.id)).toEqual(['Uno', 'Dos']);
+    });
+
+    it('a un cliente conocido solo por teléfono se le guarda el BSUID cuando llega', async () => {
+      const telefono = nuevoTelefono();
+      const bsuid = nuevoBsuid();
+      await enviarEvento(evento(cuentaA, [mensajeDeTexto(telefono, 'Viejo')]));
+      const original = await clienteDe(a, telefono);
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, telefono, 'Con BSUID')]));
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, 'Solo BSUID')]));
+      const [cliente, ...otros] = await clientesDe(a, 'wa_user_id', bsuid);
+      expect(otros).toEqual([]);
+      expect(cliente!.id).toBe(original!.id);
+      expect(await mensajesDelCliente(a, cliente!.id)).toEqual(['Viejo', 'Con BSUID', 'Solo BSUID']);
+    });
+
+    it('a un cliente conocido solo por BSUID se le completa el teléfono', async () => {
+      const bsuid = nuevoBsuid();
+      const telefono = nuevoTelefono();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null)]));
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, telefono)]));
+      expect(await clientesDe(a, 'wa_user_id', bsuid)).toEqual([expect.objectContaining({ telefono })]);
+    });
+
+    it('no le pone a un cliente un teléfono que ya usa otro', async () => {
+      const bsuid = nuevoBsuid();
+      const telefono = nuevoTelefono();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, 'Por BSUID')]));
+      // Otro cliente con ese número, por ejemplo creado desde el panel.
+      await conNegocio(a.negocioId, (tx) =>
+        tx.consultar(`INSERT INTO clientes (negocio_id, telefono, nombre) VALUES ($1, $2, 'Del panel')`, [a.negocioId, telefono]),
+      );
+      const r = await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, telefono, 'Con teléfono')]));
+      expect(r.status).toBe(200);
+      const [porBsuid] = await clientesDe(a, 'wa_user_id', bsuid);
+      expect(porBsuid).toMatchObject({ telefono: null });
+      expect(await mensajesDelCliente(a, porBsuid!.id)).toEqual(['Por BSUID', 'Con teléfono']);
+      expect(await clientesDe(a, 'telefono', telefono)).toEqual([expect.objectContaining({ nombre: 'Del panel', wa_user_id: null })]);
+    });
+
+    it('un número reciclado (mismo teléfono, otro BSUID) es una persona nueva y no ve lo anterior', async () => {
+      const telefono = nuevoTelefono();
+      const viejo = nuevoBsuid();
+      const nuevo = nuevoBsuid();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(viejo, telefono, 'De la persona anterior')]));
+      const [anterior] = await clientesDe(a, 'wa_user_id', viejo);
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(nuevo, telefono, 'De la persona nueva')]));
+
+      const [persona] = await clientesDe(a, 'wa_user_id', nuevo);
+      expect(persona!.id).not.toBe(anterior!.id);
+      expect(persona).toMatchObject({ telefono });
+      expect(await mensajesDelCliente(a, persona!.id)).toEqual(['De la persona nueva']);
+      // La persona anterior conserva su historial y su BSUID, pero ya no el número.
+      expect(await clientesDe(a, 'wa_user_id', viejo)).toEqual([expect.objectContaining({ id: anterior!.id, telefono: null })]);
+      expect(await mensajesDelCliente(a, anterior!.id)).toEqual(['De la persona anterior']);
+    });
+
+    it('un BSUID con otro formato se ignora: con teléfono sigue, sin teléfono se descarta', async () => {
+      const telefono = nuevoTelefono();
+      for (const malo of ['13491208655302741918', 'co.123', 'CO.', 'CO.12-34', `CO.${'1'.repeat(129)}`, 'US.ENT.123']) {
+        expect((await enviarEvento(evento(cuentaA, [mensajeConBsuid(malo, null)]))).status).toBe(200);
+        expect(await clientesDe(a, 'wa_user_id', malo)).toEqual([]);
+      }
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid('co.123', telefono)]));
+      expect(await clientesDe(a, 'telefono', telefono)).toEqual([expect.objectContaining({ wa_user_id: null })]);
+    });
+
+    it('un teléfono inválido con BSUID válido crea el cliente solo con el BSUID', async () => {
+      const bsuid = nuevoBsuid();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, 'no-es-telefono')]));
+      expect(await clientesDe(a, 'wa_user_id', bsuid)).toEqual([expect.objectContaining({ telefono: null })]);
+    });
+
+    it('mensajes simultáneos de la misma persona sin teléfono crean un solo cliente', async () => {
+      const bsuid = nuevoBsuid();
+      const respuestas = await Promise.all(
+        Array.from({ length: 8 }, (_, i) => enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, `M${i}`)]))),
+      );
+      expect(respuestas.map((r) => r.status)).toEqual(Array(8).fill(200));
+      const clientes = await clientesDe(a, 'wa_user_id', bsuid);
+      expect(clientes).toHaveLength(1);
+      expect(await mensajesDelCliente(a, clientes[0]!.id)).toHaveLength(8);
+    });
+
+    it('el mismo BSUID en dos negocios son dos clientes distintos', async () => {
+      const bsuid = nuevoBsuid();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, 'Para A')]));
+      await enviarEvento(evento(cuentaB, [mensajeConBsuid(bsuid, null, 'Para B')]));
+      const [deA] = await clientesDe(a, 'wa_user_id', bsuid);
+      const [deB] = await clientesDe(b, 'wa_user_id', bsuid);
+      expect(deA!.id).not.toBe(deB!.id);
+      expect(await mensajesDelCliente(a, deA!.id)).toEqual(['Para A']);
+    });
+
+    it('anonimizar quita el BSUID, y si la persona vuelve es un cliente nuevo', async () => {
+      const bsuid = nuevoBsuid();
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, nuevoTelefono(), 'Antes')]));
+      const [viejo] = await clientesDe(a, 'wa_user_id', bsuid);
+      await anonimizarCliente(a.negocioId, viejo!.id);
+      const anonimizado = await clientesDe(a, 'id', viejo!.id);
+      expect(anonimizado).toEqual([{ id: viejo!.id, nombre: null, telefono: null, wa_user_id: null }]);
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null, 'Después')]));
+      const [nuevo] = await clientesDe(a, 'wa_user_id', bsuid);
+      expect(nuevo!.id).not.toBe(viejo!.id);
+      expect(await mensajesDelCliente(a, nuevo!.id)).toEqual(['Después']);
+    });
+
+    it('la base exige teléfono o BSUID a un cliente vigente, y ninguno a uno anonimizado', async () => {
+      const insertar = (sql: string, ...params: unknown[]) =>
+        conNegocio(a.negocioId, (tx) => tx.consultar(sql, [a.negocioId, ...params]));
+      await expect(insertar(`INSERT INTO clientes (negocio_id, nombre) VALUES ($1, 'Nadie')`)).rejects.toMatchObject({ code: '23514' });
+      await expect(
+        insertar(`INSERT INTO clientes (negocio_id, wa_user_id, anonimizado_en) VALUES ($1, $2, now())`, nuevoBsuid()),
+      ).rejects.toMatchObject({ code: '23514' });
+      await expect(insertar(`INSERT INTO clientes (negocio_id, wa_user_id) VALUES ($1, 'mal')`)).rejects.toMatchObject({ code: '23514' });
+      const bsuid = nuevoBsuid();
+      await insertar('INSERT INTO clientes (negocio_id, wa_user_id) VALUES ($1, $2)', bsuid);
+      await expect(insertar('INSERT INTO clientes (negocio_id, wa_user_id) VALUES ($1, $2)', bsuid)).rejects.toThrow();
+    });
+
+    it('el log no lleva el BSUID', async () => {
+      const bsuid = nuevoBsuid();
+      const lineas: unknown[] = [];
+      for (const nivel of ['info', 'warn', 'error'] as const) {
+        vi.spyOn(logger, nivel).mockImplementation(((...args: unknown[]) => void lineas.push(args)) as never);
+      }
+      await enviarEvento(evento(cuentaA, [mensajeConBsuid(bsuid, null)], [contacto(bsuid, 'Nombre Privado')]));
+      const todo = JSON.stringify(lineas);
+      expect(todo).toContain('Mensaje de WhatsApp recibido');
+      expect(todo).not.toContain(bsuid);
+      expect(todo).not.toContain('Nombre Privado');
+    });
+  });
 });

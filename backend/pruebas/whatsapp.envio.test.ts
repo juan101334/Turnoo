@@ -125,6 +125,46 @@ describe('envío de mensajes por WhatsApp', () => {
     expect(mensaje!.creado_en).toEqual(AHORA);
   });
 
+  describe('destinatario', () => {
+    /** Cambia cómo se conoce al cliente de la conversación: teléfono, BSUID o ambos. */
+    const fijarIdentidad = (c: Conversacion, telefono: string | null, waUserId: string | null) =>
+      conNegocio(a.negocioId, (tx) =>
+        tx.consultar('UPDATE clientes SET telefono = $2, wa_user_id = $3 WHERE id = $1', [c.clienteId, telefono, waUserId]),
+      );
+    const cuerpoEnviado = (pedir: ReturnType<typeof metaAcepta>) => JSON.parse(String(pedir.mock.calls[0]![1]?.body));
+
+    it('con solo BSUID envía a `recipient` y sin `to`', async () => {
+      const c = await conversacion();
+      await fijarIdentidad(c, null, 'CO.88880000000001');
+      const pedir = metaAcepta();
+      expect((await enviar(c, pedir)).estado).toBe('enviado');
+      const cuerpo = cuerpoEnviado(pedir);
+      expect(cuerpo.recipient).toBe('CO.88880000000001');
+      expect(cuerpo).not.toHaveProperty('to');
+    });
+
+    it('con teléfono y BSUID envía solo `to`, que es lo que Meta usa', async () => {
+      const c = await conversacion();
+      await fijarIdentidad(c, c.telefono, 'CO.88880000000002');
+      const pedir = metaAcepta();
+      await enviar(c, pedir);
+      const cuerpo = cuerpoEnviado(pedir);
+      expect(cuerpo.to).toBe(c.telefono);
+      expect(cuerpo).not.toHaveProperty('recipient');
+    });
+
+    it('el log no lleva el BSUID', async () => {
+      const c = await conversacion();
+      await fijarIdentidad(c, null, 'CO.88880000000003');
+      const lineas: unknown[] = [];
+      for (const nivel of ['info', 'warn', 'error'] as const) {
+        vi.spyOn(logger, nivel).mockImplementation(((...args: unknown[]) => void lineas.push(args)) as never);
+      }
+      await enviar(c, metaAcepta());
+      expect(JSON.stringify(lineas)).not.toContain('CO.88880000000003');
+    });
+  });
+
   it('actualiza el último mensaje de la conversación, pero no el del cliente (la ventana de 24 h)', async () => {
     const c = await conversacion(2);
     const antes = await datosConversacion(c);
