@@ -559,7 +559,7 @@ describe('webhook de WhatsApp', () => {
       }
     });
 
-    it('no registra un consentimiento: el aviso de datos todavía no se envía', async () => {
+    it('el primer mensaje no registra un consentimiento: primero va el aviso de datos', async () => {
       const telefono = nuevoTelefono();
       await enviarEvento(evento(cuentaA, [mensajeDeTexto(telefono)]));
       const cliente = await clienteDe(a, telefono);
