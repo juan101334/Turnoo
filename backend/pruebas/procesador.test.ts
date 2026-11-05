@@ -343,6 +343,19 @@ describe('procesador de conversaciones pendientes', () => {
       expect((await estado(p)).estado).toBe('humano');
     });
 
+    it('si el aviso de la derivación ni siquiera se puede intentar (error al enviar), igual queda derivada', async () => {
+      const p = await pendiente(en(0));
+      await cambiar(p, 'ia_intentos = 3');
+      const { atender } = falla([p]);
+      const sinClave = () => {
+        throw new Error('sin clave');
+      };
+      const pedir = metaAcepta();
+      expect(await procesarPendientes(en(10), { atender, envio: { pedir, clave: sinClave } })).toMatchObject({ derivadas: 1 });
+      expect(pedir).not.toHaveBeenCalled();
+      expect((await estado(p)).estado).toBe('humano');
+    });
+
     it('el log del fallo no lleva el texto del error del cliente ni su teléfono', async () => {
       const p = await pendiente(en(0));
       await cambiar(p, 'ia_intentos = 3');
@@ -386,6 +399,45 @@ describe('procesador de conversaciones pendientes', () => {
   });
 
   describe('iniciarProcesador', () => {
+    it('detener a mitad de una vuelta espera a que termine y no programa otra', async () => {
+      const hace = new Date(Date.now() - 60_000);
+      const p = await pendiente(hace);
+      let empezo = false;
+      const { atender, atendidas } = registro([p], async () => {
+        empezo = true;
+        await espera(150);
+      });
+      const procesador = iniciarProcesador({ atender, cadaMs: 10 });
+      await vi.waitFor(() => expect(empezo).toBe(true));
+      await procesador.detener();
+      expect(await estado(p)).toMatchObject({ ia_pendiente_en: null });
+      await cambiar(p, 'ia_pendiente_desde = $2, ia_pendiente_en = $2', hace);
+      await espera(100);
+      expect(atendidas).toHaveLength(1);
+    });
+
+    it('una vuelta que falla en la base no detiene las siguientes', async () => {
+      const hace = new Date(Date.now() - 60_000);
+      const p = await pendiente(hace);
+      const { atender, atendidas } = registro([p]);
+      let vueltas = 0;
+      // La primera vuelta pide una espera que PostgreSQL rechaza (NaN); las demás, una normal.
+      const tiempos = {
+        get esperaMs() {
+          vueltas += 1;
+          return vueltas === 1 ? Number.NaN : 5_000;
+        },
+        esperaMaximaMs: 30_000,
+        reservaMs: 300_000,
+      };
+      const errores = vi.spyOn(logger, 'error').mockImplementation((() => undefined) as never);
+      const procesador = iniciarProcesador({ atender, cadaMs: 10, tiempos });
+      await vi.waitFor(() => expect(atendidas).toEqual([p.conversacionId]));
+      await procesador.detener();
+      expect(vueltas).toBeGreaterThan(1);
+      expect(JSON.stringify(errores.mock.calls)).toContain('Falló una vuelta del procesador de conversaciones');
+    });
+
     it('corre vueltas seguidas y se detiene', async () => {
       // Pendiente hace un minuto según la hora real, que es la que usa el procesador.
       const hace = new Date(Date.now() - 60_000);
