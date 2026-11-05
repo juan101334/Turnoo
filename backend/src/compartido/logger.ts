@@ -14,6 +14,7 @@ export const logger = pino({
       '*.password',
       '*.token',
       '*.telefono',
+      '*.waUserId',
     ],
     censor: '[oculto]',
   },

@@ -8,6 +8,8 @@ import * as repositorio from './whatsapp.repositorio.js';
 import type { MensajeEntrante, ResultadoEvento, TipoMensaje } from './whatsapp.tipos.js';
 
 const MAX_NOMBRE = 100;
+/** BSUID: indicativo ISO del país, un punto y hasta 128 letras o números (ej. CO.1349120865530274). */
+const FORMATO_BSUID = /^[A-Z]{2}\.[A-Za-z0-9]{1,128}$/;
 
 // El formato es de Meta y puede crecer: solo se exige lo que se usa y lo demás se ignora.
 const esquemaEvento = z.object({
@@ -19,8 +21,15 @@ const esquemaCambio = z.object({
   field: z.literal('messages'),
   value: z.object({
     metadata: z.object({ phone_number_id: z.string().min(1) }),
+    // Con nombre de usuario de WhatsApp, `wa_id` puede faltar; `user_id` (el BSUID) llega siempre.
     contacts: z
-      .array(z.object({ wa_id: z.string(), profile: z.object({ name: z.string() }).optional() }))
+      .array(
+        z.object({
+          wa_id: z.string().optional(),
+          user_id: z.string().optional(),
+          profile: z.object({ name: z.string() }).optional(),
+        }),
+      )
       .optional()
       .catch(undefined),
     // Los `statuses` (entregado, leído) llegan aparte y se ignoran: aún no se envían mensajes.
@@ -30,7 +39,9 @@ const esquemaCambio = z.object({
 
 const esquemaMensaje = z.object({
   id: z.string().min(1).max(1000),
-  from: z.string(),
+  // `from` (teléfono) puede faltar si la persona activó su nombre de usuario; `from_user_id` es su BSUID.
+  from: z.string().optional(),
+  from_user_id: z.string().optional(),
   timestamp: z.string(),
   type: z.string(),
   text: z.object({ body: z.string() }).optional().catch(undefined),
@@ -51,15 +62,33 @@ function horaDeEnvio(timestamp: string, ahora: Date): Date {
     : ahora;
 }
 
+/** Un BSUID con otro formato se ignora; un teléfono inválido también, si hay BSUID. */
+function identidad(crudo: z.infer<typeof esquemaMensaje>): { telefono: string | null; waUserId: string | null } {
+  const waUserId = crudo.from_user_id !== undefined && FORMATO_BSUID.test(crudo.from_user_id) ? crudo.from_user_id : null;
+  let telefono: string | null = null;
+  if (crudo.from !== undefined) {
+    try {
+      telefono = normalizarTelefono(crudo.from);
+    } catch (error) {
+      if (waUserId === null) throw error;
+    }
+  }
+  if (telefono === null && waUserId === null) throw new Error('Mensaje sin teléfono ni BSUID');
+  return { telefono, waUserId };
+}
+
 function aMensajeEntrante(
   crudo: z.infer<typeof esquemaMensaje>,
   nombres: Map<string, string>,
   ahora: Date,
 ): MensajeEntrante {
+  const { telefono, waUserId } = identidad(crudo);
+  const nombre = (waUserId !== null ? nombres.get(waUserId) : undefined) ?? (crudo.from !== undefined ? nombres.get(crudo.from) : undefined);
   return {
     waMessageId: crudo.id,
-    telefono: normalizarTelefono(crudo.from),
-    nombre: textoGuardable(nombres.get(crudo.from))?.slice(0, MAX_NOMBRE) ?? null,
+    telefono,
+    waUserId,
+    nombre: textoGuardable(nombre)?.slice(0, MAX_NOMBRE) ?? null,
     tipo: TIPOS[crudo.type] ?? 'otro',
     contenido: textoGuardable(crudo.type === 'text' ? crudo.text?.body : crudo.type === 'image' ? crudo.image?.caption : undefined),
     mediaId: (crudo.type === 'audio' ? crudo.audio?.id : crudo.type === 'image' ? crudo.image?.id : undefined) ?? null,
@@ -71,7 +100,12 @@ function aMensajeEntrante(
 async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante): Promise<void> {
   const { negocioId, cuentaId } = cuenta;
   const nuevo = await conNegocio(negocioId, async (tx) => {
-    const cliente = await repositorioClientes.obtenerOCrear(tx, negocioId, mensaje.telefono, mensaje.nombre);
+    const cliente = await repositorioClientes.obtenerOCrearPorWhatsapp(
+      tx,
+      negocioId,
+      { telefono: mensaje.telefono, waUserId: mensaje.waUserId },
+      mensaje.nombre,
+    );
     const conversacionId = await repositorio.obtenerOCrearConversacion(tx, negocioId, cliente.id, cuentaId);
     const guardado = await repositorio.guardarMensajeEntrante(tx, negocioId, conversacionId, mensaje);
     if (guardado) await repositorio.registrarMensajeDelCliente(tx, conversacionId, mensaje.enviadoEn);
@@ -96,8 +130,11 @@ async function procesarCambio(crudo: unknown, ahora: Date): Promise<number> {
     return 0;
   }
 
+  // El nombre de perfil se busca por BSUID o por teléfono, según lo que traiga el contacto.
   const nombres = new Map(
-    (contacts ?? []).flatMap((c) => (c.profile ? [[c.wa_id, c.profile.name] as const] : [])),
+    (contacts ?? []).flatMap((c) =>
+      c.profile ? [c.user_id, c.wa_id].flatMap((clave) => (clave ? [[clave, c.profile!.name] as const] : [])) : [],
+    ),
   );
   let fallidos = 0;
   for (const elemento of messages) {

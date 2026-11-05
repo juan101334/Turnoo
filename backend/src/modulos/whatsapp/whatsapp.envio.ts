@@ -5,7 +5,7 @@ import { sumarMinutos } from '../../compartido/tiempo.js';
 import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio } from '../../db/contexto.js';
 import { exigirNegocioOperativo } from '../negocios/negocios.reglas.js';
-import { enviarTextoAMeta, type DestinoMeta } from './whatsapp.meta.js';
+import { enviarTextoAMeta, type DestinoMeta, type Destinatario } from './whatsapp.meta.js';
 import * as repositorio from './whatsapp.repositorio.js';
 import type { EmisorSaliente, ResultadoEnvio } from './whatsapp.tipos.js';
 
@@ -53,12 +53,19 @@ export async function enviarMensaje(
   if (!esUuid(negocioId) || !esUuid(conversacionId)) throw new NoEncontrado('La conversación');
   const texto = textoValido(entrada.texto);
 
-  const { mensajeId, destino, telefono } = await conNegocio(negocioId, async (tx) => {
+  const { mensajeId, destino, destinatario } = await conNegocio(negocioId, async (tx) => {
     await exigirNegocioOperativo(tx, negocioId);
     const conversacion = await repositorio.destinoDeConversacion(tx, conversacionId);
     if (!conversacion) throw new NoEncontrado('La conversación');
     if (!conversacion.cuentaActiva) throw new Conflicto('La cuenta de WhatsApp del negocio está desactivada');
-    if (conversacion.telefono === null) throw new Conflicto('El cliente fue anonimizado: ya no se le puede escribir');
+    const destinatario: Destinatario | null =
+      conversacion.telefono !== null
+        ? { telefono: conversacion.telefono }
+        : conversacion.waUserId !== null
+          ? { waUserId: conversacion.waUserId }
+          : null;
+    // Un cliente vigente siempre tiene uno de los dos: sin ninguno, fue anonimizado.
+    if (destinatario === null) throw new Conflicto('El cliente fue anonimizado: ya no se le puede escribir');
     const ventanaAbierta =
       conversacion.ultimoMensajeClienteEn !== null &&
       sumarMinutos(conversacion.ultimoMensajeClienteEn, MINUTOS_VENTANA) > ahora;
@@ -76,10 +83,10 @@ export async function enviarMensaje(
 
     const id = await repositorio.guardarMensajeSaliente(tx, negocioId, conversacionId, emisor, texto, ahora);
     const destinoMeta: DestinoMeta = { phoneNumberId: conversacion.phoneNumberId, token };
-    return { mensajeId: id, destino: destinoMeta, telefono: conversacion.telefono };
+    return { mensajeId: id, destino: destinoMeta, destinatario };
   });
 
-  const respuesta = await enviarTextoAMeta(destino, telefono, texto, pedir);
+  const respuesta = await enviarTextoAMeta(destino, destinatario, texto, pedir);
 
   try {
     await conNegocio(negocioId, (tx) =>

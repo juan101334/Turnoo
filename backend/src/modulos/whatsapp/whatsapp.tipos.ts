@@ -3,7 +3,9 @@ export type TipoMensaje = 'texto' | 'audio' | 'imagen' | 'otro';
 /** Un mensaje de WhatsApp ya validado y en los términos de Turnoo. */
 export interface MensajeEntrante {
   waMessageId: string;
-  telefono: string;
+  /** Al menos uno de los dos: teléfono o BSUID. */
+  telefono: string | null;
+  waUserId: string | null;
   nombre: string | null;
   tipo: TipoMensaje;
   contenido: string | null;
