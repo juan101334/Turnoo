@@ -250,7 +250,7 @@ export async function crearCita(
 
     const profesional = await repositorio.bloquearProfesionalActivo(tx, entrada.profesionalId);
     if (!profesional) throw new NoEncontrado('El barbero');
-    if (!(await repositorio.existeCliente(tx, entrada.clienteId))) throw new NoEncontrado('El cliente');
+    if (!(await repositorio.bloquearClienteVigente(tx, entrada.clienteId))) throw new NoEncontrado('El cliente');
 
     const encontrados = await repositorio.obtenerServiciosDelProfesional(
       tx,

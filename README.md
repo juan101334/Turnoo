@@ -9,14 +9,14 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Parte | Estado |
 |---|---|
 | Diseño de producto y reglas del negocio | Hecho |
-| Base de datos (PostgreSQL, migraciones 001 a 003) | Hecho |
+| Base de datos (PostgreSQL, migraciones 001 a 004) | Hecho |
 | Backend: esqueleto (configuración, conexión a la base, aislamiento por negocio, errores, `/salud`) | Hecho |
 | Backend: citas (disponibilidad, gestión y rutas HTTP) | Hecho |
 | Backend: autenticación (login, sesiones, invitaciones y recuperación) | Hecho |
 | Backend: negocios y su configuración | Hecho |
 | Backend: barberos y usuarios | Hecho |
 | Backend: servicios, horarios y bloqueos | Hecho |
-| Backend: rutas de clientes | Pendiente |
+| Backend: clientes | Hecho |
 | Backend: límite de intentos de login, tareas, webhook de WhatsApp e IA | Pendiente |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |
@@ -49,6 +49,7 @@ Aplicar las migraciones, en orden:
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/001_init.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/002_inasistencias_y_aprobacion.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/003_sesiones.sql
+docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/004_anonimizar_clientes.sql
 ```
 
 Después se le pone contraseña al rol que usa la aplicación, de forma interactiva:

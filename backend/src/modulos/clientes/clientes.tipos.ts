@@ -12,3 +12,28 @@ export interface EntradaCliente {
   telefono: string;
   nombre?: string;
 }
+
+/** Lo que el panel ve de un cliente. Si está anonimizado, sus datos personales son null. */
+export interface Cliente {
+  id: string;
+  nombre: string | null;
+  telefono: string | null;
+  notas: string | null;
+  anonimizadoEn: Date | null;
+  createdAt: Date;
+}
+
+export interface FiltroClientes {
+  /** Solo los que tienen citas con este barbero. null = todo el negocio. */
+  profesionalId: string | null;
+  /** Parte del nombre o del teléfono. */
+  buscar: string | null;
+  limite: number;
+  desplazamiento: number;
+}
+
+export interface CambiosCliente {
+  nombre?: string | null | undefined;
+  telefono?: string | undefined;
+  notas?: string | null | undefined;
+}

@@ -192,7 +192,7 @@ Reglas de seguridad (no negociables):
 - Contraseñas con hash argon2; tokens de sesión, invitación y recuperación guardados solo como hash.
 - La base de datos no se expone a internet: solo la ven los otros contenedores.
 - Copias de seguridad diarias fuera del servidor, y probar la restauración.
-- Ley 1581 de 2012 (Colombia): política de tratamiento de datos, registro de la autorización en `consentimientos` y anonimización (`clientes.anonimizado_en`) cuando alguien pida borrar sus datos.
+- Ley 1581 de 2012 (Colombia): política de tratamiento de datos, registro de la autorización en `consentimientos` y anonimización (`clientes.anonimizado_en`) cuando alguien pida borrar sus datos: se quitan nombre, teléfono y notas, y se borran sus conversaciones. Las citas se conservan sin datos personales.
 - No registrar en los logs el contenido de los mensajes ni los teléfonos completos.
 
 ## 13. Pendientes por decidir

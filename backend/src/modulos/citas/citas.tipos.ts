@@ -109,7 +109,8 @@ export interface Disponibilidad {
 /** Cita lista para mostrar en el panel: con cliente, barbero y servicios (copiados al agendar). */
 export interface CitaDetalle extends Cita {
   clienteNombre: string | null;
-  clienteTelefono: string;
+  /** null si el cliente fue anonimizado. */
+  clienteTelefono: string | null;
   profesionalNombre: string;
   notas: string | null;
   servicios: { nombre: string; duracionMinutos: number; precioCop: number }[];
