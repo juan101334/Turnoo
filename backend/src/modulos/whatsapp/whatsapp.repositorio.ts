@@ -128,6 +128,7 @@ export async function actualizarCuenta(
 
 export interface DestinoConversacion {
   telefono: string | null;
+  waUserId: string | null;
   ultimoMensajeClienteEn: Date | null;
   phoneNumberId: string;
   tokenCifrado: string;
@@ -138,12 +139,13 @@ export interface DestinoConversacion {
 export async function destinoDeConversacion(tx: Transaccion, conversacionId: string): Promise<DestinoConversacion | null> {
   const { rows } = await tx.consultar<{
     telefono: string | null;
+    wa_user_id: string | null;
     ultimo_mensaje_cliente_en: Date | null;
     phone_number_id: string;
     token_acceso_cifrado: string;
     activa: boolean;
   }>(
-    `SELECT cl.telefono, c.ultimo_mensaje_cliente_en, w.phone_number_id, w.token_acceso_cifrado, w.activa
+    `SELECT cl.telefono, cl.wa_user_id, c.ultimo_mensaje_cliente_en, w.phone_number_id, w.token_acceso_cifrado, w.activa
        FROM conversaciones c
        JOIN clientes cl ON cl.id = c.cliente_id
        JOIN whatsapp_cuentas w ON w.id = c.whatsapp_cuenta_id
@@ -155,6 +157,7 @@ export async function destinoDeConversacion(tx: Transaccion, conversacionId: str
   if (!fila) return null;
   return {
     telefono: fila.telefono,
+    waUserId: fila.wa_user_id,
     ultimoMensajeClienteEn: fila.ultimo_mensaje_cliente_en,
     phoneNumberId: fila.phone_number_id,
     tokenCifrado: fila.token_acceso_cifrado,

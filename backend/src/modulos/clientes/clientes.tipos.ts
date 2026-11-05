@@ -7,6 +7,16 @@ export interface ClienteResumen {
   creado: boolean;
 }
 
+/** El cliente que escribe por WhatsApp: se conoce por su teléfono, su BSUID o ambos. */
+export interface ClienteDeWhatsapp {
+  id: string;
+  nombre: string | null;
+  telefono: string | null;
+  /** BSUID de WhatsApp. No se muestra en el panel: solo sirve para reconocer y responder. */
+  waUserId: string | null;
+  creado: boolean;
+}
+
 export interface EntradaCliente {
   /** Se acepta con espacios, guiones, paréntesis o "+". */
   telefono: string;

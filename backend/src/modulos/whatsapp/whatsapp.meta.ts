@@ -13,6 +13,9 @@ export interface DestinoMeta {
   token: string;
 }
 
+/** A quién: por teléfono si se conoce; si no, por BSUID (Meta lo admite desde julio de 2026). */
+export type Destinatario = { telefono: string } | { waUserId: string };
+
 /** Meta responde 429 cuando se envía demasiado rápido, y 5xx cuando falla de su lado. */
 const esReintentable = (estadoHttp: number) => estadoHttp === 429 || estadoHttp >= 500;
 
@@ -27,7 +30,7 @@ function detalleDeError(estadoHttp: number, cuerpo: unknown): string {
 
 export async function enviarTextoAMeta(
   destino: DestinoMeta,
-  telefono: string,
+  destinatario: Destinatario,
   texto: string,
   pedir: typeof fetch = fetch,
 ): Promise<RespuestaMeta> {
@@ -39,7 +42,8 @@ export async function enviarTextoAMeta(
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: telefono,
+        // Con ambos, Meta usa `to`; por eso se envía solo uno.
+        ...('telefono' in destinatario ? { to: destinatario.telefono } : { recipient: destinatario.waUserId }),
         type: 'text',
         text: { body: texto, preview_url: false },
       }),

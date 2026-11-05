@@ -1,5 +1,8 @@
 import type { Transaccion } from '../../db/contexto.js';
-import type { CambiosCliente, Cliente, ClienteResumen, FiltroClientes } from './clientes.tipos.js';
+import type { CambiosCliente, Cliente, ClienteDeWhatsapp, ClienteResumen, FiltroClientes } from './clientes.tipos.js';
+
+/** Espacio de los candados de clientes; no choca con el de las tareas (7001). */
+const ESPACIO_CANDADO_CLIENTE = 7002;
 
 /**
  * Busca al cliente por teléfono dentro del negocio y, si no existe, lo crea.
@@ -20,6 +23,96 @@ export async function obtenerOCrear(
     [negocioId, telefono, nombre],
   );
   return rows[0]!;
+}
+
+interface FilaWhatsapp {
+  id: string;
+  nombre: string | null;
+  telefono: string | null;
+  wa_user_id: string | null;
+}
+
+const COLUMNAS_WHATSAPP = 'id, nombre, telefono, wa_user_id';
+
+const aClienteDeWhatsapp = (f: FilaWhatsapp, creado: boolean): ClienteDeWhatsapp => ({
+  id: f.id,
+  nombre: f.nombre,
+  telefono: f.telefono,
+  waUserId: f.wa_user_id,
+  creado,
+});
+
+async function buscarPor(tx: Transaccion, columna: 'telefono' | 'wa_user_id', valor: string): Promise<FilaWhatsapp | null> {
+  const { rows } = await tx.consultar<FilaWhatsapp>(
+    `SELECT ${COLUMNAS_WHATSAPP} FROM clientes WHERE ${columna} = $1 FOR UPDATE`,
+    [valor],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Busca o crea al cliente que escribe por WhatsApp. Llega con teléfono, con BSUID o con ambos
+ * (al menos uno). El BSUID manda: es la identidad de la cuenta de WhatsApp.
+ *
+ * 1. Por BSUID: si existe, es ese cliente. Se completa el teléfono si le faltaba y nadie más lo usa.
+ * 2. Por teléfono: si existe sin BSUID, es ese cliente y se le guarda el BSUID. Si tiene OTRO
+ *    BSUID, el número pasó a otra persona (WhatsApp recicla números): se le quita el teléfono al
+ *    cliente viejo y se crea uno nuevo, para que la persona nueva no vea las citas de la anterior.
+ * 3. Si no aparece, se crea.
+ *
+ * El candado por BSUID evita que dos mensajes simultáneos de la misma persona creen dos clientes.
+ * Un choque por teléfono con el panel termina en error de UNIQUE: el webhook responde 500 y Meta
+ * lo reenvía, y en el segundo intento el cliente ya existe.
+ */
+export async function obtenerOCrearPorWhatsapp(
+  tx: Transaccion,
+  negocioId: string,
+  identidad: { telefono: string | null; waUserId: string | null },
+  nombre: string | null,
+): Promise<ClienteDeWhatsapp> {
+  const { telefono, waUserId } = identidad;
+  if (telefono === null && waUserId === null) throw new Error('obtenerOCrearPorWhatsapp: falta teléfono o BSUID');
+
+  if (waUserId !== null) {
+    await tx.consultar('SELECT pg_advisory_xact_lock($1::int, hashtext($2))', [
+      ESPACIO_CANDADO_CLIENTE,
+      `${negocioId}:${waUserId}`,
+    ]);
+    const porBsuid = await buscarPor(tx, 'wa_user_id', waUserId);
+    if (porBsuid) {
+      const completarTelefono =
+        telefono !== null && porBsuid.telefono === null && (await buscarPor(tx, 'telefono', telefono)) === null;
+      const { rows } = await tx.consultar<FilaWhatsapp>(
+        `UPDATE clientes SET nombre = COALESCE(nombre, $2), telefono = COALESCE(telefono, $3)
+          WHERE id = $1 RETURNING ${COLUMNAS_WHATSAPP}`,
+        [porBsuid.id, nombre, completarTelefono ? telefono : null],
+      );
+      return aClienteDeWhatsapp(rows[0]!, false);
+    }
+  }
+
+  if (telefono !== null) {
+    const porTelefono = await buscarPor(tx, 'telefono', telefono);
+    if (porTelefono && (porTelefono.wa_user_id === null || waUserId === null)) {
+      const { rows } = await tx.consultar<FilaWhatsapp>(
+        `UPDATE clientes SET nombre = COALESCE(nombre, $2), wa_user_id = COALESCE(wa_user_id, $3)
+          WHERE id = $1 RETURNING ${COLUMNAS_WHATSAPP}`,
+        [porTelefono.id, nombre, waUserId],
+      );
+      return aClienteDeWhatsapp(rows[0]!, false);
+    }
+    if (porTelefono) {
+      // Tiene su propio BSUID, así que sigue siendo un cliente válido sin teléfono.
+      await tx.consultar('UPDATE clientes SET telefono = NULL WHERE id = $1', [porTelefono.id]);
+    }
+  }
+
+  const { rows } = await tx.consultar<FilaWhatsapp>(
+    `INSERT INTO clientes (negocio_id, telefono, wa_user_id, nombre) VALUES ($1, $2, $3, $4)
+     RETURNING ${COLUMNAS_WHATSAPP}`,
+    [negocioId, telefono, waUserId, nombre],
+  );
+  return aClienteDeWhatsapp(rows[0]!, true);
 }
 
 const COLUMNAS = 'id, nombre, telefono, notas, anonimizado_en, created_at';
@@ -135,7 +228,7 @@ export async function anonimizar(tx: Transaccion, clienteId: string): Promise<vo
   await tx.consultar('UPDATE citas SET notas = NULL WHERE cliente_id = $1 AND notas IS NOT NULL', [clienteId]);
   await tx.consultar('DELETE FROM conversaciones WHERE cliente_id = $1', [clienteId]);
   await tx.consultar(
-    'UPDATE clientes SET nombre = NULL, telefono = NULL, notas = NULL, anonimizado_en = now() WHERE id = $1',
+    'UPDATE clientes SET nombre = NULL, telefono = NULL, wa_user_id = NULL, notas = NULL, anonimizado_en = now() WHERE id = $1',
     [clienteId],
   );
 }
