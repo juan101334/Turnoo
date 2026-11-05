@@ -352,6 +352,7 @@ describe('rutas de clientes', () => {
       [{ nombre: 5 }, 'nombre que no es texto'],
       [{ negocioId: NINGUNO }, 'campo desconocido'],
       [{ anonimizadoEn: null }, 'campo protegido'],
+      [{ nombre: 'Válido', anonimizadoEn: '2030-01-01T00:00:00Z' }, 'campo desconocido junto a uno válido'],
     ])('rechaza %j (%s)', async (cuerpo, _motivo) => {
       const { id } = await cliente(a, 'Validación');
       expect((await api(duenoA, 'PATCH', `/clientes/${id}`, cuerpo)).status).toBe(400);
