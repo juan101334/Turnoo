@@ -17,6 +17,9 @@ const esquema = z.object({
     .regex(/^postgres(ql)?:\/\//, 'debe empezar con postgresql://'),
   // Dirección del panel web; con ella se arman los enlaces de invitación y recuperación.
   PANEL_URL: z.url().default('http://localhost:3001'),
+  // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
+  // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
+  SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 const resultado = esquema.safeParse(process.env);

@@ -9,7 +9,7 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Parte | Estado |
 |---|---|
 | Diseño de producto y reglas del negocio | Hecho |
-| Base de datos (PostgreSQL, migraciones 001 a 004) | Hecho |
+| Base de datos (PostgreSQL, migraciones 001 a 005) | Hecho |
 | Backend: esqueleto (configuración, conexión a la base, aislamiento por negocio, errores, `/salud`) | Hecho |
 | Backend: citas (disponibilidad, gestión y rutas HTTP) | Hecho |
 | Backend: autenticación (login, sesiones, invitaciones y recuperación) | Hecho |
@@ -17,7 +17,8 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Backend: barberos y usuarios | Hecho |
 | Backend: servicios, horarios y bloqueos | Hecho |
 | Backend: clientes | Hecho |
-| Backend: límite de intentos de login, tareas, webhook de WhatsApp e IA | Pendiente |
+| Backend: límite de intentos de login | Hecho |
+| Backend: tareas, webhook de WhatsApp e IA | Pendiente |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |
 
@@ -50,6 +51,7 @@ docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/002_inasistencias_y_aprobacion.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/003_sesiones.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/004_anonimizar_clientes.sql
+docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/005_intentos_login.sql
 ```
 
 Después se le pone contraseña al rol que usa la aplicación, de forma interactiva:

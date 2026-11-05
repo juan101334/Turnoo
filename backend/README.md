@@ -64,6 +64,7 @@ Qué verifican hoy (`pruebas/`):
 - **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
 - **rutas de negocios:** alta, plan y estado por el superadmin; datos y configuración por el dueño; permisos y negocio suspendido.
 - **barberos y usuarios:** administración de barberos, límite del plan, citas futuras, asociación con usuarios, invitar, desactivar, reenviar invitación y último dueño activo, incluidas operaciones simultáneas.
+- **límite de login:** contadores por cuenta e IP, por cuenta y por IP; ventana de tiempo, peticiones simultáneas, IPv6 y `X-Forwarded-For` falsificado.
 - **rutas de clientes:** permisos de dueño y empleado, búsqueda, edición, anonimización, negocio suspendido y carreras entre agendar y anonimizar.
 - **servicios, horarios y bloqueos:** gestión por dueño y empleado, citas afectadas, zona horaria del negocio, negocio suspendido, barbero desactivado y el recorrido completo desde crear un barbero hasta agendar.
 
@@ -83,6 +84,7 @@ src/
 │   │   ├── auth.rutas.ts           Rutas /auth/*
 │   │   ├── auth.middleware.ts      exigirSesion y exigirRol
 │   │   ├── auth.servicio.ts        Login, sesiones, invitaciones, recuperación y administración de usuarios
+│   │   ├── auth.intentos.ts        Límite de intentos de login
 │   │   ├── auth.repositorio.ts     SQL del módulo
 │   │   └── auth.tipos.ts           Tipos del módulo
 │   ├── citas/

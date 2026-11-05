@@ -1,7 +1,8 @@
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
-import { ErrorDominio } from './compartido/errores.js';
+import { DemasiadosIntentos, ErrorDominio } from './compartido/errores.js';
 import { logger } from './compartido/logger.js';
+import { entorno } from './config/entorno.js';
 import { pool } from './db/pool.js';
 import { rutasAuth } from './modulos/auth/auth.rutas.js';
 import { rutasCitas } from './modulos/citas/citas.rutas.js';
@@ -10,9 +11,11 @@ import { rutasMiNegocio, rutasNegocios } from './modulos/negocios/negocios.rutas
 import { rutasBloqueos } from './modulos/profesionales/agenda.rutas.js';
 import { rutasProfesionales } from './modulos/profesionales/profesionales.rutas.js';
 
-export function crearApp() {
+export function crearApp({ saltosProxy = entorno.SALTOS_PROXY }: { saltosProxy?: number } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  // Define de dónde sale req.ip, que usa el límite de intentos de login.
+  app.set('trust proxy', saltosProxy);
 
   // IMPORTANTE: el webhook de WhatsApp necesita el cuerpo SIN procesar para
   // verificar la firma de Meta. Cuando exista, su router se registra ANTES de
@@ -47,6 +50,7 @@ export function crearApp() {
 /** Único lugar donde los errores se convierten en respuestas HTTP. */
 function manejarErrores(error: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (error instanceof ErrorDominio) {
+    if (error instanceof DemasiadosIntentos) res.set('Retry-After', String(error.reintentarEnSegundos));
     res.status(error.estadoHttp).json({
       error: { codigo: error.codigo, mensaje: error.message },
     });
