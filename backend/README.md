@@ -64,6 +64,7 @@ Qué verifican hoy (`pruebas/`):
 - **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
 - **rutas de negocios:** alta, plan y estado por el superadmin; datos y configuración por el dueño; permisos y negocio suspendido.
 - **barberos y usuarios:** administración de barberos, límite del plan, citas futuras, asociación con usuarios, invitar, desactivar, reenviar invitación y último dueño activo, incluidas operaciones simultáneas.
+- **tareas internas:** autocompletar, expirar y limpiar con sus límites exactos, negocios suspendidos, dos instancias a la vez, un barbero cambiando la misma cita, log sin datos personales y programador.
 - **límite de login:** contadores por cuenta e IP, por cuenta y por IP; ventana de tiempo, peticiones simultáneas, IPv6 y `X-Forwarded-For` falsificado.
 - **rutas de clientes:** permisos de dueño y empleado, búsqueda, edición, anonimización, negocio suspendido y carreras entre agendar y anonimizar.
 - **servicios, horarios y bloqueos:** gestión por dueño y empleado, citas afectadas, zona horaria del negocio, negocio suspendido, barbero desactivado y el recorrido completo desde crear un barbero hasta agendar.
@@ -79,6 +80,9 @@ src/
 │   ├── pool.ts            Conexión a PostgreSQL (rol turnoo_app)
 │   ├── contexto.ts        conNegocio() y conSistema(): aislamiento entre negocios
 │   └── previas.ts         Las dos consultas anteriores al contexto (webhook y login)
+├── tareas/
+│   ├── tareas.ts          Autocompletar, expirar, limpiar y el ciclo que las corre
+│   └── programador.ts     Temporizador que inicia index.ts
 ├── modulos/
 │   ├── auth/
 │   │   ├── auth.rutas.ts           Rutas /auth/*
@@ -125,7 +129,7 @@ scripts/
 └── crear-superadmin.ts        Crea el primer superadmin
 ```
 
-Los demás módulos del negocio (`modulos/`) y las tareas programadas (`tareas/`) se agregan a medida que se construyen.
+Los demás módulos del negocio (`modulos/`) y las tareas con WhatsApp (`tareas/`) se agregan a medida que se construyen.
 
 ## La regla más importante
 
