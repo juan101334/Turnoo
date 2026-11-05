@@ -19,7 +19,7 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Backend: clientes | Hecho |
 | Backend: límite de intentos de login | Hecho |
 | Backend: tareas internas (autocompletar, expirar y limpiar) | Hecho |
-| Backend: webhook de WhatsApp (recibir y guardar; falta probarlo con WhatsApp real) | Hecho |
+| Backend: webhook de WhatsApp (recibir y guardar; probado con mensajes de texto reales) | Hecho |
 | Backend: envío de mensajes, tareas con WhatsApp e IA | Pendiente |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |

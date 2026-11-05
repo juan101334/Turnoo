@@ -64,7 +64,7 @@ Qué verifican hoy (`pruebas/`):
 - **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
 - **rutas de negocios:** alta, plan y estado por el superadmin; datos y configuración por el dueño; permisos y negocio suspendido.
 - **barberos y usuarios:** administración de barberos, límite del plan, citas futuras, asociación con usuarios, invitar, desactivar, reenviar invitación y último dueño activo, incluidas operaciones simultáneas.
-- **webhook de WhatsApp:** verificación de la URL, firma, reenvíos, negocios suspendidos, datos no válidos, aislamiento, fechas, modo humano y log sin datos personales. Usa mensajes simulados y firmados.
+- **webhook de WhatsApp:** verificación de la URL, firma, reenvíos, negocios suspendidos, datos no válidos, aislamiento, fechas, modo humano y log sin datos personales. Usa mensajes simulados y firmados; la prueba con WhatsApp real se hizo a mano (`docs/CONTEXTO.md`, sección 6.1).
 - **tareas internas:** autocompletar, expirar y limpiar con sus límites exactos, negocios suspendidos, dos instancias a la vez, un barbero cambiando la misma cita, log sin datos personales y programador.
 - **límite de login:** contadores por cuenta e IP, por cuenta y por IP; ventana de tiempo, peticiones simultáneas, IPv6 y `X-Forwarded-For` falsificado.
 - **rutas de clientes:** permisos de dueño y empleado, búsqueda, edición, anonimización, negocio suspendido y carreras entre agendar y anonimizar.
