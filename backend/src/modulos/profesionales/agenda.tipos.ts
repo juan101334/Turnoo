@@ -59,5 +59,5 @@ export interface CitaAfectada {
   fin: Date;
   estado: string;
   clienteNombre: string | null;
-  clienteTelefono: string;
+  clienteTelefono: string | null;
 }

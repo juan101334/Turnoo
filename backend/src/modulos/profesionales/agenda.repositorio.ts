@@ -245,7 +245,7 @@ export async function citasActivasEnRango(
     fin: Date;
     estado: string;
     cliente_nombre: string | null;
-    cliente_telefono: string;
+    cliente_telefono: string | null;
   }>(
     `SELECT c.id, c.profesional_id, c.inicio, c.fin, c.estado,
             cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono

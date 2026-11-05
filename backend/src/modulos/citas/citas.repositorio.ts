@@ -158,8 +158,15 @@ export async function obtenerOcupados(
   return rows.map((fila) => ({ inicio: fila.inicio, fin: fila.fin }));
 }
 
-export async function existeCliente(tx: Transaccion, clienteId: string): Promise<boolean> {
-  const { rowCount } = await tx.consultar('SELECT 1 FROM clientes WHERE id = $1', [clienteId]);
+/**
+ * ¿Se le puede agendar a este cliente? Un anonimizado ya no tiene teléfono. El bloqueo FOR SHARE
+ * hace esperar a una anonimización en curso, que a su vez ve esta cita si llega después.
+ */
+export async function bloquearClienteVigente(tx: Transaccion, clienteId: string): Promise<boolean> {
+  const { rowCount } = await tx.consultar(
+    'SELECT 1 FROM clientes WHERE id = $1 AND anonimizado_en IS NULL FOR SHARE',
+    [clienteId],
+  );
   return (rowCount ?? 0) > 0;
 }
 
@@ -351,7 +358,7 @@ const DETALLE_SQL = `
 interface FilaDetalle extends FilaCita {
   notas: string | null;
   cliente_nombre: string | null;
-  cliente_telefono: string;
+  cliente_telefono: string | null;
   profesional_nombre: string;
   servicios: CitaDetalle['servicios'];
 }
