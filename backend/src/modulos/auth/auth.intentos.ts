@@ -16,6 +16,9 @@ const MAX_CUENTA_E_IP = 5;
 const MAX_CUENTA = 20;
 const MAX_IP = 30;
 
+/** Una ventana que empezó en este instante o antes ya venció. */
+export const inicioDeVentanaVigente = (ahora: Date) => new Date(ahora.getTime() - VENTANA_MS);
+
 const sha256 = (texto: string) => createHash('sha256').update(texto).digest('hex');
 
 /**
@@ -53,7 +56,7 @@ export async function reservarIntento(email: string, ip: string | null, ahora: D
   const { todas } = clavesDelIntento(email, ip);
   const maximos = new Map(todas.map(({ clave, maximo }) => [clave, maximo]));
   await conSistema(async (tx) => {
-    const filas = await repositorio.abrirVentanasDeIntentos(tx, [...maximos.keys()], ahora, new Date(ahora.getTime() - VENTANA_MS));
+    const filas = await repositorio.abrirVentanasDeIntentos(tx, [...maximos.keys()], ahora, inicioDeVentanaVigente(ahora));
     const llenas = filas.filter((fila) => fila.intentos >= maximos.get(fila.clave)!);
     if (llenas.length > 0) {
       const finDeVentana = Math.max(...llenas.map((fila) => fila.ventanaInicio.getTime() + VENTANA_MS));
