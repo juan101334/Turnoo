@@ -203,3 +203,80 @@ export async function registrarResultadoEnvio(
     );
   }
 }
+
+// ---------------------------------------------------------------------
+// Aviso de tratamiento de datos y consentimiento
+// ---------------------------------------------------------------------
+
+/**
+ * Decide qué pasa con un mensaje nuevo según el aviso de datos de su cliente:
+ * - `aceptado`: ya aceptó esta versión, o la acepta ahora por escribir después de recibir el aviso
+ *   (en ese caso se registra el consentimiento con el id de este mensaje).
+ * - `requiere_aviso`: aún no recibió el aviso de esta versión.
+ * - `esperando`: el aviso está en camino, o el mensaje se escribió antes de que llegara.
+ */
+export async function evaluarConsentimiento(
+  tx: Transaccion,
+  negocioId: string,
+  clienteId: string,
+  version: string,
+  mensaje: { waMessageId: string; enviadoEn: Date },
+): Promise<'aceptado' | 'requiere_aviso' | 'esperando'> {
+  const { rows } = await tx.consultar<{
+    aviso_datos_version: string | null;
+    aviso_datos_enviado_en: Date | null;
+    aceptado: boolean;
+  }>(
+    `SELECT aviso_datos_version, aviso_datos_enviado_en,
+            EXISTS (SELECT 1 FROM consentimientos WHERE cliente_id = $1 AND version_politica = $2) AS aceptado
+       FROM clientes WHERE id = $1`,
+    [clienteId, version],
+  );
+  const fila = rows[0]!;
+  if (fila.aceptado) return 'aceptado';
+  const avisoDeEstaVersion = fila.aviso_datos_version === version && fila.aviso_datos_enviado_en !== null;
+  if (!avisoDeEstaVersion) return 'requiere_aviso';
+  if (mensaje.enviadoEn <= fila.aviso_datos_enviado_en!) return 'esperando';
+  await tx.consultar(
+    `INSERT INTO consentimientos (negocio_id, cliente_id, version_politica, aceptado_en, wa_message_id)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (cliente_id, version_politica) DO NOTHING`,
+    [negocioId, clienteId, version, mensaje.enviadoEn, mensaje.waMessageId],
+  );
+  return 'aceptado';
+}
+
+/** Reserva el envío del aviso. false si ya lo recibió en esta versión o alguien lo está enviando. */
+export async function reservarAviso(
+  tx: Transaccion,
+  clienteId: string,
+  version: string,
+  ahora: Date,
+  minutosReserva: number,
+): Promise<boolean> {
+  const { rowCount } = await tx.consultar(
+    `UPDATE clientes SET aviso_datos_pedido_en = $3::timestamptz
+      WHERE id = $1
+        AND anonimizado_en IS NULL
+        AND (aviso_datos_version IS DISTINCT FROM $2 OR aviso_datos_enviado_en IS NULL)
+        AND (aviso_datos_pedido_en IS NULL OR aviso_datos_pedido_en <= $3::timestamptz - make_interval(mins => $4))`,
+    [clienteId, version, ahora, minutosReserva],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+export async function marcarAvisoEnviado(tx: Transaccion, clienteId: string, version: string, enviadoEn: Date): Promise<void> {
+  await tx.consultar(
+    `UPDATE clientes SET aviso_datos_version = $2, aviso_datos_enviado_en = $3, aviso_datos_pedido_en = NULL WHERE id = $1`,
+    [clienteId, version, enviadoEn],
+  );
+}
+
+export async function liberarAviso(tx: Transaccion, clienteId: string): Promise<void> {
+  await tx.consultar('UPDATE clientes SET aviso_datos_pedido_en = NULL WHERE id = $1', [clienteId]);
+}
+
+export async function nombreDelNegocio(tx: Transaccion, negocioId: string): Promise<string> {
+  const { rows } = await tx.consultar<{ nombre: string }>('SELECT nombre FROM negocios WHERE id = $1', [negocioId]);
+  return rows[0]!.nombre;
+}

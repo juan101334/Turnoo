@@ -5,7 +5,8 @@ import { buscarCuentaWhatsapp, type CuentaWhatsapp } from '../../db/previas.js';
 import * as repositorioClientes from '../clientes/clientes.repositorio.js';
 import { normalizarTelefono } from '../clientes/clientes.servicio.js';
 import * as repositorio from './whatsapp.repositorio.js';
-import type { MensajeEntrante, ResultadoEvento, TipoMensaje } from './whatsapp.tipos.js';
+import { VERSION_AVISO } from './whatsapp.aviso.js';
+import type { AvisoPendiente, MensajeEntrante, ResultadoEvento, TipoMensaje } from './whatsapp.tipos.js';
 
 const MAX_NOMBRE = 100;
 /** BSUID: indicativo ISO del país, un punto y hasta 128 letras o números (ej. CO.1349120865530274). */
@@ -96,10 +97,13 @@ function aMensajeEntrante(
   };
 }
 
-/** Cliente, conversación y mensaje van juntos: o queda todo o no queda nada y Meta lo reenvía. */
-async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante): Promise<void> {
+/**
+ * Cliente, conversación, mensaje y consentimiento van juntos: o queda todo o no queda nada y Meta
+ * lo reenvía. Devuelve el aviso de datos que hay que enviar, si este cliente aún no lo recibió.
+ */
+async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante): Promise<AvisoPendiente | null> {
   const { negocioId, cuentaId } = cuenta;
-  const nuevo = await conNegocio(negocioId, async (tx) => {
+  const { nuevo, aviso } = await conNegocio(negocioId, async (tx) => {
     const cliente = await repositorioClientes.obtenerOCrearPorWhatsapp(
       tx,
       negocioId,
@@ -108,26 +112,34 @@ async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante):
     );
     const conversacionId = await repositorio.obtenerOCrearConversacion(tx, negocioId, cliente.id, cuentaId);
     const guardado = await repositorio.guardarMensajeEntrante(tx, negocioId, conversacionId, mensaje);
-    if (guardado) await repositorio.registrarMensajeDelCliente(tx, conversacionId, mensaje.enviadoEn);
-    return guardado;
+    // Un reenvío de Meta ya se evaluó la primera vez.
+    if (!guardado) return { nuevo: false, aviso: null };
+    await repositorio.registrarMensajeDelCliente(tx, conversacionId, mensaje.enviadoEn);
+    const consentimiento = await repositorio.evaluarConsentimiento(tx, negocioId, cliente.id, VERSION_AVISO, mensaje);
+    return {
+      nuevo: true,
+      aviso: consentimiento === 'requiere_aviso' ? { negocioId, conversacionId, clienteId: cliente.id } : null,
+    };
   });
   logger.info({ negocioId, tipo: mensaje.tipo, duplicado: !nuevo }, 'Mensaje de WhatsApp recibido');
+  return aviso;
 }
 
-async function procesarCambio(crudo: unknown, ahora: Date): Promise<number> {
+async function procesarCambio(crudo: unknown, ahora: Date): Promise<ResultadoEvento> {
+  const sinNada: ResultadoEvento = { fallidos: 0, avisos: [] };
   const cambio = esquemaCambio.safeParse(crudo);
-  if (!cambio.success) return 0;
+  if (!cambio.success) return sinNada;
   const { metadata, contacts, messages = [] } = cambio.data.value;
-  if (messages.length === 0) return 0;
+  if (messages.length === 0) return sinNada;
 
   const cuenta = await buscarCuentaWhatsapp(metadata.phone_number_id);
   if (!cuenta) {
     logger.warn({ phoneNumberId: metadata.phone_number_id }, 'Webhook de una cuenta de WhatsApp desconocida o inactiva');
-    return 0;
+    return sinNada;
   }
   if (cuenta.estadoNegocio === 'suspendido') {
     logger.info({ negocioId: cuenta.negocioId }, 'Webhook ignorado: negocio suspendido');
-    return 0;
+    return sinNada;
   }
 
   // El nombre de perfil se busca por BSUID o por teléfono, según lo que traiga el contacto.
@@ -137,6 +149,7 @@ async function procesarCambio(crudo: unknown, ahora: Date): Promise<number> {
     ),
   );
   let fallidos = 0;
+  const avisos: AvisoPendiente[] = [];
   for (const elemento of messages) {
     const crudoMensaje = esquemaMensaje.safeParse(elemento);
     let mensaje: MensajeEntrante;
@@ -149,13 +162,15 @@ async function procesarCambio(crudo: unknown, ahora: Date): Promise<number> {
       continue;
     }
     try {
-      await guardarMensaje(cuenta, mensaje);
+      const aviso = await guardarMensaje(cuenta, mensaje);
+      // Los repetidos de un mismo cliente se quitan en procesarEvento.
+      if (aviso) avisos.push(aviso);
     } catch (error) {
       fallidos += 1;
       logger.error({ negocioId: cuenta.negocioId, fallo: errorParaLog(error) }, 'No se pudo guardar un mensaje de WhatsApp');
     }
   }
-  return fallidos;
+  return { fallidos, avisos };
 }
 
 /**
@@ -164,18 +179,23 @@ async function procesarCambio(crudo: unknown, ahora: Date): Promise<number> {
  */
 export async function procesarEvento(datos: unknown, ahora: Date = new Date()): Promise<ResultadoEvento> {
   const evento = esquemaEvento.safeParse(datos);
-  if (!evento.success || evento.data.object !== 'whatsapp_business_account') return { fallidos: 0 };
+  if (!evento.success || evento.data.object !== 'whatsapp_business_account') return { fallidos: 0, avisos: [] };
 
   let fallidos = 0;
+  const avisos: AvisoPendiente[] = [];
   for (const { changes } of evento.data.entry) {
     for (const cambio of changes) {
       try {
-        fallidos += await procesarCambio(cambio, ahora);
+        const resultado = await procesarCambio(cambio, ahora);
+        fallidos += resultado.fallidos;
+        for (const aviso of resultado.avisos) {
+          if (!avisos.some((a) => a.clienteId === aviso.clienteId)) avisos.push(aviso);
+        }
       } catch (error) {
         fallidos += 1;
         logger.error({ fallo: errorParaLog(error) }, 'No se pudo procesar un webhook de WhatsApp');
       }
     }
   }
-  return { fallidos };
+  return { fallidos, avisos };
 }

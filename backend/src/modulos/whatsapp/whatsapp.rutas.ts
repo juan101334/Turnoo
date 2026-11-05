@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { NoAutorizado } from '../../compartido/errores.js';
 import { logger } from '../../compartido/logger.js';
+import { enviarAvisoDeDatos } from './whatsapp.aviso.js';
 import { firmaValida, textosIguales } from './whatsapp.firma.js';
 import { procesarEvento } from './whatsapp.servicio.js';
 import type { ConfiguracionWebhook } from './whatsapp.tipos.js';
@@ -8,7 +9,7 @@ import type { ConfiguracionWebhook } from './whatsapp.tipos.js';
 const LIMITE_CUERPO = '3mb';
 
 /** Webhook de Meta. No lleva sesión: lo que prueba el origen es la firma o el token de verificación. */
-export function crearRutasWhatsapp({ appSecret, verifyToken }: ConfiguracionWebhook) {
+export function crearRutasWhatsapp({ appSecret, verifyToken, pedir }: ConfiguracionWebhook) {
   const rutas = Router();
 
   // Meta comprueba la URL al configurarla: hay que devolverle su `challenge` tal cual, en texto plano.
@@ -50,12 +51,15 @@ export function crearRutasWhatsapp({ appSecret, verifyToken }: ConfiguracionWebh
       return;
     }
 
-    const { fallidos } = await procesarEvento(datos);
+    const { fallidos, avisos } = await procesarEvento(datos);
     if (fallidos > 0) {
       res.status(500).json({ error: { codigo: 'ERROR_INTERNO', mensaje: 'Ocurrió un error inesperado' } });
-      return;
+    } else {
+      res.status(200).end();
     }
-    res.status(200).end();
+    // Después de responder, para no hacer esperar a Meta. Lo guardado ya está a salvo; si un aviso
+    // falla, se reintenta con el siguiente mensaje del cliente. Nunca lanza.
+    for (const aviso of avisos) await enviarAvisoDeDatos(aviso, pedir ? { pedir } : {});
   });
 
   return rutas;
