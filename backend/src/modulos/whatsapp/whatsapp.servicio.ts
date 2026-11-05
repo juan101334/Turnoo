@@ -101,7 +101,7 @@ function aMensajeEntrante(
  * Cliente, conversación, mensaje y consentimiento van juntos: o queda todo o no queda nada y Meta
  * lo reenvía. Devuelve el aviso de datos que hay que enviar, si este cliente aún no lo recibió.
  */
-async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante): Promise<AvisoPendiente | null> {
+async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante, ahora: Date): Promise<AvisoPendiente | null> {
   const { negocioId, cuentaId } = cuenta;
   const { nuevo, aviso } = await conNegocio(negocioId, async (tx) => {
     const cliente = await repositorioClientes.obtenerOCrearPorWhatsapp(
@@ -116,6 +116,9 @@ async function guardarMensaje(cuenta: CuentaWhatsapp, mensaje: MensajeEntrante):
     if (!guardado) return { nuevo: false, aviso: null };
     await repositorio.registrarMensajeDelCliente(tx, conversacionId, mensaje.enviadoEn);
     const consentimiento = await repositorio.evaluarConsentimiento(tx, negocioId, cliente.id, VERSION_AVISO, mensaje);
+    // Solo lo de quien ya aceptó pasa a la IA. Cuenta la hora de llegada, no la de Meta: un reenvío
+    // atrasado no debe hacer que se responda antes de juntar los mensajes seguidos.
+    if (consentimiento === 'aceptado') await repositorio.marcarPendiente(tx, conversacionId, ahora);
     return {
       nuevo: true,
       aviso: consentimiento === 'requiere_aviso' ? { negocioId, conversacionId, clienteId: cliente.id } : null,
@@ -162,7 +165,7 @@ async function procesarCambio(crudo: unknown, ahora: Date): Promise<ResultadoEve
       continue;
     }
     try {
-      const aviso = await guardarMensaje(cuenta, mensaje);
+      const aviso = await guardarMensaje(cuenta, mensaje, ahora);
       // Los repetidos de un mismo cliente se quitan en procesarEvento.
       if (aviso) avisos.push(aviso);
     } catch (error) {

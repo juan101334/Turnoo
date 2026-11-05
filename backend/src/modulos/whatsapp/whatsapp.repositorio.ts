@@ -280,3 +280,17 @@ export async function nombreDelNegocio(tx: Transaccion, negocioId: string): Prom
   const { rows } = await tx.consultar<{ nombre: string }>('SELECT nombre FROM negocios WHERE id = $1', [negocioId]);
   return rows[0]!.nombre;
 }
+
+/**
+ * Deja la conversación esperando respuesta. Solo en modo `bot`: en modo humano la IA calla, y
+ * registrarMensajeDelCliente ya la devolvió a `bot` si el modo humano venció.
+ */
+export async function marcarPendiente(tx: Transaccion, conversacionId: string, llegada: Date): Promise<void> {
+  await tx.consultar(
+    `UPDATE conversaciones
+        SET ia_pendiente_desde = COALESCE(ia_pendiente_desde, $2),
+            ia_pendiente_en = GREATEST(ia_pendiente_en, $2)
+      WHERE id = $1 AND estado = 'bot'`,
+    [conversacionId, llegada],
+  );
+}
