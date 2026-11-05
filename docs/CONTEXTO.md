@@ -85,7 +85,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **343 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 58 de rutas de clientes) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **344 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 | Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
@@ -109,6 +109,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 **Huecos conocidos del código actual** (los corrige el plan de la sección 6.1, salvo que se indique otra cosa):
 
 - Una cita `por_aprobar` vencida ya no se puede aprobar, pero retiene el hueco hasta que alguien la rechace, porque no existe la tarea que la libera.
+- Un negocio suspendido no puede anonimizar a un cliente con citas activas, porque tampoco puede cancelarlas. Hoy hace falta que el superadmin lo reactive un momento.
 - Anonimizar no borra archivos, porque todavía nada los guarda. Cuando el webhook guarde imágenes o audios (`mensajes.archivo_ruta`), anonimizar también debe borrar esos archivos.
 - `prueba_hasta` y `pagado_hasta` solo se guardan: vencerlos no suspende el negocio. Por ahora la suspensión es manual, coherente con el cobro manual del MVP; esto no está en el plan.
 
@@ -118,7 +119,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 343 pruebas
+npm test              # 344 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -191,7 +192,7 @@ Decisiones ya tomadas para estos puntos:
 - **Lista de clientes:** los anonimizados no aparecen, pero se consultan por id. Los clientes se crean al agendar; no hay ruta para crearlos sueltos, y el historial por cliente queda para la ficha de la fase 2.
 - **Desactivar un barbero con citas futuras:** se rechaza con un error que indica cuántas tiene, hasta que se cancelen.
 - **Bloqueo o cambio de horario que choca con citas:** se guarda y la respuesta lista las citas afectadas para que el negocio decida.
-- **Negocio suspendido:** puede iniciar sesión y consultar, pero no modificar nada.
+- **Negocio suspendido:** puede iniciar sesión y consultar, pero no modificar nada. Única excepción: el dueño puede anonimizar a un cliente, porque un problema de pago no debe frenar el derecho de la persona a que borren sus datos (Ley 1581).
 - **Borrado:** barberos y servicios se desactivan, no se borran. Horarios y bloqueos sí se borran.
 - **Dueños:** nadie puede desactivar al último dueño activo.
 - **Límite del plan:** crear un barbero respeta `planes.max_profesionales`; `plan_id` nulo significa sin límite.

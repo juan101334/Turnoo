@@ -616,7 +616,7 @@ describe('rutas de clientes', () => {
   });
 
   describe('negocio suspendido', () => {
-    it('consulta, pero no edita ni anonimiza', async () => {
+    it('consulta y anonimiza, pero no edita', async () => {
       const n = await crearNegocio('Suspendido');
       const dueno = await sesion(n, 'dueno');
       const barbero = await crearProfesional(n);
@@ -630,9 +630,26 @@ describe('rutas de clientes', () => {
       expect(ids((await api(empleado, 'GET', '/clientes')).json.clientes)).toEqual([c.id]);
 
       expect((await api(dueno, 'PATCH', `/clientes/${c.id}`, { nombre: 'Otro' })).status).toBe(403);
-      expect((await api(dueno, 'POST', `/clientes/${c.id}/anonimizar`)).status).toBe(403);
       const [fila] = await sql<{ nombre: string }>(n, 'SELECT nombre FROM clientes WHERE id = $1', [c.id]);
       expect(fila!.nombre).toBe('Conservado');
+
+      // Excepción a la suspensión: el derecho de la persona no depende de los pagos del negocio.
+      expect((await api(empleado, 'POST', `/clientes/${c.id}/anonimizar`)).status).toBe(403);
+      expect((await api(dueno, 'POST', `/clientes/${c.id}/anonimizar`)).status).toBe(204);
+      const [anonimo] = await sql<{ telefono: string | null }>(n, 'SELECT telefono FROM clientes WHERE id = $1', [c.id]);
+      expect(anonimo!.telefono).toBeNull();
+    });
+
+    it('con citas activas sigue rechazando, y el suspendido no puede cancelarlas', async () => {
+      const n = await crearNegocio('Suspendido con citas');
+      const dueno = await sesion(n, 'dueno');
+      const barbero = await crearProfesional(n);
+      const c = await cliente(n, 'Con cita activa');
+      const citaId = await citaDe(n, barbero, c.id);
+      await conSistema((tx) => tx.consultar("UPDATE negocios SET estado = 'suspendido' WHERE id = $1", [n.negocioId]));
+
+      expect((await api(dueno, 'POST', `/clientes/${c.id}/anonimizar`)).status).toBe(409);
+      expect((await api(dueno, 'POST', `/citas/${citaId}/cancelar`, {})).status).toBe(403);
     });
   });
 });
