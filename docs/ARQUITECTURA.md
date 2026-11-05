@@ -33,13 +33,13 @@ Dos tipos de negocio objetivo:
 | Intervalo y límites | Configurables por negocio: intervalo de citas (15 min por defecto), anticipación mínima (1 h) y máxima (30 días), máximo de citas activas por cliente (2). |
 | Cancelar o reprogramar | El cliente lo hace por WhatsApp hasta un límite de horas antes (configurable, 2 h por defecto). El negocio puede siempre desde el panel y se avisa al cliente con plantilla. |
 | Recordatorio | Uno solo, unas 10-12 horas antes (11 h por defecto), con plantilla de WhatsApp. No se envía de noche (07:00 a 21:00 por defecto). |
-| IA | Solo habla de temas del negocio, usando su base de conocimiento. Si no sabe, deriva a una persona; no inventa. |
+| IA | Solo habla de temas del negocio, usando su base de conocimiento. Si no sabe, deriva a una persona; no inventa. Proveedor: OpenAI, con el modelo en una variable de entorno. Antes de agendar confirma con el cliente el día, la hora, el barbero y los servicios. |
 | Audios | Se transcriben; si no se puede, se pide al cliente que escriba. |
 | Imágenes | Se guardan y se adjuntan a la cita como referencia; la conversación sigue normal. |
 | Derivación a humano | La conversación pasa a `humano`, la IA calla y se avisa al dueño por WhatsApp. Vuelve sola a la IA a las 2 horas. En el MVP no hay bandeja de chats: la persona contacta al cliente por fuera. |
 | Inasistencias | El barbero marca "no asistió" con un toque; si no marca nada en 24 horas, la cita se completa sola. Con 3 inasistencias en 30 días, las citas nuevas del cliente pasan a `por_aprobar`. |
 | Aprobación | Una cita `por_aprobar` reserva el hueco. El barbero tiene 2 horas para responder (sin pasar de 1 hora antes de la cita); si no, se libera y se avisa al cliente. Las inasistencias son por negocio, no se comparten. |
-| Datos personales | Aviso de tratamiento de datos en el primer mensaje; se entiende aceptado al seguir conversando. Se guarda fecha y versión en `consentimientos`. |
+| Datos personales | Aviso de tratamiento de datos en el primer mensaje, que nombra a Meta y a OpenAI. Ese primer mensaje no pasa por la IA. Se entiende aceptado cuando el cliente vuelve a escribir, y solo entonces se guarda fecha y versión en `consentimientos`. |
 | Cobro a negocios | Mensualidad por cantidad de barberos o de citas. Prueba de 15 días. En el MVP el cobro es manual y se registra en `pagos`. |
 | Usuarios | Un empleado se invita con su barbero asignado. Desactivar corta el acceso de inmediato. Solo una invitación activa a un usuario; la recuperación de contraseña nunca lo hace. Nadie puede desactivar al último dueño activo. |
 | Barberos | Se desactivan, no se borran, y no se puede mientras tengan citas futuras. Un dueño que atiende se asocia a un barbero igual que un empleado. El plan limita los barberos activos. |
@@ -53,8 +53,8 @@ Dos tipos de negocio objetivo:
 flowchart LR
     C[Cliente en WhatsApp] --> M[WhatsApp Cloud API - Meta]
     M -->|webhook| W[Backend: webhook]
-    W -->|encola| Q[(Cola pg-boss)]
-    Q --> P[Procesador de mensajes]
+    W -->|guarda y marca pendiente| DB
+    DB -->|SKIP LOCKED| P[Procesador de mensajes]
     P <--> DB[(PostgreSQL)]
     P <--> IA[API de IA]
     P -->|respuesta| M
@@ -62,8 +62,8 @@ flowchart LR
     API <--> DB
 ```
 
-- **Webhook:** valida la firma de Meta, responde 200 enseguida y encola el trabajo.
-- **Procesador de mensajes:** hace todo el trabajo pesado (guardar, llamar a la IA, responder) fuera de la petición HTTP.
+- **Webhook:** valida la firma de Meta, guarda el mensaje, marca la conversación como pendiente y responde 200.
+- **Procesador de mensajes:** corre dentro de la API. Toma las conversaciones pendientes con `SKIP LOCKED`, de a una por conversación y en orden, espera 5 segundos desde el último mensaje para responder todo junto, llama a la IA y envía la respuesta. No usa pg-boss.
 - **API REST:** atiende al panel.
 - **Tareas programadas:** recordatorios, expiración de citas por aprobar, autocompletado de citas y avisos de derivación. El regreso de una conversación a la IA no es una tarea: se evalúa cuando llega el siguiente mensaje (sección 7).
 
@@ -150,7 +150,7 @@ stateDiagram-v2
 1. Meta llama al webhook. Se verifica la firma `X-Hub-Signature-256` sobre el cuerpo sin procesar. Se guarda el mensaje (pasos 2 y 3) y luego se responde 200, de modo que si la base falla Meta lo reenvía. Hoy el recorrido llega hasta el paso 3 y el regreso del modo humano; lo demás se construye con el envío de mensajes y la IA.
 2. `fn_buscar_cuenta_whatsapp` identifica el negocio. Si está suspendido, se ignora. Se abre la transacción con su contexto.
 3. Se guarda el mensaje (`ON CONFLICT (wa_message_id) DO NOTHING`; si ya existía, se detiene) y se busca o crea el cliente y la conversación.
-4. Si es el primer contacto, se envía el aviso de tratamiento de datos y se registra el consentimiento.
+4. Si es el primer contacto, se envía el aviso de tratamiento de datos y el mensaje no pasa a la IA. El consentimiento se registra cuando el cliente vuelve a escribir: así lo decidió Juan José (se entiende aceptado al seguir conversando), y registrarlo al enviar el aviso afirmaría algo que aún no ocurrió.
 5. Si la conversación está en `humano` (y no ha vencido), la IA no interviene. Si se alcanzó el límite del plan, se deriva con motivo `limite_plan`.
 6. Si es audio, se descarga y transcribe; si es imagen, se guarda.
 7. Se llama a la IA con las reglas, la información del negocio, la fecha y hora local, el historial reciente y sus funciones.
@@ -202,7 +202,7 @@ Aprobaciones vencidas, autocompletar y limpieza ya corren, con un temporizador d
 
 - Planes: nombres, precios y límites concretos.
 - Cómo se factura WhatsApp a Meta para que lo pague Turnoo (por defecto Meta le cobra al dueño de cada cuenta) y cómo se da de alta cada negocio (manual al inicio).
-- Proveedor y modelo de IA, y servicio de transcripción de audio.
+- Servicio de transcripción de audio. El proveedor de IA ya está decidido (OpenAI); el modelo exacto se elige con las conversaciones de prueba.
 - Servicio de envío de correos (invitaciones y recuperación de contraseña).
 - Política de retención de mensajes y audios.
 - Revisión legal del texto de autorización de datos y de la política de tratamiento.
