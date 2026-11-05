@@ -102,11 +102,12 @@ export async function actualizarCliente(
 /**
  * Atiende la solicitud de borrar sus datos (Ley 1581). No se puede deshacer. Se rechaza si tiene
  * citas activas: sin su teléfono, el negocio no podría avisarle de nada sobre ellas.
+ * Es lo único que un negocio suspendido puede modificar: un problema de pago del negocio no
+ * frena el derecho de la persona a que borren sus datos.
  */
 export async function anonimizarCliente(negocioId: string, clienteId: string): Promise<void> {
   if (!esUuid(clienteId)) throw new NoEncontrado('El cliente');
   await conNegocio(negocioId, async (tx) => {
-    await exigirNegocioOperativo(tx, negocioId);
     const cliente = await repositorio.obtenerBloqueado(tx, clienteId);
     if (!cliente) throw new NoEncontrado('El cliente');
     if (cliente.anonimizadoEn) throw new Conflicto('El cliente ya está anonimizado');
