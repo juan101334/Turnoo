@@ -60,9 +60,10 @@ async function buscarPor(tx: Transaccion, columna: 'telefono' | 'wa_user_id', va
  *    cliente viejo y se crea uno nuevo, para que la persona nueva no vea las citas de la anterior.
  * 3. Si no aparece, se crea.
  *
- * El candado por BSUID evita que dos mensajes simultáneos de la misma persona creen dos clientes.
- * Un choque por teléfono con el panel termina en error de UNIQUE: el webhook responde 500 y Meta
- * lo reenvía, y en el segundo intento el cliente ya existe.
+ * Los candados (por BSUID y por teléfono, siempre en ese orden para no trabarse entre sí) evitan
+ * que dos mensajes simultáneos de la misma persona creen dos clientes. Un choque por teléfono con
+ * el panel, que no toma el candado, termina en error de UNIQUE: el webhook responde 500, Meta lo
+ * reenvía y en el segundo intento el cliente ya existe.
  */
 export async function obtenerOCrearPorWhatsapp(
   tx: Transaccion,
@@ -73,11 +74,12 @@ export async function obtenerOCrearPorWhatsapp(
   const { telefono, waUserId } = identidad;
   if (telefono === null && waUserId === null) throw new Error('obtenerOCrearPorWhatsapp: falta teléfono o BSUID');
 
+  for (const clave of [waUserId && `bsuid:${waUserId}`, telefono && `telefono:${telefono}`]) {
+    if (!clave) continue;
+    await tx.consultar('SELECT pg_advisory_xact_lock($1::int, hashtext($2))', [ESPACIO_CANDADO_CLIENTE, `${negocioId}:${clave}`]);
+  }
+
   if (waUserId !== null) {
-    await tx.consultar('SELECT pg_advisory_xact_lock($1::int, hashtext($2))', [
-      ESPACIO_CANDADO_CLIENTE,
-      `${negocioId}:${waUserId}`,
-    ]);
     const porBsuid = await buscarPor(tx, 'wa_user_id', waUserId);
     if (porBsuid) {
       const completarTelefono =
