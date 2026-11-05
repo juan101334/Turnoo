@@ -17,11 +17,20 @@ const esquema = z.object({
     .regex(/^postgres(ql)?:\/\//, 'debe empezar con postgresql://'),
   // Dirección del panel web; con ella se arman los enlaces de invitación y recuperación.
   PANEL_URL: z.url().default('http://localhost:3001'),
-  // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
-  // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   // Webhook de WhatsApp. Vacíos, el webhook rechaza todo: así la API arranca sin cuenta de Meta.
   WHATSAPP_APP_SECRET: z.string().default(''),
   WHATSAPP_VERIFY_TOKEN: z.string().default(''),
+  // Clave con la que se cifran los tokens de Meta guardados en la base: 32 bytes en base64.
+  // Vacía, la API arranca, pero no puede registrar cuentas de WhatsApp ni enviar mensajes.
+  CLAVE_CIFRADO_TOKENS: z
+    .string()
+    .default('')
+    .refine(
+      (valor) => valor === '' || (/^[A-Za-z0-9+/]+={0,2}$/.test(valor) && Buffer.from(valor, 'base64').length === 32),
+      'debe ser de 32 bytes en base64 (genérala con: openssl rand -base64 32)',
+    ),
+  // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
+  // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 });
 

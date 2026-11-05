@@ -82,6 +82,13 @@ export class LimiteDeCitas extends ErrorDominio {
   }
 }
 
+/** Falta configurar algo del servidor (una variable de entorno). No es culpa de quien pide. */
+export class NoConfigurado extends ErrorDominio {
+  constructor(mensaje: string) {
+    super('NO_CONFIGURADO', mensaje, 503);
+  }
+}
+
 export class DemasiadosIntentos extends ErrorDominio {
   readonly reintentarEnSegundos: number;
 

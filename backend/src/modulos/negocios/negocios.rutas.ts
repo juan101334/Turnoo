@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, negocioDeSesion as negocioDe } from '../auth/auth.middleware.js';
+import * as cuentasWhatsapp from '../whatsapp/whatsapp.cuentas.js';
 import * as servicio from './negocios.servicio.js';
 
 const nombre = z.string().trim().min(1, 'El nombre es obligatorio').max(100);
@@ -46,6 +47,36 @@ rutasNegocios.patch('/:id', async (req, res) => {
     req.body,
   );
   res.json(await servicio.cambiarPlanYEstado(String(req.params.id), cambios));
+});
+
+// Cuentas de WhatsApp del negocio. El token se recibe, se cifra y nunca se devuelve.
+const idMeta = z.string().trim().regex(/^\d{1,30}$/, 'Debe ser el identificador numérico que muestra Meta');
+const numeroVisible = z.string().max(30);
+const tokenMeta = z
+  .string()
+  .trim()
+  .min(20, 'El token es demasiado corto')
+  .max(2000)
+  .regex(/^\S+$/, 'El token no puede tener espacios');
+
+rutasNegocios.get('/:id/whatsapp', async (req, res) => {
+  res.json({ cuentas: await cuentasWhatsapp.listarCuentas(String(req.params.id)) });
+});
+
+rutasNegocios.post('/:id/whatsapp', async (req, res) => {
+  const entrada = validarEsquema(
+    z.strictObject({ phoneNumberId: idMeta, wabaId: idMeta, numeroVisible, token: tokenMeta }),
+    req.body,
+  );
+  res.status(201).json(await cuentasWhatsapp.registrarCuenta(String(req.params.id), entrada));
+});
+
+rutasNegocios.patch('/:id/whatsapp/:cuentaId', async (req, res) => {
+  const cambios = validarEsquema(
+    z.strictObject({ numeroVisible: numeroVisible.optional(), token: tokenMeta.optional(), activa: z.boolean().optional() }),
+    req.body,
+  );
+  res.json(await cuentasWhatsapp.cambiarCuenta(String(req.params.id), String(req.params.cuentaId), cambios));
 });
 
 /** El negocio de quien hace la petición: el id sale de la sesión, nunca de la URL. */
