@@ -30,6 +30,13 @@ export function exigirRol(...roles: Rol[]) {
   };
 }
 
+/** El negocio de quien hace la petición: sale de la sesión, nunca de la URL. El superadmin no tiene. */
+export function negocioDeSesion(req: Request): string {
+  const { negocioId } = usuarioDe(req);
+  if (!negocioId) throw new Prohibido();
+  return negocioId;
+}
+
 /** El usuario de la petición; solo se usa detrás de exigirSesion. */
 export function usuarioDe(req: Request): UsuarioAutenticado {
   if (!req.usuario) throw new NoAutorizado();

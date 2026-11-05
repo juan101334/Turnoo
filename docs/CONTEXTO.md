@@ -85,7 +85,8 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **228 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **285 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
 | Negocios: el superadmin los crea (en prueba por 15 días), los lista y cambia plan y estado por `/negocios`; el dueño consulta y edita su negocio y su configuración por `/negocio`. Un negocio suspendido solo inicia sesión y consulta | `backend/src/modulos/negocios/` |
@@ -101,7 +102,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 - Tareas programadas: no hay carpeta `src/tareas` y `pg-boss` no está instalado.
 - Límite de intentos de login.
 - Creación de planes: la tabla `planes` sigue vacía a propósito (sección 7), así que hoy solo se puede asignar un plan creado con SQL.
-- Rutas para administrar servicios, horarios, bloqueos y clientes. El módulo de clientes solo tiene `obtenerOCrearCliente` y `normalizarTelefono`.
+- Rutas para administrar clientes. El módulo de clientes solo tiene `obtenerOCrearCliente` y `normalizarTelefono`.
 - CORS y `trust proxy` en `app.ts`: hacen falta para el panel y para el despliegue detrás de Caddy.
 
 **Huecos conocidos del código actual** (los corrige el plan de la sección 6.1, salvo que se indique otra cosa):
@@ -115,7 +116,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 228 pruebas
+npm test              # 285 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -175,7 +176,7 @@ Una rama y un pull request por punto, con el flujo de la sección 1:
 6. Tareas internas: autocompletar citas y expirar `por_aprobar`.
 7. Webhook de WhatsApp.
 
-**Estado:** puntos 0, 1 y 2 hechos. **Siguiente paso:** punto 3, cuando Juan José dé el visto bueno al punto 2.
+**Estado:** puntos 0 a 3 hechos. **Siguiente paso:** punto 4, cuando Juan José dé el visto bueno al punto 3.
 
 Decisiones ya tomadas para estos puntos:
 
@@ -192,6 +193,8 @@ Decisiones ya tomadas para estos puntos:
 - **Límite del plan:** crear un barbero respeta `planes.max_profesionales`; `plan_id` nulo significa sin límite.
 - **Reactivación:** la recuperación de contraseña no reactiva usuarios desactivados; solo la invitación activa. Para reactivar a alguien se reenvía su invitación, que define una contraseña nueva.
 - **Desactivar un usuario:** cierra sus sesiones y anula sus enlaces pendientes. Conserva su barbero asociado. Un dueño puede desactivar a otro dueño, siempre que quede uno activo.
+- **Barbero desactivado:** su agenda se consulta, pero no se modifica. Hay que reactivarlo primero.
+- **Bloqueos:** el dueño debe enviar `profesionalId`, o `null` para todo el negocio, para que un olvido no cierre el negocio. El empleado solo actúa sobre su barbero y ve también los cierres del negocio. Un bloqueo o un horario se cambia borrándolo y creándolo de nuevo.
 - **Reenviar invitación:** solo para usuarios pendientes o desactivados, y anula los enlaces anteriores. Igual que la recuperación, el dueño solo puede pedirla para empleados, porque el enlace define la contraseña.
 
 ## 7. Pendientes por decidir
@@ -224,10 +227,11 @@ Decisiones ya tomadas para estos puntos:
 - **Autenticación:** login, sesiones revocables, invitaciones y recuperación por `/auth/*`, y el script del primer superadmin.
 - **Negocios:** alta, plan y estado por `/negocios` (superadmin); datos y configuración por `/negocio` (dueño).
 - **Barberos y usuarios:** `/profesionales` y `/auth/usuarios`, incluida la invitación de un empleado con su barbero.
+- **Agenda:** servicios y horarios de cada barbero, y bloqueos del barbero o de todo el negocio.
 - **Citas por HTTP:** listar, consultar, crear, cancelar, reprogramar, aprobar, rechazar y marcar por `/citas`, con permisos por rol.
 - **Disponibilidad:** `consultarDisponibilidad(negocioId, { profesionalId, servicioIds, desde, hasta })` devuelve, por día, las horas en que puede empezar una cita para esa combinación de servicios, descontando horario del barbero, bloqueos y citas activas, con intervalo alineado al reloj y respetando anticipación mínima y máxima.
 
-Servicios y horarios todavía se crean con SQL, por lo que aún no se puede operar sin tocar la base.
+Un negocio ya se puede dar de alta y dejar listo para agendar sin tocar la base.
 
 ## 9. Mapa de archivos
 
@@ -250,7 +254,8 @@ Turnoo/
             ├── citas/        citas.rutas.ts, disponibilidad.ts, citas.servicio.ts, citas.repositorio.ts, citas.tipos.ts
             ├── clientes/     clientes.servicio.ts, clientes.repositorio.ts, clientes.tipos.ts
             ├── negocios/     negocios.rutas.ts, negocios.servicio.ts, negocios.reglas.ts, negocios.repositorio.ts, negocios.tipos.ts
-            └── profesionales/ profesionales.rutas.ts, profesionales.servicio.ts, profesionales.reglas.ts, profesionales.repositorio.ts, profesionales.tipos.ts
+            └── profesionales/ profesionales.rutas.ts, profesionales.servicio.ts, profesionales.reglas.ts, profesionales.repositorio.ts, profesionales.tipos.ts,
+                              agenda.rutas.ts, agenda.servicio.ts, agenda.repositorio.ts, agenda.tipos.ts
 ```
 
 ## 10. Cómo mantener este archivo y registro de sesiones
@@ -263,4 +268,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | 2 | Se implementó el segundo tramo del módulo de citas (crear, cancelar, reprogramar, aprobar/rechazar, marcar) con 28 pruebas nuevas; se verificó rompiendo cada regla a propósito. Decisiones: una `por_aprobar` sin tiempo para el plazo se rechaza con mensaje de contactar al negocio; `por_aprobar` no se reprograma; marcar solo desde la hora de inicio; el límite del plan se cuenta de forma atómica al final de la transacción. Siguiente: autenticación o webhook de WhatsApp (sección 6). |
 | 3 | Autenticación y usuarios. Decisiones: sesión en la base (revocable), argon2, invitaciones y recuperación SIN correo (el backend entrega el enlace al dueño/superadmin, que se lo pasa a la persona; nunca a quien lo pide, para que nadie pueda robar cuentas). El enlace lleva el token en el fragmento `#token=` para que no quede en registros. Verificado rompiendo 10 reglas de seguridad a propósito. Pendientes: límite de intentos de login, correo, rutas de citas, webhook. |
 | 4 | Rutas HTTP de citas para el panel y módulo de clientes. Decisiones: el panel agenda enviando teléfono y nombre (se busca o se crea el cliente); un empleado solo ve y maneja las citas de su barbero y una cita ajena responde 404; el superadmin no entra a citas de un negocio; los rangos de fechas se piden en ISO con zona y el máximo es 62 días. Verificado rompiendo 8 reglas de permisos y de clientes a propósito. Pendientes: webhook, rutas de administración (barberos, servicios, horarios, clientes, usuarios), límite de intentos de login. |
-| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Punto 1: módulo de negocios y suspensión completa (ya no se crea un cliente ni se administran usuarios estando suspendido), con 31 pruebas nuevas; se verificó rompiendo reglas a propósito. Corrección: la versión anterior de este archivo decía que un negocio suspendido podía aprobar, rechazar y marcar, y era falso; esas acciones ya lo impedían. Punto 2: barberos y usuarios, con 46 pruebas nuevas; la recuperación ya no reactiva usuarios y se verificó rompiendo reglas a propósito, incluidas las carreras con bloqueos. Siguiente: punto 3 del plan, servicios, horarios y bloqueos. |
+| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Punto 1: módulo de negocios y suspensión completa (ya no se crea un cliente ni se administran usuarios estando suspendido), con 31 pruebas nuevas; se verificó rompiendo reglas a propósito. Corrección: la versión anterior de este archivo decía que un negocio suspendido podía aprobar, rechazar y marcar, y era falso; esas acciones ya lo impedían. Punto 2: barberos y usuarios, con 46 pruebas nuevas; la recuperación ya no reactiva usuarios y se verificó rompiendo reglas a propósito, incluidas las carreras con bloqueos. Punto 3: servicios, horarios y bloqueos, con 57 pruebas nuevas; se verificó rompiendo reglas a propósito y de punta a punta, sin SQL, hasta agendar una cita. Siguiente: punto 4 del plan, clientes. |
