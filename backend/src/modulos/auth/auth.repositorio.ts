@@ -227,3 +227,8 @@ export async function devolverIntento(tx: Transaccion, claves: string[], claveAR
     [claves, claveAReiniciar],
   );
 }
+
+export async function borrarIntentosVencidos(tx: Transaccion, ventanaVencidaHasta: Date): Promise<number> {
+  const { rowCount } = await tx.consultar('DELETE FROM intentos_login WHERE ventana_inicio <= $1', [ventanaVencidaHasta]);
+  return rowCount ?? 0;
+}

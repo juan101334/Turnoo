@@ -315,6 +315,51 @@ export async function cancelar(
   return aCita(rows[0]!);
 }
 
+/**
+ * Cancela las `por_aprobar` vencidas, lo que libera su hueco. Mismo límite que aprobarCita: al
+ * llegar el plazo ya no se puede aprobar. SKIP LOCKED: lo que un barbero esté cambiando en este
+ * momento no se toca, y si sigue vencido sale en el siguiente ciclo.
+ */
+export async function expirarPorAprobar(tx: Transaccion, ahora: Date, limite: number): Promise<number> {
+  const { rowCount } = await tx.consultar(
+    `WITH vencidas AS (
+       SELECT id FROM citas
+        WHERE estado = 'por_aprobar' AND aprobacion_expira_en <= $1
+        ORDER BY aprobacion_expira_en, id
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE citas c
+        SET estado = 'cancelada', cancelada_por = 'sistema', cancelada_en = $1, aprobacion_expira_en = NULL
+       FROM vencidas v
+      WHERE c.id = v.id`,
+    [ahora, limite],
+  );
+  return rowCount ?? 0;
+}
+
+/**
+ * Completa las citas que nadie marcó según las horas configuradas por cada negocio. Como esas
+ * horas siempre son mayores que cero, `fin <= ahora` descarta casi todo usando el índice.
+ */
+export async function autocompletarVencidas(tx: Transaccion, ahora: Date, limite: number): Promise<number> {
+  const { rowCount } = await tx.consultar(
+    `WITH vencidas AS (
+       SELECT c.id FROM citas c
+         JOIN configuracion_negocio cfg ON cfg.negocio_id = c.negocio_id
+        WHERE c.estado IN ('pendiente', 'confirmada')
+          AND c.fin <= $1
+          AND c.fin + make_interval(hours => cfg.horas_autocompletar_cita) <= $1
+        ORDER BY c.fin, c.id
+        LIMIT $2
+        FOR UPDATE OF c SKIP LOCKED
+     )
+     UPDATE citas c SET estado = 'completada' FROM vencidas v WHERE c.id = v.id`,
+    [ahora, limite],
+  );
+  return rowCount ?? 0;
+}
+
 /** Cambia el estado (aprobar, completar, no asistió). Un trigger de la base valida la transición. */
 export async function cambiarEstado(
   tx: Transaccion,

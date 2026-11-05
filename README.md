@@ -9,7 +9,7 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Parte | Estado |
 |---|---|
 | Diseño de producto y reglas del negocio | Hecho |
-| Base de datos (PostgreSQL, migraciones 001 a 005) | Hecho |
+| Base de datos (PostgreSQL, migraciones 001 a 006) | Hecho |
 | Backend: esqueleto (configuración, conexión a la base, aislamiento por negocio, errores, `/salud`) | Hecho |
 | Backend: citas (disponibilidad, gestión y rutas HTTP) | Hecho |
 | Backend: autenticación (login, sesiones, invitaciones y recuperación) | Hecho |
@@ -18,7 +18,8 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Backend: servicios, horarios y bloqueos | Hecho |
 | Backend: clientes | Hecho |
 | Backend: límite de intentos de login | Hecho |
-| Backend: tareas, webhook de WhatsApp e IA | Pendiente |
+| Backend: tareas internas (autocompletar, expirar y limpiar) | Hecho |
+| Backend: tareas con WhatsApp, webhook e IA | Pendiente |
 | Panel web (Next.js) | Pendiente |
 | Despliegue (VPS con Docker) | Pendiente |
 
@@ -26,7 +27,8 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 
 - **Backend:** Node.js, TypeScript, Express, SQL directo con `pg`.
 - **Base de datos:** PostgreSQL 17 con Row Level Security.
-- **Cola y tareas programadas:** pg-boss (propuesto; usa la misma base de datos).
+- **Tareas internas:** temporizador dentro de la API.
+- **Cola del webhook:** pg-boss (propuesto; usa la misma base de datos).
 - **Panel:** Next.js.
 - **WhatsApp:** API oficial de WhatsApp Cloud (Meta).
 - **IA:** modelo de lenguaje con llamadas a funciones (proveedor por definir).
@@ -52,6 +54,7 @@ docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/003_sesiones.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/004_anonimizar_clientes.sql
 docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/005_intentos_login.sql
+docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/006_cancelada_por_sistema.sql
 ```
 
 Después se le pone contraseña al rol que usa la aplicación, de forma interactiva:

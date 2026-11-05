@@ -42,7 +42,7 @@ Sistema de citas para **barberías y salones de belleza**. El cliente escribe al
 
 La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3. Lo esencial:
 
-**Tecnología:** Node.js 22 + TypeScript (módulos ES, imports con extensión `.js`) + Express 5 + SQL directo con `pg` (sin ORM). PostgreSQL 17 en Docker (puerto **5433** en el equipo de desarrollo). Panel en Next.js (aún no creado). Cola de trabajos y tareas programadas con pg-boss (propuesto, usa la misma base de datos). Despliegue en un VPS con Docker Compose y Caddy para HTTPS. Un solo repositorio con `backend/` y `panel/`.
+**Tecnología:** Node.js 22 + TypeScript (módulos ES, imports con extensión `.js`) + Express 5 + SQL directo con `pg` (sin ORM). PostgreSQL 17 en Docker (puerto **5433** en el equipo de desarrollo). Panel en Next.js (aún no creado). Las tareas internas corren con un temporizador simple dentro de la API; pg-boss (usa la misma base de datos) sigue propuesto para la cola del webhook y se decide en ese punto. Despliegue en un VPS con Docker Compose y Caddy para HTTPS. Un solo repositorio con `backend/` y `panel/`.
 
 **WhatsApp:** API oficial (Cloud API de Meta). Un número por negocio (`whatsapp_cuentas`); el modelo permite un número por barbero (`profesional_id` opcional) pero no se implementa en el MVP.
 
@@ -85,7 +85,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **377 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **412 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 | Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
@@ -93,6 +93,8 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Clientes: `obtenerOCrearCliente` (busca por teléfono, lo crea si no existe, atómico) y `normalizarTelefono` (deja el formato de WhatsApp; a un celular colombiano de 10 dígitos le agrega el 57). Lo reutilizará el webhook | `backend/src/modulos/clientes/` |
 | Rutas HTTP de citas para el panel: `GET /citas` (rango, barbero, estado), `GET /citas/:id`, `GET /citas/disponibilidad`, `POST /citas` (con `cliente:{telefono,nombre}`), `POST /citas/:id/{cancelar,reprogramar,aprobar,rechazar,marcar}`. Dos roles: el dueño maneja todo el negocio; el empleado solo las citas de SU barbero (`profesionales.usuario_id`) | `backend/src/modulos/citas/citas.rutas.ts` |
 | Migración 003: tabla `sesiones` y RLS en `tokens_usuario` | `db/migrations/003_sesiones.sql` |
+| Migración 006: `citas.cancelada_por` admite `sistema` | `db/migrations/006_cancelada_por_sistema.sql` |
+| Tareas internas, al arrancar y cada minuto: expirar `por_aprobar` vencidas (liberan el hueco), autocompletar citas pasadas `horas_autocompletar_cita` desde su fin (hasta 500 por ciclo cada una) y limpiar `intentos_login` vencidos | `backend/src/tareas/` |
 | Migración 005: tabla `intentos_login`, visible solo en el contexto de sistema | `db/migrations/005_intentos_login.sql` |
 | Límite de intentos de login: 5 por cuenta e IP, 20 por cuenta y 30 por IP, en ventanas de 15 minutos; responde 429 con `Retry-After`. `SALTOS_PROXY` define de dónde sale la IP real | `backend/src/modulos/auth/auth.intentos.ts` |
 | Migración 004: `clientes.telefono` admite NULL solo si el cliente está anonimizado | `db/migrations/004_anonimizar_clientes.sql` |
@@ -103,15 +105,14 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 **No existe todavía:**
 
 - Webhook de WhatsApp, integración de la IA, panel, despliegue y envío de correo.
-- Tareas programadas: no hay carpeta `src/tareas` y `pg-boss` no está instalado.
+- Tareas con WhatsApp: recordatorios, avisos de derivación y avisos al cliente. `pg-boss` no está instalado.
 - Creación de planes: la tabla `planes` sigue vacía a propósito (sección 7), así que hoy solo se puede asignar un plan creado con SQL.
 - CORS en `app.ts`: hace falta para el panel.
 
 **Huecos conocidos del código actual** (los corrige el plan de la sección 6.1, salvo que se indique otra cosa):
 
-- Una cita `por_aprobar` vencida ya no se puede aprobar, pero retiene el hueco hasta que alguien la rechace, porque no existe la tarea que la libera.
-- Un negocio suspendido no puede anonimizar a un cliente con citas activas, porque tampoco puede cancelarlas. Hoy hace falta que el superadmin lo reactive un momento.
-- Las filas vencidas de `intentos_login` no se borran solas: no afectan el límite, pero la tabla crece hasta que exista la tarea de limpieza del punto 6.
+- Un negocio suspendido no puede anonimizar a un cliente con citas futuras activas, porque tampoco puede cancelarlas (las pasadas ya las resuelven las tareas internas). Hoy hace falta que el superadmin lo reactive un momento.
+- **Los avisos al cliente por citas vencidas quedan pendientes hasta el webhook.** Hoy, cuando una cita `por_aprobar` vence, el cliente no se entera. Cuando exista el aviso, no debe escribirle a las citas que ya vencieron antes: hay que filtrarlas por `cancelada_en` o por una marca de aviso enviado.
 - Anonimizar no borra archivos, porque todavía nada los guarda. Cuando el webhook guarde imágenes o audios (`mensajes.archivo_ruta`), anonimizar también debe borrar esos archivos.
 - `prueba_hasta` y `pagado_hasta` solo se guardan: vencerlos no suspende el negocio. Por ahora la suspensión es manual, coherente con el cobro manual del MVP; esto no está en el plan.
 
@@ -121,7 +122,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 377 pruebas
+npm test              # 412 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -152,7 +153,7 @@ Es el segundo tramo del módulo `backend/src/modulos/citas/`. Todo dentro de **u
 
 **Aprobar o rechazar** (`por_aprobar`): aprobar pasa a `pendiente` y limpia `aprobacion_expira_en`; rechazar pasa a `cancelada` con `cancelada_por = 'negocio'`.
 
-**Marcar** `completada` o `no_asistio`: solo el negocio. El autocompletado a las 24 h será una tarea programada.
+**Marcar** `completada` o `no_asistio`: solo el negocio. El autocompletado lo hace una tarea interna, y el resultado se puede corregir a `no_asistio` después.
 
 **Decidido en la sesión 2:** si una cita `por_aprobar` no alcanza el margen mínimo (el plazo calculado ya pasó), se rechaza con el mensaje de que debe comunicarse con el negocio.
 
@@ -181,7 +182,7 @@ Una rama y un pull request por punto, con el flujo de la sección 1:
 6. Tareas internas: autocompletar citas, expirar `por_aprobar` y limpiar `intentos_login` vencidos.
 7. Webhook de WhatsApp.
 
-**Estado:** puntos 0 a 5 hechos. **Siguiente paso:** punto 6, cuando Juan José dé el visto bueno al punto 5.
+**Estado:** puntos 0 a 6 hechos. **Siguiente paso:** punto 7, cuando Juan José dé el visto bueno al punto 6.
 
 Decisiones ya tomadas para estos puntos:
 
@@ -190,6 +191,7 @@ Decisiones ya tomadas para estos puntos:
 - **Asociar usuario y barbero:** invitar a un empleado exige `profesionalId`, en la misma transacción. Una ruta aparte vincula o cambia el usuario de un barbero, y sirve también para un dueño que atiende.
 - **Alcance del empleado:** sus servicios, su horario y sus propios bloqueos. Los bloqueos de todo el negocio son solo del dueño.
 - **Clientes:** el empleado ve solo los que tienen citas con su barbero. Solo el dueño edita o anonimiza.
+- **Tareas internas:** temporizador solo en `index.ts`, nunca en `crearApp`. Una instancia se salta la tarea si otra la está corriendo (`pg_try_advisory_xact_lock`), y `SKIP LOCKED` respeta lo que un barbero esté cambiando. Corren también en negocios suspendidos, porque que pase el tiempo no es una modificación del negocio. Una cita vencida queda con `cancelada_por = 'sistema'`. El log tiene una línea por tarea con cambios (nombre, cantidad y duración) y los ciclos sin cambios van en `debug`; nunca teléfonos, nombres ni correos. Un fallo se registra y no tumba la API.
 - **Límite de login:** el intento se cuenta antes de verificar la contraseña y un login correcto lo devuelve. El login correcto reinicia solo el contador de esa cuenta e IP, para que un atacante no limpie los demás entrando a su propia cuenta. Estando frenado no se suma en ningún contador, y un bloqueo vence solo: no hay ruta para quitarlo antes.
 - **IP real:** `SALTOS_PROXY` vale 0 por defecto, así que `X-Forwarded-For` se ignora. Detrás de Caddy debe ser 1, y el puerto de la API no debe quedar expuesto a internet, porque quien llegue directo podría falsificar su IP. En IPv6 se cuenta la red /64.
 - **Anonimizar un cliente:** no se puede deshacer. Se rechaza con el número de citas activas, aunque su hora ya haya pasado, hasta que se cancelen o se marquen. Quita nombre, teléfono y notas; borra sus conversaciones, mensajes y derivaciones, y las notas de sus citas. Conserva las citas y el registro de `consentimientos`, como prueba de la autorización. Si la persona vuelve a escribir, es un cliente nuevo.
@@ -247,7 +249,7 @@ Un negocio ya se puede dar de alta y dejar listo para agendar sin tocar la base.
 ```
 Turnoo/
 ├── README.md, docker-compose.yml, .env.example, .gitignore
-├── db/migrations/            001_init.sql, 002_inasistencias_y_aprobacion.sql, 003_sesiones.sql, 004_anonimizar_clientes.sql, 005_intentos_login.sql
+├── db/migrations/            001_init.sql, 002_inasistencias_y_aprobacion.sql, 003_sesiones.sql, 004_anonimizar_clientes.sql, 005_intentos_login.sql, 006_cancelada_por_sistema.sql
 ├── docs/                     CONTEXTO.md (este), ARQUITECTURA.md, CONVENCIONES.md
 └── backend/
     ├── package.json, tsconfig.json, tsconfig.build.json, vitest.config.ts, .env.example, README.md
@@ -258,6 +260,7 @@ Turnoo/
         ├── config/entorno.ts
         ├── db/               pool.ts, contexto.ts, previas.ts
         ├── compartido/       errores.ts, logger.ts, tiempo.ts, validacion.ts
+        ├── tareas/           tareas.ts, programador.ts
         └── modulos/
             ├── auth/         auth.rutas.ts, auth.middleware.ts, auth.servicio.ts, auth.intentos.ts, auth.repositorio.ts, auth.tipos.ts
             ├── citas/        citas.rutas.ts, disponibilidad.ts, citas.servicio.ts, citas.repositorio.ts, citas.tipos.ts
@@ -277,4 +280,4 @@ Al terminar cada sesión de trabajo: actualizar la sección 4 (estado), la 5 (si
 | 2 | Se implementó el segundo tramo del módulo de citas (crear, cancelar, reprogramar, aprobar/rechazar, marcar) con 28 pruebas nuevas; se verificó rompiendo cada regla a propósito. Decisiones: una `por_aprobar` sin tiempo para el plazo se rechaza con mensaje de contactar al negocio; `por_aprobar` no se reprograma; marcar solo desde la hora de inicio; el límite del plan se cuenta de forma atómica al final de la transacción. Siguiente: autenticación o webhook de WhatsApp (sección 6). |
 | 3 | Autenticación y usuarios. Decisiones: sesión en la base (revocable), argon2, invitaciones y recuperación SIN correo (el backend entrega el enlace al dueño/superadmin, que se lo pasa a la persona; nunca a quien lo pide, para que nadie pueda robar cuentas). El enlace lleva el token en el fragmento `#token=` para que no quede en registros. Verificado rompiendo 10 reglas de seguridad a propósito. Pendientes: límite de intentos de login, correo, rutas de citas, webhook. |
 | 4 | Rutas HTTP de citas para el panel y módulo de clientes. Decisiones: el panel agenda enviando teléfono y nombre (se busca o se crea el cliente); un empleado solo ve y maneja las citas de su barbero y una cita ajena responde 404; el superadmin no entra a citas de un negocio; los rangos de fechas se piden en ISO con zona y el máximo es 62 días. Verificado rompiendo 8 reglas de permisos y de clientes a propósito. Pendientes: webhook, rutas de administración (barberos, servicios, horarios, clientes, usuarios), límite de intentos de login. |
-| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Punto 1: módulo de negocios y suspensión completa (ya no se crea un cliente ni se administran usuarios estando suspendido), con 31 pruebas nuevas; se verificó rompiendo reglas a propósito. Corrección: la versión anterior de este archivo decía que un negocio suspendido podía aprobar, rechazar y marcar, y era falso; esas acciones ya lo impedían. Punto 2: barberos y usuarios, con 46 pruebas nuevas; la recuperación ya no reactiva usuarios y se verificó rompiendo reglas a propósito, incluidas las carreras con bloqueos. Punto 3: servicios, horarios y bloqueos, con 57 pruebas nuevas; se verificó rompiendo reglas a propósito y de punta a punta, sin SQL, hasta agendar una cita. Punto 4: clientes, con la migración 004 y 58 pruebas nuevas; se verificó rompiendo reglas a propósito, incluidas las carreras entre agendar y anonimizar. Se agregó una excepción a la suspensión: el dueño puede anonimizar, por la Ley 1581. Punto 5: límite de intentos de login y `SALTOS_PROXY`, con la migración 005 y 33 pruebas nuevas; se verificó rompiendo reglas a propósito, incluidas las peticiones simultáneas. Siguiente: punto 6 del plan, tareas internas. |
+| 5 | Se revisó el estado real contra el código (`npm run typecheck` sin errores y 151 pruebas en verde), se corrigió la documentación desactualizada y se acordó el plan de la sección 6.1. El regreso del modo humano queda como evaluación al llegar el siguiente mensaje, no como tarea. Punto 1: módulo de negocios y suspensión completa (ya no se crea un cliente ni se administran usuarios estando suspendido), con 31 pruebas nuevas; se verificó rompiendo reglas a propósito. Corrección: la versión anterior de este archivo decía que un negocio suspendido podía aprobar, rechazar y marcar, y era falso; esas acciones ya lo impedían. Punto 2: barberos y usuarios, con 46 pruebas nuevas; la recuperación ya no reactiva usuarios y se verificó rompiendo reglas a propósito, incluidas las carreras con bloqueos. Punto 3: servicios, horarios y bloqueos, con 57 pruebas nuevas; se verificó rompiendo reglas a propósito y de punta a punta, sin SQL, hasta agendar una cita. Punto 4: clientes, con la migración 004 y 58 pruebas nuevas; se verificó rompiendo reglas a propósito, incluidas las carreras entre agendar y anonimizar. Se agregó una excepción a la suspensión: el dueño puede anonimizar, por la Ley 1581. Punto 5: límite de intentos de login y `SALTOS_PROXY`, con la migración 005 y 33 pruebas nuevas; se verificó rompiendo reglas a propósito, incluidas las peticiones simultáneas. Punto 6: tareas internas con temporizador simple, la migración 006 y 35 pruebas nuevas; se verificó rompiendo reglas a propósito y arrancando el servidor real contra `turnoo_test`. Siguiente: punto 7 del plan, webhook de WhatsApp. |

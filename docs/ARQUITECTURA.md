@@ -174,9 +174,12 @@ Reglas de seguridad (no negociables):
 | Tarea | Qué hace |
 |---|---|
 | Recordatorios | Envía la plantilla de recordatorio según `horas_recordatorio`, respetando el horario permitido. |
-| Aprobaciones vencidas | Pasa a `cancelada` las citas `por_aprobar` cuyo plazo venció y avisa al cliente. |
+| Aprobaciones vencidas | Pasa a `cancelada` las citas `por_aprobar` cuyo plazo venció, con `cancelada_por = 'sistema'`. El aviso al cliente queda pendiente hasta el webhook. |
 | Autocompletar | Pasa a `completada` las citas pasadas que nadie marcó, pasadas `horas_autocompletar_cita`. |
+| Limpieza | Borra las filas vencidas de `intentos_login`. |
 | Avisos de derivación | Envía al dueño el aviso por WhatsApp (plantilla) cuando la IA deriva. |
+
+Aprobaciones vencidas, autocompletar y limpieza ya corren, con un temporizador dentro de la API (`backend/src/tareas/`). Las demás dependen del webhook.
 
 ## 11. Costos y límites por plan
 
