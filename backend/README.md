@@ -64,6 +64,7 @@ Qué verifican hoy (`pruebas/`):
 - **rutas de citas:** operaciones por HTTP y permisos de dueño y empleado.
 - **rutas de negocios:** alta, plan y estado por el superadmin; datos y configuración por el dueño; permisos y negocio suspendido.
 - **barberos y usuarios:** administración de barberos, límite del plan, citas futuras, asociación con usuarios, invitar, desactivar, reenviar invitación y último dueño activo, incluidas operaciones simultáneas.
+- **rutas de clientes:** permisos de dueño y empleado, búsqueda, edición, anonimización, negocio suspendido y carreras entre agendar y anonimizar.
 - **servicios, horarios y bloqueos:** gestión por dueño y empleado, citas afectadas, zona horaria del negocio, negocio suspendido, barbero desactivado y el recorrido completo desde crear un barbero hasta agendar.
 
 ## Qué hay hecho
@@ -91,7 +92,8 @@ src/
 │   │   ├── citas.repositorio.ts    SQL del módulo
 │   │   └── citas.tipos.ts          Tipos del módulo
 │   ├── clientes/
-│   │   ├── clientes.servicio.ts    obtenerOCrearCliente y normalizarTelefono
+│   │   ├── clientes.rutas.ts       Rutas /clientes para el panel, con permisos por rol
+│   │   ├── clientes.servicio.ts    Teléfono, obtenerOCrearCliente, listar, editar y anonimizar
 │   │   ├── clientes.repositorio.ts SQL del módulo
 │   │   └── clientes.tipos.ts       Tipos del módulo
 │   ├── negocios/
