@@ -82,6 +82,16 @@ export class LimiteDeCitas extends ErrorDominio {
   }
 }
 
+export class DemasiadosIntentos extends ErrorDominio {
+  readonly reintentarEnSegundos: number;
+
+  constructor(reintentarEnSegundos: number) {
+    const minutos = Math.ceil(reintentarEnSegundos / 60);
+    super('DEMASIADOS_INTENTOS', `Demasiados intentos. Vuelve a intentar en ${minutos} minuto(s)`, 429);
+    this.reintentarEnSegundos = reintentarEnSegundos;
+  }
+}
+
 /**
  * Convierte los errores de PostgreSQL que significan una regla del negocio
  * en errores del dominio. Cualquier otro error se devuelve sin cambios.

@@ -22,7 +22,7 @@ const contrasena = z.string().max(128);
 
 rutasAuth.post('/login', async (req, res) => {
   const { email, password } = validarEsquema(z.object({ email: z.string().max(254), password: contrasena }), req.body);
-  res.json(await servicio.iniciarSesion(email, password));
+  res.json(await servicio.iniciarSesion(email, password, new Date(), req.ip ?? null));
 });
 
 rutasAuth.post('/logout', exigirSesion, async (req, res) => {

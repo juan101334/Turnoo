@@ -12,6 +12,7 @@ import { conNegocio, conSistema, type Transaccion } from '../../db/contexto.js';
 import { usuarioParaLogin } from '../../db/previas.js';
 import { estadoDeNegocio } from '../negocios/negocios.reglas.js';
 import { asociarUsuarioABarbero } from '../profesionales/profesionales.reglas.js';
+import { liberarIntento, reservarIntento } from './auth.intentos.js';
 import * as repositorio from './auth.repositorio.js';
 import type {
   EnlaceUnico,
@@ -85,10 +86,12 @@ export async function iniciarSesion(
   email: unknown,
   password: unknown,
   ahora: Date = new Date(),
+  ip: string | null = null,
 ): Promise<SesionIniciada> {
   if (typeof email !== 'string' || typeof password !== 'string' || email.length > 254 || password.length > PASSWORD_MAX) {
     throw new NoAutorizado(MENSAJE_LOGIN);
   }
+  await reservarIntento(email, ip, ahora);
   const usuario = await usuarioParaLogin(email.trim());
   const coincide = await argon2
     .verify(usuario?.passwordHash ?? (await hashDeRelleno()), password)
@@ -96,6 +99,7 @@ export async function iniciarSesion(
   if (!usuario || !usuario.activo || !usuario.passwordHash || !coincide) {
     throw new NoAutorizado(MENSAJE_LOGIN);
   }
+  await liberarIntento(email, ip);
 
   const { token, hash } = generarToken(usuario.negocioId);
   const expiraEn = sumarHoras(ahora, HORAS_SESION);

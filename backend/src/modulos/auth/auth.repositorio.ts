@@ -188,3 +188,42 @@ export async function cambiarPasswordDeActivo(
   );
   return rowCount === 1;
 }
+
+// ---------------------------------------------------------------------
+// Intentos de login. Siempre se bloquean las filas en el mismo orden (por clave),
+// para que dos intentos simultáneos no se queden esperándose entre sí.
+// ---------------------------------------------------------------------
+
+/** Crea los contadores que falten, reinicia los vencidos y los deja bloqueados. */
+export async function abrirVentanasDeIntentos(
+  tx: Transaccion,
+  claves: string[],
+  ahora: Date,
+  vencidaAntesDe: Date,
+): Promise<{ clave: string; intentos: number; ventanaInicio: Date }[]> {
+  const { rows } = await tx.consultar<{ clave: string; intentos: number; ventana_inicio: Date }>(
+    `INSERT INTO intentos_login (clave, intentos, ventana_inicio)
+     SELECT clave, 0, $2::timestamptz FROM unnest($1::text[]) AS clave ORDER BY clave
+     ON CONFLICT (clave) DO UPDATE SET
+       intentos = CASE WHEN intentos_login.ventana_inicio <= $3 THEN 0 ELSE intentos_login.intentos END,
+       ventana_inicio = CASE WHEN intentos_login.ventana_inicio <= $3
+                             THEN EXCLUDED.ventana_inicio ELSE intentos_login.ventana_inicio END
+     RETURNING clave, intentos, ventana_inicio`,
+    [claves, ahora, vencidaAntesDe],
+  );
+  return rows.map((f) => ({ clave: f.clave, intentos: f.intentos, ventanaInicio: f.ventana_inicio }));
+}
+
+export async function sumarIntento(tx: Transaccion, claves: string[]): Promise<void> {
+  await tx.consultar('UPDATE intentos_login SET intentos = intentos + 1 WHERE clave = ANY($1::text[])', [claves]);
+}
+
+export async function devolverIntento(tx: Transaccion, claves: string[], claveAReiniciar: string | null): Promise<void> {
+  await tx.consultar('SELECT 1 FROM intentos_login WHERE clave = ANY($1::text[]) ORDER BY clave FOR UPDATE', [claves]);
+  await tx.consultar(
+    `UPDATE intentos_login
+        SET intentos = CASE WHEN clave = $2 THEN 0 ELSE GREATEST(intentos - 1, 0) END
+      WHERE clave = ANY($1::text[])`,
+    [claves, claveAReiniciar],
+  );
+}
