@@ -26,3 +26,12 @@ export const logger = pino({
       }
     : {}),
 });
+
+/**
+ * Lo que se registra de un error cuando puede venir de datos de personas: el `detail` de PostgreSQL
+ * puede traer el contenido de la fila, por eso no se incluye.
+ */
+export function errorParaLog(error: unknown) {
+  const { message, code, stack } = error as { message?: string; code?: string; stack?: string };
+  return { mensaje: message, codigo: code, stack };
+}
