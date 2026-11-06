@@ -151,7 +151,7 @@ stateDiagram-v2
 2. `fn_buscar_cuenta_whatsapp` identifica el negocio. Si está suspendido, se ignora. Se abre la transacción con su contexto.
 3. Se guarda el mensaje (`ON CONFLICT (wa_message_id) DO NOTHING`; si ya existía, se detiene) y se busca o crea el cliente y la conversación. El cliente se reconoce primero por su BSUID (`from_user_id`, que Meta envía siempre) y luego por su teléfono, que puede no llegar si la persona activó su nombre de usuario de WhatsApp. Un mismo teléfono con otro BSUID es otra persona (número reciclado) y recibe un cliente nuevo.
 4. Si el cliente aún no recibió el aviso de tratamiento de datos de la versión vigente, se le envía después de responder 200 a Meta, y el mensaje no pasa a la IA. El consentimiento se registra cuando el cliente vuelve a escribir: así lo decidió Juan José (se entiende aceptado al seguir conversando), y registrarlo al enviar el aviso afirmaría algo que aún no ocurrió.
-5. Si la conversación está en `humano` (y no ha vencido), la IA no interviene. Si se alcanzó el límite del plan, se deriva con motivo `limite_plan`.
+5. Si el cliente ya aceptó y la conversación está en `bot`, queda pendiente (`ia_pendiente_en`) y se responde 200. Si está en `humano` (y no ha vencido), la IA no interviene. El resto lo hace el procesador, fuera de la petición: reserva la conversación, y si se alcanzó el límite del plan, deriva con motivo `limite_plan`.
 6. Si es audio, se descarga y transcribe; si es imagen, se guarda.
 7. Se llama a la IA con las reglas, la información del negocio, la fecha y hora local, el historial reciente y sus funciones.
 8. Se envía la respuesta, se guarda como mensaje saliente y se suman los tokens a `uso_mensual`.
