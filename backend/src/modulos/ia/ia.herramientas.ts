@@ -108,7 +108,7 @@ export const HERRAMIENTAS: Herramienta[] = [
       motivo: {
         type: 'string',
         enum: ['sin_informacion', 'cliente_pidio_humano', 'fuera_de_tema', 'sin_comprension'],
-        description: 'por qué se deriva',
+        description: 'por qué se deriva. fuera_de_tema solo si el cliente insiste después de que ya le dijiste que solo ayudas con la barbería',
       },
       detalle: textoJson('qué pidió o preguntó el cliente, en una frase'),
     }),
