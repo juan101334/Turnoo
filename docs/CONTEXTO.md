@@ -85,7 +85,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **647 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp + 16 de clientes por BSUID + 16 del aviso de datos + 26 del procesador de conversaciones + 21 de la base de conocimiento + 37 de la IA con un modelo simulado + 11 del uso del plan) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **648 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp + 16 de clientes por BSUID + 16 del aviso de datos + 26 del procesador de conversaciones + 21 de la base de conocimiento + 38 de la IA con un modelo simulado + 11 del uso del plan) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 | Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
@@ -144,8 +144,8 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 647 pruebas
-npm run ia:evaluar    # 20 conversaciones con el modelo real de OpenAI (cuesta saldo: pedir visto bueno)
+npm test              # 648 pruebas
+npm run ia:evaluar    # 22 conversaciones con el modelo real de OpenAI (cuesta saldo: pedir visto bueno)
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -283,7 +283,7 @@ Decisiones ya tomadas para estos puntos:
 3. Procesamiento de mensajes pendientes, con la espera de 5 segundos. **Hecho** (se inicia con la IA).
 4. Rutas para que el dueño administre la base de conocimiento. **Hecho.**
 5. IA con sus 7 funciones, solo texto, y el conjunto de conversaciones de prueba. **Hecho.** gpt-6-luna con esfuerzo `low` pasó las 20 conversaciones de prueba dos veces seguidas (2026-11-06), a unos US$0,006 por corrida completa. Las primeras corridas fallaron porque la IA no recordaba en el turno siguiente qué había consultado; se arregló guardando sus funciones (migración 011), no subiendo de modelo.
-6. Derivación, conteo de tokens y límites del plan. **Hecho** sin el aviso al dueño (al derivar y al 80% del límite), que usa plantillas y entra con las tareas de WhatsApp. El regreso a la IA a las 2 h ya existía: se evalúa en el webhook al llegar el siguiente mensaje.
+6. Derivación, conteo de tokens y límites del plan. **Hecho** sin el aviso al dueño (al derivar y al 80% del límite), que usa plantillas y entra con las tareas de WhatsApp. El regreso a la IA a las 2 h ya existía: se evalúa en el webhook al llegar el siguiente mensaje. **Probado con WhatsApp real (2026-11-05):** la IA agendó una cita de punta a punta. Esa prueba encontró dos fallas que las conversaciones de prueba no veían, porque salían del historial real: tomaba como vigentes resultados viejos (ahora solo se le devuelven las funciones de los últimos 30 minutos) y se quedaba callada después de una derivación (lo causaba la descripción de `derivar_a_humano`). Las dos quedaron en el conjunto de prueba, que ahora tiene 22 conversaciones y pasa completo.
 7. Audios e imágenes.
 
 **Antes de atender clientes reales** también hace falta el aviso al dueño cuando la IA deriva, que usa una plantilla y entra con las tareas de WhatsApp. Antes del despliegue se propondrá una tarea aparte para llevar el control de las migraciones aplicadas.
