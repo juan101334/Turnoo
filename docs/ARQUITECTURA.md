@@ -160,6 +160,15 @@ stateDiagram-v2
 
 Funciones disponibles para la IA: `listar_profesionales_y_servicios`, `consultar_disponibilidad`, `crear_cita`, `listar_mis_citas`, `cancelar_cita`, `reprogramar_cita` y `derivar_a_humano`.
 
+Cómo se arma cada respuesta (`backend/src/modulos/ia/`):
+
+1. Se lee de la base el negocio, la base de conocimiento activa, las citas activas del cliente y los últimos 30 mensajes.
+2. Las instrucciones llevan las reglas, la información del negocio, la fecha de hoy y un calendario con el día de la semana de cada fecha. El modelo copia fechas del calendario en lugar de calcularlas.
+3. El modelo pide funciones de a una; el backend las ejecuta con el negocio y el cliente de la conversación y le devuelve el resultado. Un error del dominio (hora ocupada, fuera de plazo) vuelve al modelo para que se lo explique al cliente.
+4. Con la respuesta final, se envía por WhatsApp. Hasta 6 llamadas al modelo por respuesta; si no alcanza, el procesador reintenta y luego deriva.
+
+Un reintento nunca duplica una cita: todo se vuelve a leer de la base, las citas activas van en las instrucciones y `crear_cita` devuelve la cita existente si ya hay una con el mismo barbero y la misma hora.
+
 Reglas de seguridad (no negociables):
 
 - **El negocio y el cliente los pone el backend, nunca la IA.** Aunque un cliente intente engañar al modelo, no puede ver ni modificar citas de otros.
