@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoConfigurado } from '../src/compartido/errores.js';
 import { conNegocio } from '../src/db/contexto.js';
-import { MENSAJES_DEL_HISTORIAL } from '../src/modulos/conversaciones/conversaciones.servicio.js';
+import { MENSAJES_DEL_HISTORIAL, MINUTOS_VIGENCIA_PASOS } from '../src/modulos/conversaciones/conversaciones.servicio.js';
 import { HERRAMIENTAS, MAX_DIAS_DISPONIBILIDAD } from '../src/modulos/ia/ia.herramientas.js';
 import { armarInstrucciones, nombreSeguro } from '../src/modulos/ia/ia.instrucciones.js';
 import { ErrorDelModelo, llamarModelo, URL_RESPUESTAS } from '../src/modulos/ia/ia.proveedor.js';
@@ -402,6 +402,24 @@ describe('IA', () => {
       const entrada = segundo.peticiones[0]!.input as Record<string, unknown>[];
       expect(entrada.find((i) => i.type === 'function_call')).toMatchObject({ name: 'crear_cita' });
       expect(JSON.parse(entrada.find((i) => i.type === 'function_call_output')!.output as string)).toMatchObject({ ok: true });
+    });
+
+    it(`solo repite las funciones de los últimos ${MINUTOS_VIGENCIA_PASOS} minutos`, async () => {
+      const c = await conversacion(['Hola']);
+      // Una función de hace 31 minutos y otra de hace 29.
+      for (const [minutos, nombre] of [[31, 'listar_profesionales_y_servicios'], [29, 'listar_mis_citas']] as const) {
+        await sql(
+          `INSERT INTO ia_pasos (negocio_id, conversacion_id, call_id, nombre, argumentos, resultado, orden, creado_en)
+           VALUES ($1, $2, $3, $4, '{}', '{"barberos":[]}', 0, $5)`,
+          [n.negocioId, c.conversacionId, `call_viejo_${minutos}`, nombre, new Date(T.getTime() - minutos * 60_000)],
+        );
+      }
+      // El mensaje del cliente es más viejo que ambas: lo que corta es la vigencia.
+      await sql('UPDATE mensajes SET creado_en = $2 WHERE conversacion_id = $1', [c.conversacionId, new Date(T.getTime() - 3_600_000)]);
+      const modelo = atenderCon([{ texto: 'Hola' }]);
+      await modelo.atender(c);
+      const llamadas = (modelo.peticiones[0]!.input as Record<string, unknown>[]).filter((i) => i.type === 'function_call');
+      expect(llamadas.map((i) => i.name)).toEqual(['listar_mis_citas']);
     });
 
     it('no mezcla las funciones de otra conversación', async () => {

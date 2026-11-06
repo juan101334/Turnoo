@@ -61,6 +61,8 @@ interface Escenario {
   nombre: string;
   turnos: string[];
   preparar?: (clienteId: string, ids: Ids) => Promise<void>;
+  /** Corre después del turno indicado (desde 0), antes del siguiente mensaje del cliente. */
+  entreTurnos?: (turno: number, ids: Ids) => Promise<void>;
   verificar: (r: Resultado) => string[];
 }
 
@@ -203,6 +205,21 @@ const ESCENARIOS: Escenario[] = [
     verificar: (r) => [...dice(r, /s[áa]bado|17/i, 'el sábado 17'), ...dice(r, /12/, 'las 12')],
   },
   {
+    nombre: 'vuelve a consultar si el catálogo cambió',
+    turnos: [
+      'Quiero un corte con Carlos mañana a las 10 de la mañana',
+      'Ya me dijeron que Carlos volvió, ¿me puedes agendar con él mañana a las 10?',
+      'Sí',
+    ],
+    preparar: async (_cliente, ids) => {
+      await sql('UPDATE profesionales SET activo = false WHERE id = $1', [ids.carlos]);
+    },
+    entreTurnos: async (turno, ids) => {
+      if (turno === 0) await sql('UPDATE profesionales SET activo = true WHERE id = $1', [ids.carlos]);
+    },
+    verificar: (r) => [...sinCitaEnTurno(r, 0), ...noDerivo(r), ...unaCita(r, 'Carlos', VIERNES, '10:00')],
+  },
+  {
     nombre: 'cualquier barbero libre',
     turnos: ['Necesito un corte mañana a las 9 de la mañana con cualquier barbero', 'Sí'],
     verificar: (r) => unaCita(r, 'Carlos', VIERNES, '09:00'),
@@ -226,6 +243,12 @@ function revisarTextos(r: Resultado): string[] {
     }
   }
   return fallos;
+}
+
+/** Decir que una persona le va a escribir sin derivar es una promesa falsa: nadie se entera. */
+function prometioSinDerivar(r: Resultado): string[] {
+  const promete = r.respuestas.some((t) => /persona[\s\S]{0,60}(escribir|escribirá|contactar|contactará)/i.test(t));
+  return promete && r.derivaciones.length === 0 ? ['prometió que una persona le escribirá, pero no derivó'] : [];
 }
 
 let n: NegocioDePrueba;
@@ -371,6 +394,7 @@ async function conversar(e: Escenario): Promise<Resultado> {
     resultado.respuestas.push(enviados.slice(antes).join('\n'));
     resultado.funciones.push(funciones);
     resultado.citasPorTurno.push(await citasDe(clienteId));
+    await e.entreTurnos?.(resultado.respuestas.length - 1, ids);
     const derivada = await sql<{ estado: string }>('SELECT estado FROM conversaciones WHERE id = $1', [conversacionId]);
     if (derivada[0]?.estado === 'humano') break;
   }
@@ -405,7 +429,7 @@ describe(`conversaciones de prueba con ${entorno.OPENAI_MODELO} (esfuerzo ${ento
 
   it.each(ESCENARIOS.map((e) => [e.nombre, e] as const))('%s', async (_nombre, escenario) => {
     const r = await conversar(escenario);
-    const fallos = [...(r.error ? [`la IA falló: ${r.error}`] : []), ...revisarTextos(r), ...escenario.verificar(r)];
+    const fallos = [...(r.error ? [`la IA falló: ${r.error}`] : []), ...revisarTextos(r), ...prometioSinDerivar(r), ...escenario.verificar(r)];
     if (fallos.length > 0) informe.push(`- **Falló:** ${fallos.join('; ')}`);
     expect(fallos, `Respuestas:\n${r.respuestas.join('\n---\n')}`).toEqual([]);
   });
