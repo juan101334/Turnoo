@@ -168,6 +168,7 @@ Reglas de seguridad (no negociables):
 - **Choques de agenda:** si dos personas piden el mismo hueco, la base rechaza la segunda (error `23P01`) y la IA ofrece otras opciones.
 - **Si la respuesta no está en la información del negocio, deriva.** Es preferible una derivación a una promesa falsa.
 - Cada derivación guarda su motivo y lo que preguntó el cliente, para completar la base de conocimiento cada semana.
+- **La base de conocimiento la escribe solo el dueño** (`/conocimiento`). Todas las entradas activas van en cada llamada, así que tienen tope: 20.000 caracteres entre las activas (del orden de 5.000 tokens) y 200 entradas. Desactivar una entrada la saca de la IA sin borrarla.
 
 ## 10. Tareas programadas
 
