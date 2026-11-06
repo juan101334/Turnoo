@@ -28,6 +28,9 @@ type Paso = { llamadas: LlamadaGuion[] } | { texto: string } | { respuesta: Resp
  */
 function modeloGuionado(pasos: Paso[]) {
   const peticiones: Record<string, unknown>[] = [];
+  /** Como OpenAI, cada llamada tiene un id único; así se distinguen de las de turnos anteriores. */
+  const prefijo = randomUUID().slice(0, 8);
+  const propios = new Set<string>();
   const pedir = vi.fn<typeof fetch>(async (_url, init) => {
     peticiones.push(JSON.parse(String(init!.body)));
     const n = peticiones.length;
@@ -36,9 +39,11 @@ function modeloGuionado(pasos: Paso[]) {
     if ('respuesta' in paso) return paso.respuesta;
     const output: unknown[] = [{ type: 'reasoning', id: `rs_${n}`, encrypted_content: `cifrado-${n}`, summary: [] }];
     if ('llamadas' in paso) {
-      paso.llamadas.forEach((l, i) =>
-        output.push({ type: 'function_call', id: `fc_${n}_${i}`, call_id: `call_${n}_${i}`, name: l.nombre, arguments: typeof l.args === 'string' ? l.args : JSON.stringify(l.args) }),
-      );
+      paso.llamadas.forEach((l, i) => {
+        const callId = `call_${prefijo}_${n}_${i}`;
+        propios.add(callId);
+        output.push({ type: 'function_call', id: `fc_${n}_${i}`, call_id: callId, name: l.nombre, arguments: typeof l.args === 'string' ? l.args : JSON.stringify(l.args) });
+      });
     } else {
       output.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: paso.texto, annotations: [] }] });
     }
@@ -51,12 +56,14 @@ function modeloGuionado(pasos: Paso[]) {
       { status: 200 },
     );
   });
-  /** Lo que el backend le devolvió al modelo por cada función, en orden. */
+  /** Lo que el backend le devolvió al modelo por cada función de ESTA atención, en orden. */
   const resultados = () => {
     const ultima = peticiones.at(-1)?.input as { type?: string; call_id?: string; output?: string }[] | undefined;
-    return (ultima ?? []).filter((i) => i.type === 'function_call_output').map((i) => JSON.parse(i.output!));
+    return (ultima ?? [])
+      .filter((i) => i.type === 'function_call_output' && propios.has(i.call_id!))
+      .map((i) => JSON.parse(i.output!));
   };
-  return { pedir, peticiones, resultados };
+  return { pedir, peticiones, resultados, prefijo };
 }
 
 const metaAcepta = () =>
@@ -354,6 +361,58 @@ describe('IA', () => {
       for (const p of modelo.peticiones) expect(JSON.stringify(p)).not.toContain(telefono);
     });
 
+    it('en el turno siguiente ve las funciones que usó antes, en su lugar entre los mensajes', async () => {
+      const c = await conversacion(['Quiero corte con Carlos mañana']);
+      const primero = atenderCon([
+        { llamadas: [{ nombre: 'listar_profesionales_y_servicios', args: {} }] },
+        { llamadas: [{ nombre: 'consultar_disponibilidad', args: { profesional_id: barbero, servicio_ids: [corte], fecha_desde: MANANA, fecha_hasta: MANANA } }] },
+        { texto: '¿Te sirve a las 9:00 a. m.?' },
+      ]);
+      await primero.atender(c);
+      // El cliente responde un minuto después.
+      await sql(
+        `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, creado_en)
+         VALUES ($1, $2, 'entrante', 'cliente', 'texto', 'Sí', $3)`,
+        [n.negocioId, c.conversacionId, new Date(T.getTime() + 60_000)],
+      );
+      const segundo = atenderCon([{ texto: 'Listo' }]);
+      await segundo.atender(c);
+
+      const entrada = segundo.peticiones[0]!.input as Record<string, unknown>[];
+      expect(entrada.map((i) => (i.type as string) ?? `${i.role}:${i.content}`)).toEqual([
+        'user:Quiero corte con Carlos mañana',
+        'function_call', 'function_call_output', 'function_call', 'function_call_output',
+        'assistant:¿Te sirve a las 9:00 a. m.?',
+        'user:Sí',
+      ]);
+      expect(entrada[1]).toEqual({ type: 'function_call', call_id: `call_${primero.prefijo}_1_0`, name: 'listar_profesionales_y_servicios', arguments: '{}' });
+      expect(entrada[3]).toMatchObject({ name: 'consultar_disponibilidad', call_id: `call_${primero.prefijo}_2_0` });
+      expect(JSON.parse(entrada[4]!.output as string).dias[0].horas).toContain('09:00');
+      // El razonamiento cifrado de turnos anteriores no se guarda ni se repite.
+      expect(entrada.some((i) => i.type === 'reasoning')).toBe(false);
+    });
+
+    it('un reintento ve las funciones del intento anterior aunque el envío haya fallado', async () => {
+      const c = await conversacion(['Sí, agéndala']);
+      const caida = vi.fn<typeof fetch>(async () => json({ error: { code: 1 } }, 500));
+      const primero = atenderCon([{ llamadas: [crearA('13:00')] }, { texto: 'Listo' }], caida);
+      await expect(primero.atender(c)).rejects.toThrow();
+      const segundo = atenderCon([{ texto: 'Listo' }]);
+      await segundo.atender(c);
+      const entrada = segundo.peticiones[0]!.input as Record<string, unknown>[];
+      expect(entrada.find((i) => i.type === 'function_call')).toMatchObject({ name: 'crear_cita' });
+      expect(JSON.parse(entrada.find((i) => i.type === 'function_call_output')!.output as string)).toMatchObject({ ok: true });
+    });
+
+    it('no mezcla las funciones de otra conversación', async () => {
+      const ana = await conversacion(['Hola']);
+      const beto = await conversacion(['Hola']);
+      await atenderCon([{ llamadas: [{ nombre: 'listar_mis_citas', args: {} }] }, { texto: 'No tienes citas' }]).atender(ana);
+      const modelo = atenderCon([{ texto: 'Hola' }]);
+      await modelo.atender(beto);
+      expect((modelo.peticiones[0]!.input as Record<string, unknown>[]).some((i) => i.type === 'function_call')).toBe(false);
+    });
+
     it('describe los adjuntos que todavía no puede leer', () => {
       const m = (tipo: 'texto' | 'audio' | 'imagen' | 'otro', contenido: string | null) => ({ autor: 'cliente' as const, tipo, contenido, creadoEn: T });
       expect(historialComoEntrada([m('imagen', null), m('otro', null), m('texto', null)]).map((x) => (x as { content: string }).content)).toEqual([
@@ -404,8 +463,8 @@ describe('IA', () => {
         'user', 'reasoning', 'function_call', 'function_call_output', 'reasoning', 'function_call', 'function_call_output', 'reasoning', 'function_call', 'function_call_output',
       ]);
       expect(entrada[1]).toMatchObject({ id: 'rs_1', encrypted_content: 'cifrado-1' });
-      expect(entrada[3]).toMatchObject({ call_id: 'call_1_0' });
-      expect(entrada[9]).toMatchObject({ call_id: 'call_3_0' });
+      expect(entrada[3]).toMatchObject({ call_id: `call_${modelo.prefijo}_1_0` });
+      expect(entrada[9]).toMatchObject({ call_id: `call_${modelo.prefijo}_3_0` });
       expect((await salientes(c)).map((m) => m.contenido)).toEqual(['¡Listo! Te esperamos mañana a las 10:00 a. m.']);
     });
 
@@ -447,6 +506,7 @@ describe('IA', () => {
       await expect(modelo.atender(c)).rejects.toThrow(ErrorDelModelo);
       const resultados = modelo.peticiones.slice(1).map((p) => {
         const items = p.input as { type?: string; output?: string }[];
+        // Este cliente no tiene turnos anteriores: todo resultado es de esta atención.
         return JSON.parse(items.filter((i) => i.type === 'function_call_output').at(-1)!.output!);
       });
       expect(resultados).toHaveLength(MAX_LLAMADAS - 1);
