@@ -7,6 +7,7 @@ import { pool } from './db/pool.js';
 import { rutasAuth } from './modulos/auth/auth.rutas.js';
 import { rutasCitas } from './modulos/citas/citas.rutas.js';
 import { rutasClientes } from './modulos/clientes/clientes.rutas.js';
+import { rutasConocimiento } from './modulos/conocimiento/conocimiento.rutas.js';
 import { rutasMiNegocio, rutasNegocios } from './modulos/negocios/negocios.rutas.js';
 import { rutasBloqueos } from './modulos/profesionales/agenda.rutas.js';
 import { rutasProfesionales } from './modulos/profesionales/profesionales.rutas.js';
@@ -42,6 +43,7 @@ export function crearApp({
   app.use('/auth', rutasAuth);
   app.use('/citas', rutasCitas);
   app.use('/clientes', rutasClientes);
+  app.use('/conocimiento', rutasConocimiento);
   app.use('/negocios', rutasNegocios);
   app.use('/negocio', rutasMiNegocio);
   app.use('/profesionales', rutasProfesionales);
