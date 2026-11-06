@@ -3,8 +3,8 @@ import { fechaLocal, horaLocal } from '../../compartido/tiempo.js';
 import type { Atender, ConversacionPendiente } from '../../procesador/procesador.js';
 import { citasActivasDelCliente } from '../citas/citas.servicio.js';
 import { conocimientoActivo } from '../conocimiento/conocimiento.servicio.js';
-import type { MensajeDelHistorial } from '../conversaciones/conversaciones.tipos.js';
-import { contextoDeConversacion } from '../conversaciones/conversaciones.servicio.js';
+import type { MensajeDelHistorial, PasoDeIA } from '../conversaciones/conversaciones.tipos.js';
+import { contextoDeConversacion, guardarPasosDeIA } from '../conversaciones/conversaciones.servicio.js';
 import { enviarMensaje, MAX_TEXTO, type DependenciasEnvio } from '../whatsapp/whatsapp.envio.js';
 import { ejecutarHerramienta, HERRAMIENTAS } from './ia.herramientas.js';
 import { armarInstrucciones } from './ia.instrucciones.js';
@@ -31,12 +31,35 @@ const DESCRIPCION_ADJUNTO: Record<string, string> = {
   otro: '[El cliente envió un mensaje que no es texto.]',
 };
 
-/** El historial como mensajes para el modelo. Nada del cliente va en las instrucciones. */
-export function historialComoEntrada(historial: MensajeDelHistorial[]): ItemEntrada[] {
-  return historial.map((m) => ({
-    role: m.autor === 'cliente' ? 'user' : 'assistant',
-    content: (m.tipo === 'texto' ? m.contenido : null) ?? DESCRIPCION_ADJUNTO[m.tipo] ?? DESCRIPCION_ADJUNTO.otro!,
-  }));
+/**
+ * El historial como entrada para el modelo: los mensajes y, entre ellos, las funciones que usó la
+ * IA con sus resultados, para que recuerde lo que ya consultó. Nada del cliente va en las
+ * instrucciones.
+ *
+ * Orden por momento. Si coinciden, primero lo del cliente, luego las funciones (en su orden) y
+ * al final la respuesta de la IA, que es como ocurren dentro de una misma atención.
+ */
+export function historialComoEntrada(historial: MensajeDelHistorial[], pasos: PasoDeIA[] = []): ItemEntrada[] {
+  const eventos = [
+    ...historial.map((m) => ({ en: m.creadoEn.getTime(), rango: m.autor === 'cliente' ? 0 : 2, orden: 0, mensaje: m })),
+    ...pasos.map((p) => ({ en: p.creadoEn.getTime(), rango: 1, orden: p.orden, paso: p })),
+  ].sort((a, b) => a.en - b.en || a.rango - b.rango || a.orden - b.orden);
+
+  return eventos.flatMap((e): ItemEntrada[] => {
+    if ('paso' in e && e.paso) {
+      return [
+        { type: 'function_call', call_id: e.paso.callId, name: e.paso.nombre, arguments: e.paso.argumentos },
+        { type: 'function_call_output', call_id: e.paso.callId, output: e.paso.resultado },
+      ];
+    }
+    const m = (e as { mensaje: MensajeDelHistorial }).mensaje;
+    return [
+      {
+        role: m.autor === 'cliente' ? 'user' : 'assistant',
+        content: (m.tipo === 'texto' ? m.contenido : null) ?? DESCRIPCION_ADJUNTO[m.tipo] ?? DESCRIPCION_ADJUNTO.otro!,
+      },
+    ];
+  });
 }
 
 export interface DependenciasIA {
@@ -75,11 +98,12 @@ export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date()
       })),
     });
 
-    const entrada = historialComoEntrada(contexto.historial);
+    const entrada = historialComoEntrada(contexto.historial, contexto.pasos);
     const herramienta = { negocioId, conversacionId, clienteId, zonaHoraria: zona, ahora };
     let uso: UsoDeTokens = { entrada: 0, entradaEnCache: 0, salida: 0, razonamiento: 0 };
     let texto = '';
     const funciones: string[] = [];
+    const pasos: Omit<PasoDeIA, 'creadoEn' | 'orden'>[] = [];
 
     for (let llamada = 0; llamada < MAX_LLAMADAS && !texto; llamada += 1) {
       const respuesta = await llamarModelo({ instrucciones, entrada, herramientas: HERRAMIENTAS, identificador: clienteId }, modelo);
@@ -95,12 +119,15 @@ export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date()
         funciones.push(pedida.nombre);
         const { salida } = await ejecutarHerramienta(pedida.nombre, pedida.argumentos, herramienta);
         entrada.push({ type: 'function_call_output', call_id: pedida.callId, output: salida });
+        pasos.push({ callId: pedida.callId, nombre: pedida.nombre, argumentos: pedida.argumentos, resultado: salida });
       }
     }
     // Solo conteos y nombres de funciones: nunca el texto de la conversación.
     logger.info({ negocioId, funciones, uso }, 'IA atendió una conversación');
     if (!texto) throw new ErrorDelModelo(`Sin respuesta final tras ${MAX_LLAMADAS} llamadas`, true);
 
+    // Antes de enviar: si el envío falla y se reintenta, el reintento ya sabe lo que se hizo.
+    await guardarPasosDeIA(negocioId, conversacionId, pasos, ahora);
     const resultado = await enviarMensaje(
       { negocioId, conversacionId, texto: texto.slice(0, MAX_TEXTO), emisor: 'ia' },
       reloj(),

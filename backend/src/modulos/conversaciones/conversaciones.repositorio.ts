@@ -1,12 +1,12 @@
 import type { Transaccion } from '../../db/contexto.js';
-import type { ContextoDeConversacion, MensajeDelHistorial, MotivoDerivacion } from './conversaciones.tipos.js';
+import type { ContextoDeConversacion, MensajeDelHistorial, MotivoDerivacion, PasoDeIA } from './conversaciones.tipos.js';
 
 /** Único lugar con SQL de conversaciones y derivaciones. */
 
 export async function datosDeLaConversacion(
   tx: Transaccion,
   conversacionId: string,
-): Promise<Omit<ContextoDeConversacion, 'historial'> | null> {
+): Promise<Omit<ContextoDeConversacion, 'historial' | 'pasos'> | null> {
   const { rows } = await tx.consultar<{
     nombre: string;
     zona_horaria: string;
@@ -72,6 +72,52 @@ export async function historial(tx: Transaccion, conversacionId: string, limite:
     contenido: f.contenido,
     creadoEn: f.creado_en,
   }));
+}
+
+/** Las últimas `limite` funciones desde `desde`, en el orden en que ocurrieron. */
+export async function pasosDesde(tx: Transaccion, conversacionId: string, desde: Date, limite: number): Promise<PasoDeIA[]> {
+  const { rows } = await tx.consultar<{
+    call_id: string;
+    nombre: string;
+    argumentos: string;
+    resultado: string;
+    creado_en: Date;
+    orden: number;
+  }>(
+    `SELECT call_id, nombre, argumentos, resultado, creado_en, orden FROM (
+       SELECT call_id, nombre, argumentos, resultado, creado_en, orden
+         FROM ia_pasos
+        WHERE conversacion_id = $1 AND creado_en >= $2
+        ORDER BY creado_en DESC, orden DESC
+        LIMIT $3
+     ) ultimos
+     ORDER BY creado_en, orden`,
+    [conversacionId, desde, limite],
+  );
+  return rows.map((f) => ({
+    callId: f.call_id,
+    nombre: f.nombre,
+    argumentos: f.argumentos,
+    resultado: f.resultado,
+    creadoEn: f.creado_en,
+    orden: f.orden,
+  }));
+}
+
+export async function guardarPasos(
+  tx: Transaccion,
+  negocioId: string,
+  conversacionId: string,
+  pasos: Omit<PasoDeIA, 'creadoEn' | 'orden'>[],
+  creadoEn: Date,
+): Promise<void> {
+  for (const [orden, p] of pasos.entries()) {
+    await tx.consultar(
+      `INSERT INTO ia_pasos (negocio_id, conversacion_id, call_id, nombre, argumentos, resultado, orden, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [negocioId, conversacionId, p.callId, p.nombre, p.argumentos, p.resultado, orden, creadoEn],
+    );
+  }
 }
 
 /**

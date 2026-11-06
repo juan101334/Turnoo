@@ -16,6 +16,19 @@ export interface MensajeDelHistorial {
   creadoEn: Date;
 }
 
+/** Una función que pidió la IA y lo que el backend le respondió (tabla ia_pasos). */
+export interface PasoDeIA {
+  callId: string;
+  nombre: string;
+  /** JSON en texto, tal como lo generó el modelo. */
+  argumentos: string;
+  /** JSON en texto, tal como se le devolvió al modelo. */
+  resultado: string;
+  creadoEn: Date;
+  /** Posición dentro de una misma respuesta. */
+  orden: number;
+}
+
 /** Lo que la IA necesita saber de una conversación para responder. */
 export interface ContextoDeConversacion {
   negocio: {
@@ -29,4 +42,6 @@ export interface ContextoDeConversacion {
   /** Como lo dio WhatsApp o el panel. El teléfono nunca se incluye. */
   nombreCliente: string | null;
   historial: MensajeDelHistorial[];
+  /** Funciones que usó la IA desde el mensaje más viejo del historial, en orden. */
+  pasos: PasoDeIA[];
 }
