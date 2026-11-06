@@ -83,7 +83,7 @@ export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date()
   return async ({ negocioId, conversacionId, clienteId }: ConversacionPendiente) => {
     const ahora = reloj();
     const [contexto, conocimiento, activas] = await Promise.all([
-      contextoDeConversacion(negocioId, conversacionId),
+      contextoDeConversacion(negocioId, conversacionId, ahora),
       conocimientoActivo(negocioId),
       citasActivasDelCliente(negocioId, clienteId, ahora),
     ]);

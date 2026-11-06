@@ -8,18 +8,28 @@ import type { ContextoDeConversacion, MotivoDerivacion, PasoDeIA } from './conve
 export const MENSAJES_DEL_HISTORIAL = 30;
 /** Cuántas funciones anteriores ve la IA. Cada resultado son tokens en cada respuesta. */
 export const PASOS_DEL_HISTORIAL = 20;
+/**
+ * Solo se devuelven las funciones recientes. Alcanza para el "sí" de una confirmación, y no
+ * arrastra resultados viejos (un catálogo vacío, horas que ya se ocuparon) que el modelo
+ * tomaría como vigentes.
+ */
+export const MINUTOS_VIGENCIA_PASOS = 30;
 const MAX_DETALLE = 500;
 
-export async function contextoDeConversacion(negocioId: string, conversacionId: string): Promise<ContextoDeConversacion> {
+export async function contextoDeConversacion(
+  negocioId: string,
+  conversacionId: string,
+  ahora: Date = new Date(),
+): Promise<ContextoDeConversacion> {
   if (!esUuid(conversacionId)) throw new NoEncontrado('La conversación');
   return conNegocio(negocioId, async (tx) => {
     const datos = await repositorio.datosDeLaConversacion(tx, conversacionId);
     if (!datos) throw new NoEncontrado('La conversación');
     const historial = await repositorio.historial(tx, conversacionId, MENSAJES_DEL_HISTORIAL);
-    // Solo las funciones de la parte de la conversación que la IA alcanza a leer.
-    const pasos = historial[0]
-      ? await repositorio.pasosDesde(tx, conversacionId, historial[0].creadoEn, PASOS_DEL_HISTORIAL)
-      : [];
+    // Solo las funciones recientes y de la parte de la conversación que la IA alcanza a leer.
+    const vigentes = new Date(ahora.getTime() - MINUTOS_VIGENCIA_PASOS * 60_000);
+    const desde = historial[0] && historial[0].creadoEn > vigentes ? historial[0].creadoEn : vigentes;
+    const pasos = historial[0] ? await repositorio.pasosDesde(tx, conversacionId, desde, PASOS_DEL_HISTORIAL) : [];
     return { ...datos, historial, pasos };
   });
 }
