@@ -51,3 +51,26 @@ export interface ContextoDeConversacion {
   /** Funciones que usó la IA desde el mensaje más viejo del historial, en orden. */
   pasos: PasoDeIA[];
 }
+
+/** Una conversación como la ve el dueño en el panel. */
+export interface ConversacionDelPanel {
+  id: string;
+  estado: 'bot' | 'humano' | 'cerrada';
+  humanoDesde: Date | null;
+  ultimoMensajeEn: Date | null;
+  cliente: { id: string; nombre: string | null; telefono: string | null };
+  /** La derivación más reciente, si hubo. */
+  ultimaDerivacion: { motivo: MotivoDerivacion; detalle: string | null; creadaEn: Date } | null;
+}
+
+export interface MensajeDelPanel {
+  id: string;
+  direccion: 'entrante' | 'saliente';
+  emisor: 'cliente' | 'ia' | 'humano' | 'sistema';
+  tipo: MensajeDelHistorial['tipo'];
+  contenido: string | null;
+  transcripcion: string | null;
+  tieneImagen: boolean;
+  estadoEntrega: string | null;
+  creadoEn: Date;
+}

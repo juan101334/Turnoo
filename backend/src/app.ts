@@ -8,6 +8,8 @@ import { rutasAuth } from './modulos/auth/auth.rutas.js';
 import { rutasCitas } from './modulos/citas/citas.rutas.js';
 import { rutasClientes } from './modulos/clientes/clientes.rutas.js';
 import { rutasConocimiento } from './modulos/conocimiento/conocimiento.rutas.js';
+import { crearRutasConversaciones } from './modulos/conversaciones/conversaciones.rutas.js';
+import type { DependenciasEnvio } from './modulos/whatsapp/whatsapp.envio.js';
 import { rutasMiNegocio, rutasNegocios } from './modulos/negocios/negocios.rutas.js';
 import { rutasBloqueos } from './modulos/profesionales/agenda.rutas.js';
 import { rutasProfesionales } from './modulos/profesionales/profesionales.rutas.js';
@@ -17,11 +19,14 @@ import type { ConfiguracionWebhook } from './modulos/whatsapp/whatsapp.tipos.js'
 interface OpcionesApp {
   saltosProxy?: number;
   whatsapp?: ConfiguracionWebhook;
+  /** Solo en pruebas: reemplaza la llamada a Meta cuando el dueño responde una conversación. */
+  envio?: DependenciasEnvio;
 }
 
 export function crearApp({
   saltosProxy = entorno.SALTOS_PROXY,
   whatsapp = { appSecret: entorno.WHATSAPP_APP_SECRET, verifyToken: entorno.WHATSAPP_VERIFY_TOKEN },
+  envio = {},
 }: OpcionesApp = {}) {
   const app = express();
   app.disable('x-powered-by');
@@ -44,6 +49,7 @@ export function crearApp({
   app.use('/citas', rutasCitas);
   app.use('/clientes', rutasClientes);
   app.use('/conocimiento', rutasConocimiento);
+  app.use('/conversaciones', crearRutasConversaciones(envio));
   app.use('/negocios', rutasNegocios);
   app.use('/negocio', rutasMiNegocio);
   app.use('/profesionales', rutasProfesionales);
