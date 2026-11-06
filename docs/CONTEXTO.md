@@ -85,7 +85,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **578 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp + 16 de clientes por BSUID + 16 del aviso de datos + 26 del procesador de conversaciones) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **599 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp + 16 de clientes por BSUID + 16 del aviso de datos + 26 del procesador de conversaciones + 21 de la base de conocimiento) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 | Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
@@ -103,6 +103,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Aviso de tratamiento de datos (versión `2026-11-v1`, **pendiente de revisión legal**): el primer mensaje de un cliente lo pide y se envía después de responder a Meta. Un mensaje escrito después de que Meta confirmó el aviso registra el consentimiento con su `wa_message_id`. Si el envío falla, se reintenta con el siguiente mensaje | `backend/src/modulos/whatsapp/whatsapp.aviso.ts` |
 | Migración 010: columnas `ia_*` en `conversaciones` (pendiente, reserva, intentos) e índice de pendientes | `db/migrations/010_conversaciones_pendientes.sql` |
 | Procesador de conversaciones: el webhook marca pendiente la conversación de quien ya aceptó el aviso; el procesador la reserva con `SKIP LOCKED`, responde 5 s después del último mensaje (o 30 s después del primero), reintenta a los 30 s, 1 y 2 min, y luego deriva con motivo `error` y avisa al cliente. Descarta lo que está en modo humano o lleva 24 h. **Aún no se inicia en `index.ts`: lo conecta la IA (punto 5)** | `backend/src/procesador/` |
+| Base de conocimiento: el dueño lista, crea, edita, activa o desactiva y borra preguntas con su respuesta por `/conocimiento`. Topes: pregunta de 300 caracteres, respuesta de 2.000, 200 entradas y 20.000 caracteres entre las activas, porque todas van en cada llamada a la IA. No admite dos preguntas iguales (sin distinguir mayúsculas) | `backend/src/modulos/conocimiento/` |
 | Migración 006: `citas.cancelada_por` admite `sistema` | `db/migrations/006_cancelada_por_sistema.sql` |
 | Tareas internas, al arrancar y cada minuto: expirar `por_aprobar` vencidas (liberan el hueco), autocompletar citas pasadas `horas_autocompletar_cita` desde su fin (hasta 500 por ciclo cada una) y limpiar `intentos_login` vencidos | `backend/src/tareas/` |
 | Migración 005: tabla `intentos_login`, visible solo en el contexto de sistema | `db/migrations/005_intentos_login.sql` |
@@ -138,7 +139,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
-npm test              # 578 pruebas
+npm test              # 599 pruebas
 ```
 
 Aplicar una migración nueva a la base de desarrollo (desde la raíz):
@@ -274,7 +275,7 @@ Decisiones ya tomadas para estos puntos:
    - 2a. Clientes por BSUID, para los mensajes que llegan sin teléfono. **Hecho.**
    - 2b. Aviso de datos y consentimiento. **Hecho** (falta la prueba con WhatsApp real).
 3. Procesamiento de mensajes pendientes, con la espera de 5 segundos. **Hecho** (se inicia con la IA).
-4. Rutas para que el dueño administre la base de conocimiento.
+4. Rutas para que el dueño administre la base de conocimiento. **Hecho.**
 5. IA con sus 7 funciones, solo texto, y el conjunto de conversaciones de prueba.
 6. Derivación, conteo de tokens y límites del plan.
 7. Audios e imágenes.
