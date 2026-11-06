@@ -467,6 +467,16 @@ export async function listarCitas(negocioId: string, filtro: FiltroCitas): Promi
   return conNegocio(negocioId, (tx) => repositorio.listarCitas(tx, filtro));
 }
 
+/** Las citas activas y futuras de un cliente. Lo usa la IA para responder "mis citas". */
+export async function citasActivasDelCliente(
+  negocioId: string,
+  clienteId: string,
+  ahora: Date = new Date(),
+): Promise<CitaDetalle[]> {
+  if (!esUuid(clienteId)) throw new NoEncontrado('El cliente');
+  return conNegocio(negocioId, (tx) => repositorio.listarActivasDelCliente(tx, clienteId, ahora));
+}
+
 export async function obtenerCita(negocioId: string, citaId: string): Promise<CitaDetalle> {
   if (!esUuid(citaId)) throw new DatosInvalidos('La cita indicada no es válida');
   const cita = await conNegocio(negocioId, (tx) => repositorio.obtenerCitaDetalle(tx, citaId));

@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Conversaciones de la evaluación de la IA (se revisan en local)
+backend/evaluacion/resultados/
+
 # Dependencias y builds
 node_modules/
 dist/

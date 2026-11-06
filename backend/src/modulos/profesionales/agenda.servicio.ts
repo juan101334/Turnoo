@@ -50,6 +50,21 @@ export function listarServicios(negocioId: string, profesionalId: string): Promi
   });
 }
 
+/** Barberos activos con sus servicios activos; los que no tienen ninguno se omiten. Lo usa la IA. */
+export function catalogoActivo(
+  negocioId: string,
+): Promise<{ id: string; nombre: string; servicios: Servicio[] }[]> {
+  return conNegocio(negocioId, async (tx) => {
+    const barberos = (await repositorioBarberos.listar(tx)).filter((b) => b.activo);
+    const catalogo = [];
+    for (const barbero of barberos) {
+      const servicios = (await repositorio.listarServicios(tx, barbero.id)).filter((s) => s.activo);
+      if (servicios.length > 0) catalogo.push({ id: barbero.id, nombre: barbero.nombre, servicios });
+    }
+    return catalogo;
+  });
+}
+
 export function crearServicio(
   negocioId: string,
   profesionalId: string,

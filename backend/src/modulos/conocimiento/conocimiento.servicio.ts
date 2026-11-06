@@ -39,6 +39,12 @@ export async function listarConocimiento(negocioId: string): Promise<BaseDeConoc
   });
 }
 
+/** Solo las entradas activas, que son las que lee la IA. */
+export async function conocimientoActivo(negocioId: string): Promise<{ pregunta: string; respuesta: string }[]> {
+  const entradas = await conNegocio(negocioId, (tx) => repositorio.listar(tx));
+  return entradas.filter((e) => e.activo).map(({ pregunta, respuesta }) => ({ pregunta, respuesta }));
+}
+
 /**
  * Revisa los topes y la pregunta repetida con el negocio bloqueado. `excluirId` es la entrada
  * que se edita: se cuenta con sus valores nuevos en lugar de los guardados.
