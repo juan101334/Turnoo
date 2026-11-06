@@ -40,6 +40,8 @@ interface Cita {
 
 interface Resultado {
   respuestas: string[];
+  /** Por turno: funciones pedidas y sus resultados, para el informe. */
+  funciones: string[][];
   /** Citas del cliente después de cada turno. */
   citasPorTurno: Cita[][];
   citas: Cita[];
@@ -257,12 +259,28 @@ async function citasDe(clienteId: string): Promise<Cita[]> {
   );
 }
 
+/** Funciones que pidió el modelo en el turno en curso, con su resultado, para el informe. */
+let funciones: string[] = [];
+const vistos = new Set<string>();
+const corto = (texto: string) => (texto.length > 400 ? `${texto.slice(0, 400)}…` : texto);
+
 /** Llama a OpenAI de verdad y suma los tokens para el informe. La clave no pasa por aquí. */
 const pedirContando: typeof fetch = async (url, init) => {
+  const enviado = JSON.parse(String(init!.body)) as { input: { type?: string; call_id?: string; output?: string }[] };
+  for (const item of enviado.input) {
+    if (item.type === 'function_call_output' && !vistos.has(item.call_id!)) {
+      vistos.add(item.call_id!);
+      funciones.push(`    → ${corto(item.output!)}`);
+    }
+  }
   const respuesta = await fetch(url, init);
   const copia = (await respuesta.clone().json().catch(() => null)) as {
     usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { cached_tokens?: number } };
+    output?: { type?: string; name?: string; arguments?: string }[];
   } | null;
+  for (const item of copia?.output ?? []) {
+    if (item.type === 'function_call') funciones.push(`  - función \`${item.name}\` ${item.arguments}`);
+  }
   uso.llamadas += 1;
   uso.entrada += copia?.usage?.input_tokens ?? 0;
   uso.cache += copia?.usage?.input_tokens_details?.cached_tokens ?? 0;
@@ -270,7 +288,48 @@ const pedirContando: typeof fetch = async (url, init) => {
   return respuesta;
 };
 
+/**
+ * Cada conversación tiene su propio negocio, igual en todas: así ninguna ocupa las horas que
+ * otra necesita, y el resultado no depende del orden.
+ */
+async function montarNegocio(): Promise<void> {
+  n = await crearNegocio('Barbería La 70');
+  await sql(`UPDATE sedes SET direccion = 'Calle 70 # 45-12', ciudad = 'Medellín' WHERE negocio_id = $1`, [n.negocioId]);
+  cuentaId = (await registrarCuenta(n.negocioId, { phoneNumberId: `${Date.now()}${++telefonos}`, wabaId: '1', numeroVisible: '3000000070', token: 'EAAtoken-de-evaluacion' })).id;
+  const carlos = await crearProfesional(n, 'Carlos');
+  const andres = await crearProfesional(n, 'Andrés');
+  ids = {
+    carlos,
+    andres,
+    corteCarlos: await crearServicio(n, carlos, 'Corte', 30, 25_000),
+    barbaCarlos: await crearServicio(n, carlos, 'Barba', 20, 15_000),
+    corteAndres: await crearServicio(n, andres, 'Corte', 45, 30_000),
+  };
+  await crearServicio(n, andres, 'Cejas', 15, 8_000);
+  // Carlos trabaja de lunes a sábado de 9 a 7; Andrés de martes a domingo de 10 a 6.
+  const horarios: [string, number[], string, string][] = [
+    [carlos, [1, 2, 3, 4, 5, 6], '09:00', '19:00'],
+    [andres, [2, 3, 4, 5, 6, 7], '10:00', '18:00'],
+  ];
+  for (const [barbero, dias, desde, hasta] of horarios) {
+    for (const dia of dias) {
+      await sql(
+        'INSERT INTO horarios_trabajo (negocio_id, profesional_id, dia_semana, hora_inicio, hora_fin) VALUES ($1, $2, $3, $4, $5)',
+        [n.negocioId, barbero, dia, desde, hasta],
+      );
+    }
+  }
+  for (const [pregunta, respuesta] of [
+    ['¿Tienen parqueadero?', 'Sí, hay parqueadero gratis para clientes en el sótano del edificio.'],
+    ['¿Qué medios de pago aceptan?', 'Efectivo, Nequi, Daviplata y tarjeta débito o crédito.'],
+    ['¿Atienden niños?', 'Sí, desde los 3 años, con el mismo precio del corte.'],
+  ]) {
+    await sql('INSERT INTO conocimiento (negocio_id, pregunta, respuesta) VALUES ($1, $2, $3)', [n.negocioId, pregunta, respuesta]);
+  }
+}
+
 async function conversar(e: Escenario): Promise<Resultado> {
+  await montarNegocio();
   const clienteId = await clienteNuevo('Laura');
   const { rows } = await conNegocio(n.negocioId, (tx) =>
     tx.consultar<{ id: string }>(
@@ -291,7 +350,7 @@ async function conversar(e: Escenario): Promise<Resultado> {
   const reloj = () => new Date(HOY.getTime() + minuto * 60_000);
   const atender = crearAtender({ modelo: { pedir: pedirContando }, envio: { pedir: meta }, reloj });
 
-  const resultado: Resultado = { respuestas: [], citasPorTurno: [], citas: [], derivaciones: [] };
+  const resultado: Resultado = { respuestas: [], funciones: [], citasPorTurno: [], citas: [], derivaciones: [] };
   for (const texto of e.turnos) {
     minuto += 1;
     await sql(
@@ -302,6 +361,7 @@ async function conversar(e: Escenario): Promise<Resultado> {
     await sql('UPDATE conversaciones SET ultimo_mensaje_cliente_en = $2 WHERE id = $1', [conversacionId, reloj()]);
     minuto += 1;
     const antes = enviados.length;
+    funciones = [];
     try {
       await atender({ negocioId: n.negocioId, conversacionId, clienteId });
     } catch (error) {
@@ -309,6 +369,7 @@ async function conversar(e: Escenario): Promise<Resultado> {
       break;
     }
     resultado.respuestas.push(enviados.slice(antes).join('\n'));
+    resultado.funciones.push(funciones);
     resultado.citasPorTurno.push(await citasDe(clienteId));
     const derivada = await sql<{ estado: string }>('SELECT estado FROM conversaciones WHERE id = $1', [conversacionId]);
     if (derivada[0]?.estado === 'humano') break;
@@ -317,47 +378,16 @@ async function conversar(e: Escenario): Promise<Resultado> {
   resultado.derivaciones = (await sql<{ motivo: string }>('SELECT motivo FROM derivaciones WHERE conversacion_id = $1', [conversacionId])).map((d) => d.motivo);
 
   informe.push(`## ${e.nombre}`);
-  e.turnos.slice(0, resultado.respuestas.length).forEach((t, i) => informe.push(`- **Cliente:** ${t}`, `- **IA:** ${resultado.respuestas[i]!.replace(/\n/g, ' / ')}`));
+  e.turnos.slice(0, resultado.respuestas.length).forEach((t, i) =>
+    informe.push(`- **Cliente:** ${t}`, ...resultado.funciones[i]!, `- **IA:** ${resultado.respuestas[i]!.replace(/\n/g, ' / ')}`),
+  );
   if (resultado.error) informe.push(`- **Error:** ${resultado.error}`);
   return resultado;
 }
 
 describe(`conversaciones de prueba con ${entorno.OPENAI_MODELO} (esfuerzo ${entorno.OPENAI_ESFUERZO})`, () => {
-  beforeAll(async () => {
+  beforeAll(() => {
     if (!entorno.OPENAI_API_KEY) throw new Error('Falta OPENAI_API_KEY en backend/.env');
-    n = await crearNegocio('Barbería La 70');
-    await sql(`UPDATE sedes SET direccion = 'Calle 70 # 45-12', ciudad = 'Medellín' WHERE negocio_id = $1`, [n.negocioId]);
-    cuentaId = (await registrarCuenta(n.negocioId, { phoneNumberId: `${Date.now()}1`, wabaId: '1', numeroVisible: '3000000070', token: 'EAAtoken-de-evaluacion' })).id;
-    const carlos = await crearProfesional(n, 'Carlos');
-    const andres = await crearProfesional(n, 'Andrés');
-    ids = {
-      carlos,
-      andres,
-      corteCarlos: await crearServicio(n, carlos, 'Corte', 30, 25_000),
-      barbaCarlos: await crearServicio(n, carlos, 'Barba', 20, 15_000),
-      corteAndres: await crearServicio(n, andres, 'Corte', 45, 30_000),
-    };
-    await crearServicio(n, andres, 'Cejas', 15, 8_000);
-    // Carlos trabaja de lunes a sábado de 9 a 7; Andrés de martes a domingo de 10 a 6.
-    const horarios: [string, number[], string, string][] = [
-      [carlos, [1, 2, 3, 4, 5, 6], '09:00', '19:00'],
-      [andres, [2, 3, 4, 5, 6, 7], '10:00', '18:00'],
-    ];
-    for (const [barbero, dias, desde, hasta] of horarios) {
-      for (const dia of dias) {
-        await sql(
-          'INSERT INTO horarios_trabajo (negocio_id, profesional_id, dia_semana, hora_inicio, hora_fin) VALUES ($1, $2, $3, $4, $5)',
-          [n.negocioId, barbero, dia, desde, hasta],
-        );
-      }
-    }
-    for (const [pregunta, respuesta] of [
-      ['¿Tienen parqueadero?', 'Sí, hay parqueadero gratis para clientes en el sótano del edificio.'],
-      ['¿Qué medios de pago aceptan?', 'Efectivo, Nequi, Daviplata y tarjeta débito o crédito.'],
-      ['¿Atienden niños?', 'Sí, desde los 3 años, con el mismo precio del corte.'],
-    ]) {
-      await sql('INSERT INTO conocimiento (negocio_id, pregunta, respuesta) VALUES ($1, $2, $3)', [n.negocioId, pregunta, respuesta]);
-    }
   });
 
   afterAll(async () => {
