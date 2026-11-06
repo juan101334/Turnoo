@@ -102,8 +102,8 @@ export const HERRAMIENTAS: Herramienta[] = [
   {
     nombre: 'derivar_a_humano',
     descripcion:
-      'Pasa la conversación a una persona de la barbería. Después de llamarla ya no responderás más en ' +
-      'esta conversación: despídete diciendo que una persona le va a escribir pronto.',
+      'Pasa la conversación a una persona de la barbería. Después de llamarla, despídete diciendo que una ' +
+      'persona le va a escribir pronto.',
     parametros: objeto({
       motivo: {
         type: 'string',
