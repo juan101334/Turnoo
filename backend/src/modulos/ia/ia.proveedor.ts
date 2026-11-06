@@ -3,7 +3,8 @@ import { NoConfigurado } from '../../compartido/errores.js';
 import { entorno } from '../../config/entorno.js';
 
 /**
- * ÚNICO archivo que habla con el proveedor de IA (OpenAI, Responses API). Cambiar de proveedor
+ * ÚNICO archivo que habla con el proveedor de IA (OpenAI): las respuestas (Responses API) y la
+ * transcripción de notas de voz. Cambiar de proveedor
  * es reescribir este archivo y nada más: el resto del código solo conoce los tipos de aquí.
  *
  * - `store: false`: OpenAI no guarda la conversación; en cada llamada se le manda todo.
@@ -189,3 +190,57 @@ export async function llamarModelo(
   }
   return { salida, llamadas, texto: textos.join('\n').trim(), uso: leerUso(datos) };
 }
+
+// ---------------------------------------------------------------------
+// Notas de voz a texto (POST /v1/audio/transcriptions)
+// ---------------------------------------------------------------------
+
+export const URL_TRANSCRIPCIONES = 'https://api.openai.com/v1/audio/transcriptions';
+const ESPERA_MAXIMA_AUDIO_MS = 30_000;
+
+export interface Transcripcion {
+  texto: string;
+  /** Lo que factura OpenAI (usage.seconds). 0 si no lo informa. */
+  segundos: number;
+}
+
+export interface DependenciasAudio {
+  pedir?: typeof fetch;
+  clave?: () => string;
+  modelo?: string;
+}
+
+/**
+ * Transcribe un audio en español. Se probó con una nota de voz real de WhatsApp (ogg/opus): la
+ * API la acepta tal cual, aunque ogg no aparece en su lista de formatos.
+ */
+export async function transcribirAudio(
+  audio: { bytes: Buffer; mimeType: string; nombreArchivo: string },
+  { pedir = fetch, clave = claveDeOpenAI, modelo = entorno.OPENAI_MODELO_AUDIO }: DependenciasAudio = {},
+): Promise<Transcripcion> {
+  const formulario = new FormData();
+  formulario.append('file', new Blob([new Uint8Array(audio.bytes)], { type: audio.mimeType }), audio.nombreArchivo);
+  formulario.append('model', modelo);
+  formulario.append('languages[]', 'es');
+
+  let respuesta: Response;
+  try {
+    respuesta = await pedir(URL_TRANSCRIPCIONES, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${clave()}` },
+      body: formulario,
+      signal: AbortSignal.timeout(ESPERA_MAXIMA_AUDIO_MS),
+    });
+  } catch (error) {
+    if (error instanceof NoConfigurado) throw error;
+    throw new ErrorDelModelo('Sin respuesta de OpenAI al transcribir', true);
+  }
+  const cuerpo: unknown = await respuesta.json().catch(() => null);
+  if (!respuesta.ok) {
+    throw new ErrorDelModelo(detalleDeError(respuesta.status, cuerpo), esReintentable(respuesta.status, cuerpo));
+  }
+  const datos = (cuerpo ?? {}) as { text?: unknown; usage?: { seconds?: unknown } };
+  if (typeof datos.text !== 'string') throw new ErrorDelModelo('OpenAI respondió sin texto de transcripción', true);
+  return { texto: datos.text.trim(), segundos: Math.ceil(numero(datos.usage?.seconds)) };
+}
+

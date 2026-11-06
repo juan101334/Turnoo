@@ -65,3 +65,55 @@ export async function enviarTextoAMeta(
   }
   return { ok: true, waMessageId: id };
 }
+
+/** Descarga de un archivo que envió el cliente (nota de voz o imagen), ya traducida. */
+export type MediaDeMeta =
+  | { ok: true; bytes: Buffer; mimeType: string }
+  | { ok: false; reintentable: boolean; motivo: 'muy_grande' | 'no_disponible' | 'sin_respuesta'; detalle: string };
+
+/**
+ * Dos pasos: Graph devuelve la dirección temporal del archivo (vence en minutos) y luego se
+ * descarga, las dos veces con el token de la cuenta. Si Meta informa un tamaño mayor a
+ * `maxBytes` no se descarga; y si el archivo resulta más grande de lo informado, se descarta.
+ */
+export async function descargarMediaDeMeta(
+  token: string,
+  mediaId: string,
+  maxBytes: number,
+  pedir: typeof fetch = fetch,
+): Promise<MediaDeMeta> {
+  const autorizacion = { authorization: `Bearer ${token}` };
+  let info: Response;
+  try {
+    info = await pedir(`${URL_GRAPH}/${encodeURIComponent(mediaId)}`, { headers: autorizacion, signal: AbortSignal.timeout(ESPERA_MAXIMA_MS) });
+  } catch {
+    return { ok: false, reintentable: true, motivo: 'sin_respuesta', detalle: 'Sin respuesta de Meta' };
+  }
+  const datos = (await info.json().catch(() => null)) as { url?: unknown; mime_type?: unknown; file_size?: unknown } | null;
+  if (!info.ok) {
+    const reintentable = esReintentable(info.status);
+    return { ok: false, reintentable, motivo: reintentable ? 'sin_respuesta' : 'no_disponible', detalle: detalleDeError(info.status, datos) };
+  }
+  const mimeType = typeof datos?.mime_type === 'string' ? datos.mime_type : '';
+  if (typeof datos?.file_size === 'number' && datos.file_size > maxBytes) {
+    return { ok: false, reintentable: false, motivo: 'muy_grande', detalle: `El archivo pesa ${datos.file_size} bytes` };
+  }
+  // El token solo se envía a una dirección HTTPS.
+  if (typeof datos?.url !== 'string' || !datos.url.startsWith('https://')) {
+    return { ok: false, reintentable: false, motivo: 'no_disponible', detalle: 'Meta respondió sin una dirección HTTPS' };
+  }
+
+  let archivo: Response;
+  try {
+    archivo = await pedir(datos.url, { headers: autorizacion, signal: AbortSignal.timeout(ESPERA_MAXIMA_MS) });
+  } catch {
+    return { ok: false, reintentable: true, motivo: 'sin_respuesta', detalle: 'Sin respuesta al descargar de Meta' };
+  }
+  if (!archivo.ok) {
+    const reintentable = esReintentable(archivo.status);
+    return { ok: false, reintentable, motivo: reintentable ? 'sin_respuesta' : 'no_disponible', detalle: `Meta respondió ${archivo.status} al descargar` };
+  }
+  const bytes = Buffer.from(await archivo.arrayBuffer());
+  if (bytes.length > maxBytes) return { ok: false, reintentable: false, motivo: 'muy_grande', detalle: `El archivo pesa ${bytes.length} bytes` };
+  return { ok: true, bytes, mimeType };
+}
