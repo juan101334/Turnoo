@@ -3,6 +3,7 @@ import { ErrorDominio } from '../../compartido/errores.js';
 import { esFechaLocal, fechaLocal, fechasEntre, horaLocal, instanteLocal } from '../../compartido/tiempo.js';
 import * as citas from '../citas/citas.servicio.js';
 import type { CitaDetalle } from '../citas/citas.tipos.js';
+import { adjuntarImagenesRecientes } from '../adjuntos/adjuntos.servicio.js';
 import { derivarConversacion } from '../conversaciones/conversaciones.servicio.js';
 import { catalogoActivo } from '../profesionales/agenda.servicio.js';
 import { diaDeLaSemana } from './ia.instrucciones.js';
@@ -199,7 +200,10 @@ const EJECUTORES: Record<string, (argumentos: string, c: ContextoHerramienta) =>
     const existente = activas.find(
       (x) => x.profesionalId === a.profesional_id && x.inicio.getTime() === inicio.getTime(),
     );
-    if (existente) return { ok: true, ya_existia: true, cita: citaParaElModelo(existente, c.zonaHoraria) };
+    if (existente) {
+      const imagenes = await adjuntarImagenesRecientes(c.negocioId, c.conversacionId, existente.id, c.ahora);
+      return { ok: true, ya_existia: true, cita: citaParaElModelo(existente, c.zonaHoraria), imagenes_adjuntas: imagenes };
+    }
 
     const creada = await citas.crearCita(
       c.negocioId,
@@ -207,9 +211,12 @@ const EJECUTORES: Record<string, (argumentos: string, c: ContextoHerramienta) =>
       c.ahora,
     );
     const detalle = (await citas.citasActivasDelCliente(c.negocioId, c.clienteId, c.ahora)).find((x) => x.id === creada.id);
+    // Las imágenes que envió el cliente quedan en la cita para que el barbero las vea.
+    const imagenes = await adjuntarImagenesRecientes(c.negocioId, c.conversacionId, creada.id, c.ahora);
     return {
       ok: true,
       cita: detalle ? citaParaElModelo(detalle, c.zonaHoraria) : { cita_id: creada.id },
+      imagenes_adjuntas: imagenes,
       ...(creada.estado === 'por_aprobar' && {
         nota: 'La cita queda reservada pero el barbero debe aprobarla. Avísale al cliente que le confirmarán.',
       }),

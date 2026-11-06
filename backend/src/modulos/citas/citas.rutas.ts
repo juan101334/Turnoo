@@ -4,6 +4,7 @@ import { DatosInvalidos, NoEncontrado, Prohibido } from '../../compartido/errore
 import { instanteIso as instante, validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, usuarioDe } from '../auth/auth.middleware.js';
 import { obtenerOCrearCliente } from '../clientes/clientes.servicio.js';
+import { imagenesDeCita, leerImagenDeCita } from '../adjuntos/adjuntos.servicio.js';
 import * as servicio from './citas.servicio.js';
 import type { EstadoCita } from './citas.tipos.js';
 
@@ -94,6 +95,22 @@ rutasCitas.get('/', async (req, res) => {
 rutasCitas.get('/:id', async (req, res) => {
   const a = await alcanceDe(req);
   res.json(await citaVisible(a, String(req.params.id)));
+});
+
+/** Imágenes que envió el cliente por WhatsApp y quedaron adjuntas a la cita. */
+rutasCitas.get('/:id/imagenes', async (req, res) => {
+  const a = await alcanceDe(req);
+  const cita = await citaVisible(a, String(req.params.id));
+  res.json({ imagenes: await imagenesDeCita(a.negocioId, cita.id) });
+});
+
+rutasCitas.get('/:id/imagenes/:imagenId', async (req, res) => {
+  const a = await alcanceDe(req);
+  const cita = await citaVisible(a, String(req.params.id));
+  const { bytes, mimeType } = await leerImagenDeCita(a.negocioId, cita.id, String(req.params.imagenId));
+  // Datos personales: ningún intermediario la guarda, y el navegador no adivina otro tipo.
+  res.set({ 'Content-Type': mimeType, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.send(bytes);
 });
 
 rutasCitas.post('/', async (req, res) => {

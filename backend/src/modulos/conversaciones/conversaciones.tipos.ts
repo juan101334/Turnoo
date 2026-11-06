@@ -13,6 +13,12 @@ export interface MensajeDelHistorial {
   autor: 'cliente' | 'negocio';
   tipo: 'texto' | 'audio' | 'imagen' | 'plantilla' | 'otro';
   contenido: string | null;
+  /** Texto de una nota de voz. */
+  transcripcion: string | null;
+  /** Si la imagen quedó guardada en el disco. */
+  imagenGuardada: boolean;
+  /** Por qué no se pudo transcribir o guardar el adjunto. */
+  adjuntoError: string | null;
   creadoEn: Date;
 }
 
