@@ -337,7 +337,7 @@ describe('IA', () => {
       expect(modelo.peticiones[0]!.input).toEqual([
         { role: 'user', content: 'Hola' },
         { role: 'assistant', content: '¿En qué te ayudo?' },
-        { role: 'user', content: '[El cliente envió un audio. Todavía no puedes escucharlo.]' },
+        { role: 'user', content: '[El cliente envió un audio que no se pudo escuchar. Pídele que lo escriba.]' },
         { role: 'assistant', content: 'Hola, soy Carlos' },
       ]);
     });
@@ -431,10 +431,30 @@ describe('IA', () => {
       expect((modelo.peticiones[0]!.input as Record<string, unknown>[]).some((i) => i.type === 'function_call')).toBe(false);
     });
 
-    it('describe los adjuntos que todavía no puede leer', () => {
-      const m = (tipo: 'texto' | 'audio' | 'imagen' | 'otro', contenido: string | null) => ({ autor: 'cliente' as const, tipo, contenido, creadoEn: T });
-      expect(historialComoEntrada([m('imagen', null), m('otro', null), m('texto', null)]).map((x) => (x as { content: string }).content)).toEqual([
-        '[El cliente envió una imagen. Todavía no puedes verla.]',
+    it('describe cada adjunto según cómo quedó', () => {
+      const m = (
+        tipo: 'texto' | 'audio' | 'imagen' | 'otro',
+        extra: { contenido?: string | null; transcripcion?: string | null; imagenGuardada?: boolean; adjuntoError?: string | null } = {},
+      ) => ({ autor: 'cliente' as const, tipo, contenido: null, transcripcion: null, imagenGuardada: false, adjuntoError: null, creadoEn: T, ...extra });
+      const textos = historialComoEntrada([
+        m('audio', { transcripcion: 'quiero un corte' }),
+        m('audio', { transcripcion: '' }),
+        m('audio', { adjuntoError: 'audio_muy_largo' }),
+        m('audio', { adjuntoError: 'audio_no_soportado' }),
+        m('imagen', { imagenGuardada: true, contenido: 'así lo quiero' }),
+        m('imagen', { adjuntoError: 'imagen_muy_grande' }),
+        m('imagen', { adjuntoError: 'imagen_no_soportada' }),
+        m('otro'),
+        m('texto'),
+      ]).map((x) => (x as { content: string }).content);
+      expect(textos).toEqual([
+        '[Nota de voz del cliente, transcrita]: quiero un corte',
+        '[El cliente envió una nota de voz sin palabras.]',
+        '[El cliente envió una nota de voz de más de 2 minutos, que no se transcribe. Pídele que envíe una más corta o que lo escriba.]',
+        '[El cliente envió un audio que no se pudo escuchar. Pídele que lo escriba.]',
+        '[El cliente envió una imagen. Quedó guardada y, si agenda, se adjunta a su cita para que el barbero la vea. Tú no puedes verla: no digas qué muestra.] Texto que la acompaña: así lo quiero',
+        '[El cliente envió una imagen de más de 5 MB, que no se guardó. Pídele una más liviana.]',
+        '[El cliente envió una imagen que no se pudo guardar. Solo se aceptan jpg, png o webp de hasta 5 MB.]',
         '[El cliente envió un mensaje que no es texto.]',
         '[El cliente envió un mensaje que no es texto.]',
       ]);
