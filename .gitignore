@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Imágenes de los clientes (datos personales)
+backend/archivos/
+
 # Conversaciones de la evaluación de la IA (se revisan en local)
 backend/evaluacion/resultados/
 

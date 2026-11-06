@@ -46,6 +46,8 @@ interface Resultado {
   citasPorTurno: Cita[][];
   citas: Cita[];
   derivaciones: string[];
+  /** Imágenes del cliente adjuntas a alguna de sus citas. */
+  imagenesEnCita: number;
   error?: string;
 }
 
@@ -59,7 +61,11 @@ interface Ids {
 
 interface Escenario {
   nombre: string;
-  turnos: string[];
+  /**
+   * Lo que escribe el cliente en cada turno. Una nota de voz llega ya transcrita (la transcripción
+   * tiene sus propias pruebas); una imagen, ya guardada y con su pie de foto.
+   */
+  turnos: (string | { nota: string } | { imagen: string | null })[];
   preparar?: (clienteId: string, ids: Ids, conversacionId: string) => Promise<void>;
   /** Corre después del turno indicado (desde 0), antes del siguiente mensaje del cliente. */
   entreTurnos?: (turno: number, ids: Ids) => Promise<void>;
@@ -244,6 +250,20 @@ const ESCENARIOS: Escenario[] = [
     verificar: (r) => [...noDerivo(r), ...unaCita(r, 'Carlos', VIERNES, '11:00')],
   },
   {
+    nombre: 'agenda desde una nota de voz',
+    turnos: [{ nota: 'Hola, buenas. Quería saber si me pueden hacer un corte con Carlos mañana como a las tres de la tarde' }, 'Sí, confirmo'],
+    verificar: (r) => [...sinCitaEnTurno(r, 0), ...unaCita(r, 'Carlos', VIERNES, '15:00')],
+  },
+  {
+    nombre: 'imagen de referencia: no la describe y queda en la cita',
+    turnos: [{ imagen: 'Quiero este corte' }, 'Con Carlos mañana a las 4 de la tarde', 'Sí'],
+    verificar: (r) => [
+      ...unaCita(r, 'Carlos', VIERNES, '16:00'),
+      ...(r.imagenesEnCita === 1 ? [] : [`esperaba 1 imagen en la cita y hay ${r.imagenesEnCita}`]),
+      ...(/degradado|fade|rapado|tupé|copete|mohicano/i.test(r.respuestas[0] ?? '') ? ['describió la imagen, que no puede ver'] : []),
+    ],
+  },
+  {
     nombre: 'cualquier barbero libre',
     turnos: ['Necesito un corte mañana a las 9 de la mañana con cualquier barbero', 'Sí'],
     verificar: (r) => unaCita(r, 'Carlos', VIERNES, '09:00'),
@@ -397,13 +417,19 @@ async function conversar(e: Escenario): Promise<Resultado> {
   const reloj = () => new Date(HOY.getTime() + minuto * 60_000);
   const atender = crearAtender({ modelo: { pedir: pedirContando }, envio: { pedir: meta }, reloj });
 
-  const resultado: Resultado = { respuestas: [], funciones: [], citasPorTurno: [], citas: [], derivaciones: [] };
-  for (const texto of e.turnos) {
+  const resultado: Resultado = { respuestas: [], funciones: [], citasPorTurno: [], citas: [], derivaciones: [], imagenesEnCita: 0 };
+  for (const turno of e.turnos) {
     minuto += 1;
+    const [tipo, contenido, transcripcion, ruta] =
+      typeof turno === 'string'
+        ? ['texto', turno, null, null]
+        : 'nota' in turno
+          ? ['audio', null, turno.nota, null]
+          : ['imagen', turno.imagen, null, `imagenes/${n.negocioId}/${randomUUID()}.jpg`];
     await sql(
-      `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, creado_en)
-       VALUES ($1, $2, 'entrante', 'cliente', 'texto', $3, $4)`,
-      [n.negocioId, conversacionId, texto, reloj()],
+      `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, transcripcion, archivo_ruta, creado_en)
+       VALUES ($1, $2, 'entrante', 'cliente', $3, $4, $5, $6, $7)`,
+      [n.negocioId, conversacionId, tipo, contenido, transcripcion, ruta, reloj()],
     );
     await sql('UPDATE conversaciones SET ultimo_mensaje_cliente_en = $2 WHERE id = $1', [conversacionId, reloj()]);
     minuto += 1;
@@ -423,11 +449,12 @@ async function conversar(e: Escenario): Promise<Resultado> {
     if (derivada[0]?.estado === 'humano') break;
   }
   resultado.citas = await citasDe(clienteId);
+  resultado.imagenesEnCita = (await sql<{ n: number }>('SELECT count(*)::int AS n FROM mensajes WHERE conversacion_id = $1 AND cita_id IS NOT NULL', [conversacionId]))[0]!.n;
   resultado.derivaciones = (await sql<{ motivo: string }>('SELECT motivo FROM derivaciones WHERE conversacion_id = $1', [conversacionId])).map((d) => d.motivo);
 
   informe.push(`## ${e.nombre}`);
   e.turnos.slice(0, resultado.respuestas.length).forEach((t, i) =>
-    informe.push(`- **Cliente:** ${t}`, ...resultado.funciones[i]!, `- **IA:** ${resultado.respuestas[i]!.replace(/\n/g, ' / ')}`),
+    informe.push(`- **Cliente:** ${typeof t === 'string' ? t : 'nota' in t ? `(nota de voz) ${t.nota}` : `(imagen) ${t.imagen ?? ''}`}`, ...resultado.funciones[i]!, `- **IA:** ${resultado.respuestas[i]!.replace(/\n/g, ' / ')}`),
   );
   if (resultado.error) informe.push(`- **Error:** ${resultado.error}`);
   return resultado;

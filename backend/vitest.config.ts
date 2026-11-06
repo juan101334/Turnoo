@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 // Las pruebas NUNCA tocan tu base de datos de desarrollo: usan siempre "turnoo_test",
@@ -27,6 +29,8 @@ export default defineConfig({
       CLAVE_CIFRADO_TOKENS: Buffer.alloc(32, 1).toString('base64'),
       // Las pruebas usan un modelo simulado: nunca llaman a OpenAI ni gastan saldo.
       OPENAI_API_KEY: '',
+      // Las imágenes de las pruebas van a una carpeta temporal, nunca a la de desarrollo.
+      ARCHIVOS_DIR: join(tmpdir(), 'turnoo-pruebas-archivos'),
     },
     // Los archivos comparten una sola base de datos: se ejecutan de uno en uno.
     fileParallelism: false,

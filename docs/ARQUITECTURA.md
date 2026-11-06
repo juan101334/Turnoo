@@ -162,10 +162,12 @@ Funciones disponibles para la IA: `listar_profesionales_y_servicios`, `consultar
 
 Cómo se arma cada respuesta (`backend/src/modulos/ia/`):
 
-1. Se lee de la base el negocio, la base de conocimiento activa, las citas activas del cliente, los últimos 30 mensajes y las funciones que la IA usó en ese tramo (tabla `ia_pasos`), con sus resultados. Sin esas funciones, cuando el cliente responde "sí", la IA no recuerda qué consultó y vuelve a preguntar.
+1. Se transcriben las notas de voz nuevas y se guardan las imágenes nuevas (sección 9, adjuntos). Después se lee de la base el negocio, la base de conocimiento activa, las citas activas del cliente, los últimos 30 mensajes y las funciones que la IA usó en ese tramo (tabla `ia_pasos`), con sus resultados. Sin esas funciones, cuando el cliente responde "sí", la IA no recuerda qué consultó y vuelve a preguntar.
 2. Las instrucciones llevan las reglas, la información del negocio, la fecha de hoy y un calendario con el día de la semana de cada fecha. El modelo copia fechas del calendario en lugar de calcularlas.
 3. El modelo pide funciones de a una; el backend las ejecuta con el negocio y el cliente de la conversación y le devuelve el resultado. Un error del dominio (hora ocupada, fuera de plazo) vuelve al modelo para que se lo explique al cliente.
 4. Con la respuesta final, se guardan las funciones usadas y se envía por WhatsApp. Hasta 6 llamadas al modelo por respuesta; si no alcanza, el procesador reintenta y luego deriva.
+
+**Adjuntos.** Una nota de voz llega a la IA como texto transcrito; del audio no se guarda nada. Una imagen se guarda en el disco y la IA solo sabe que llegó (no la ve): al agendar, `crear_cita` la adjunta a la cita para que el barbero la vea en el panel. Un fallo pasajero de Meta u OpenAI hace reintentar la atención; uno definitivo (más de 2 minutos, formato no admitido, más de 5 MB) queda en `mensajes.adjunto_error` y la IA se lo explica al cliente.
 
 Un reintento nunca duplica una cita: todo se vuelve a leer de la base, las citas activas van en las instrucciones y `crear_cita` devuelve la cita existente si ya hay una con el mismo barbero y la misma hora.
 

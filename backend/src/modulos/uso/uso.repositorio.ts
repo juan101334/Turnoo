@@ -66,3 +66,12 @@ export async function sumarTokens(
     [negocioId, periodo, entrada, salida],
   );
 }
+
+export async function sumarSegundosDeAudio(tx: Transaccion, negocioId: string, periodo: string, segundos: number): Promise<void> {
+  await tx.consultar(
+    `INSERT INTO uso_mensual (negocio_id, periodo, segundos_audio_transcritos) VALUES ($1, $2::date, $3)
+     ON CONFLICT (negocio_id, periodo)
+     DO UPDATE SET segundos_audio_transcritos = uso_mensual.segundos_audio_transcritos + EXCLUDED.segundos_audio_transcritos`,
+    [negocioId, periodo, segundos],
+  );
+}

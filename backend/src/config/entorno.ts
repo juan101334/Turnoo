@@ -33,6 +33,10 @@ const esquema = z.object({
   OPENAI_API_KEY: z.string().default(''),
   // El modelo se cambia aquí, sin tocar código: si uno barato falla las conversaciones de prueba, se sube.
   OPENAI_MODELO: z.string().min(1).default('gpt-6-luna'),
+  // Modelo que pasa las notas de voz a texto.
+  OPENAI_MODELO_AUDIO: z.string().min(1).default('gpt-transcribe'),
+  // Carpeta donde se guardan las imágenes de los clientes. Datos personales: va en los backups y nunca en git.
+  ARCHIVOS_DIR: z.string().min(1).default('archivos'),
   // Cuánto razona el modelo antes de responder. Más esfuerzo, más tokens de salida y más demora.
   OPENAI_ESFUERZO: z.enum(['none', 'low', 'medium', 'high']).default('low'),
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.

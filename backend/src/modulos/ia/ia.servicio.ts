@@ -6,6 +6,7 @@ import { conocimientoActivo } from '../conocimiento/conocimiento.servicio.js';
 import type { MensajeDelHistorial, PasoDeIA } from '../conversaciones/conversaciones.tipos.js';
 import { contextoDeConversacion, derivarConversacion, guardarPasosDeIA } from '../conversaciones/conversaciones.servicio.js';
 import { registrarTokens, reservarConversacionIA } from '../uso/uso.servicio.js';
+import { prepararAdjuntos, type DependenciasAdjuntos } from '../adjuntos/adjuntos.servicio.js';
 import { enviarMensaje, MAX_TEXTO, type DependenciasEnvio } from '../whatsapp/whatsapp.envio.js';
 import { ejecutarHerramienta, HERRAMIENTAS } from './ia.herramientas.js';
 import { armarInstrucciones } from './ia.instrucciones.js';
@@ -29,11 +30,36 @@ export const TEXTO_LIMITE_DEL_PLAN =
   'En este momento no podemos responderte por aquí. Una persona del negocio te va a escribir pronto.';
 
 const DESCRIPCION_ADJUNTO: Record<string, string> = {
-  audio: '[El cliente envió un audio. Todavía no puedes escucharlo.]',
-  imagen: '[El cliente envió una imagen. Todavía no puedes verla.]',
+  audio: '[El cliente envió un audio que no se pudo escuchar. Pídele que lo escriba.]',
+  imagen: '[El cliente envió una imagen que no se pudo guardar. Solo se aceptan jpg, png o webp de hasta 5 MB.]',
   plantilla: '[Mensaje automático de la barbería.]',
   otro: '[El cliente envió un mensaje que no es texto.]',
 };
+
+/**
+ * Lo que la IA lee de un mensaje del historial. La transcripción y el pie de foto son texto del
+ * cliente; van marcados para que el modelo sepa de dónde salen.
+ */
+function contenidoParaLaIA(m: MensajeDelHistorial): string {
+  if (m.tipo === 'audio') {
+    if (m.transcripcion !== null) {
+      return m.transcripcion ? `[Nota de voz del cliente, transcrita]: ${m.transcripcion}` : '[El cliente envió una nota de voz sin palabras.]';
+    }
+    if (m.adjuntoError === 'audio_muy_largo') {
+      return '[El cliente envió una nota de voz de más de 2 minutos, que no se transcribe. Pídele que envíe una más corta o que lo escriba.]';
+    }
+    return DESCRIPCION_ADJUNTO.audio!;
+  }
+  if (m.tipo === 'imagen') {
+    const pie = m.contenido ? ` Texto que la acompaña: ${m.contenido}` : '';
+    if (m.imagenGuardada) {
+      return `[El cliente envió una imagen. Quedó guardada y, si agenda, se adjunta a su cita para que el barbero la vea. Tú no puedes verla: no digas qué muestra.]${pie}`;
+    }
+    if (m.adjuntoError === 'imagen_muy_grande') return `[El cliente envió una imagen de más de 5 MB, que no se guardó. Pídele una más liviana.]${pie}`;
+    return `${DESCRIPCION_ADJUNTO.imagen!}${pie}`;
+  }
+  return (m.tipo === 'texto' ? m.contenido : null) ?? DESCRIPCION_ADJUNTO[m.tipo] ?? DESCRIPCION_ADJUNTO.otro!;
+}
 
 /**
  * El historial como entrada para el modelo: los mensajes y, entre ellos, las funciones que usó la
@@ -58,10 +84,7 @@ export function historialComoEntrada(historial: MensajeDelHistorial[], pasos: Pa
     }
     const m = (e as { mensaje: MensajeDelHistorial }).mensaje;
     return [
-      {
-        role: m.autor === 'cliente' ? 'user' : 'assistant',
-        content: (m.tipo === 'texto' ? m.contenido : null) ?? DESCRIPCION_ADJUNTO[m.tipo] ?? DESCRIPCION_ADJUNTO.otro!,
-      },
+      { role: m.autor === 'cliente' ? 'user' : 'assistant', content: contenidoParaLaIA(m) },
     ];
   });
 }
@@ -69,6 +92,7 @@ export function historialComoEntrada(historial: MensajeDelHistorial[], pasos: Pa
 export interface DependenciasIA {
   modelo?: DependenciasModelo;
   envio?: DependenciasEnvio;
+  adjuntos?: DependenciasAdjuntos;
   reloj?: () => Date;
 }
 
@@ -79,10 +103,10 @@ const sumar = (a: UsoDeTokens, b: UsoDeTokens): UsoDeTokens => ({
   razonamiento: a.razonamiento + b.razonamiento,
 });
 
-export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date() }: DependenciasIA = {}): Atender {
+export function crearAtender({ modelo = {}, envio = {}, adjuntos = {}, reloj = () => new Date() }: DependenciasIA = {}): Atender {
   return async ({ negocioId, conversacionId, clienteId }: ConversacionPendiente) => {
     const ahora = reloj();
-    const [contexto, conocimiento, activas] = await Promise.all([
+    let [contexto, conocimiento, activas] = await Promise.all([
       contextoDeConversacion(negocioId, conversacionId, ahora),
       conocimientoActivo(negocioId),
       citasActivasDelCliente(negocioId, clienteId, ahora),
@@ -100,6 +124,11 @@ export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date()
         logger.warn({ negocioId, fallo: errorParaLog(error) }, 'No se pudo avisar al cliente del límite del plan');
       }
       return;
+    }
+
+    // Notas de voz e imágenes nuevas: se transcriben o guardan antes de que la IA las lea.
+    if ((await prepararAdjuntos(negocioId, conversacionId, zona, ahora, adjuntos)) > 0) {
+      contexto = await contextoDeConversacion(negocioId, conversacionId, ahora);
     }
 
     const instrucciones = armarInstrucciones({

@@ -52,10 +52,13 @@ export async function historial(tx: Transaccion, conversacionId: string, limite:
     emisor: string;
     tipo: MensajeDelHistorial['tipo'];
     contenido: string | null;
+    transcripcion: string | null;
+    imagen_guardada: boolean;
+    adjunto_error: string | null;
     creado_en: Date;
   }>(
-    `SELECT emisor, tipo, contenido, creado_en FROM (
-       SELECT emisor, tipo, contenido, creado_en, id
+    `SELECT emisor, tipo, contenido, transcripcion, imagen_guardada, adjunto_error, creado_en FROM (
+       SELECT emisor, tipo, contenido, transcripcion, archivo_ruta IS NOT NULL AS imagen_guardada, adjunto_error, creado_en, id
          FROM mensajes
         WHERE conversacion_id = $1
           AND emisor <> 'sistema'
@@ -70,6 +73,9 @@ export async function historial(tx: Transaccion, conversacionId: string, limite:
     autor: f.emisor === 'cliente' ? 'cliente' : 'negocio',
     tipo: f.tipo,
     contenido: f.contenido,
+    transcripcion: f.transcripcion,
+    imagenGuardada: f.imagen_guardada,
+    adjuntoError: f.adjunto_error,
     creadoEn: f.creado_en,
   }));
 }

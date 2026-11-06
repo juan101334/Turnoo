@@ -1,6 +1,9 @@
 import { Conflicto, DatosInvalidos, NoEncontrado } from '../../compartido/errores.js';
+import { errorParaLog, logger } from '../../compartido/logger.js';
 import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio } from '../../db/contexto.js';
+import { borrarArchivos } from '../adjuntos/adjuntos.archivos.js';
+import { archivosDelCliente } from '../adjuntos/adjuntos.repositorio.js';
 import { exigirNegocioOperativo } from '../negocios/negocios.reglas.js';
 import * as repositorio from './clientes.repositorio.js';
 import type { CambiosCliente, Cliente, ClienteResumen, EntradaCliente, FiltroClientes } from './clientes.tipos.js';
@@ -104,10 +107,13 @@ export async function actualizarCliente(
  * citas activas: sin su teléfono, el negocio no podría avisarle de nada sobre ellas.
  * Es lo único que un negocio suspendido puede modificar: un problema de pago del negocio no
  * frena el derecho de la persona a que borren sus datos.
+ *
+ * Las imágenes que envió se borran del disco después de confirmar la transacción: si se
+ * borraran antes y la transacción fallara, el cliente seguiría con imágenes que ya no existen.
  */
 export async function anonimizarCliente(negocioId: string, clienteId: string): Promise<void> {
   if (!esUuid(clienteId)) throw new NoEncontrado('El cliente');
-  await conNegocio(negocioId, async (tx) => {
+  const archivos = await conNegocio(negocioId, async (tx) => {
     const cliente = await repositorio.obtenerBloqueado(tx, clienteId);
     if (!cliente) throw new NoEncontrado('El cliente');
     if (cliente.anonimizadoEn) throw new Conflicto('El cliente ya está anonimizado');
@@ -115,6 +121,14 @@ export async function anonimizarCliente(negocioId: string, clienteId: string): P
     if (activas > 0) {
       throw new Conflicto(`El cliente tiene ${activas} cita(s) activa(s). Cancélalas o márcalas primero`);
     }
+    const rutas = await archivosDelCliente(tx, clienteId);
     await repositorio.anonimizar(tx, clienteId);
+    return rutas;
   });
+  try {
+    await borrarArchivos(archivos);
+  } catch (error) {
+    // Los datos ya no apuntan a esos archivos; queda el rastro para borrarlos a mano.
+    logger.error({ negocioId, archivos: archivos.length, fallo: errorParaLog(error) }, 'No se pudieron borrar las imágenes de un cliente anonimizado');
+  }
 }
