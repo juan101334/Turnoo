@@ -376,7 +376,7 @@ describe('tareas internas', () => {
       expect(JSON.stringify(datos)).not.toContain('573001234567');
     });
 
-    it('un ciclo real corre las tres tareas', async () => {
+    it('un ciclo real corre las tareas', async () => {
       const completar = await citaQueTermina(a, antes(30 * HORA_MS));
       const expirar = await porAprobar(a, antes(1000));
       await conSistema((tx) => tx.consultar("INSERT INTO intentos_login VALUES ('del-ciclo', 1, $1)", [antes(HORA_MS)]));
