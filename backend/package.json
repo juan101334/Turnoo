@@ -15,7 +15,8 @@
     "superadmin": "tsx --env-file=.env scripts/crear-superadmin.ts",
     "db:pruebas": "tsx --env-file=.env --env-file=../.env scripts/preparar-base-pruebas.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "ia:evaluar": "vitest run --config vitest.evaluacion.config.ts"
   },
   "dependencies": {
     "argon2": "^0.45.1",
