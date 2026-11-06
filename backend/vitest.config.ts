@@ -25,6 +25,8 @@ export default defineConfig({
       DATABASE_URL: urlPruebas.toString(),
       // Clave fija y pública, solo para pruebas: así no dependen de la clave real de backend/.env.
       CLAVE_CIFRADO_TOKENS: Buffer.alloc(32, 1).toString('base64'),
+      // Las pruebas usan un modelo simulado: nunca llaman a OpenAI ni gastan saldo.
+      OPENAI_API_KEY: '',
     },
     // Los archivos comparten una sola base de datos: se ejecutan de uno en uno.
     fileParallelism: false,

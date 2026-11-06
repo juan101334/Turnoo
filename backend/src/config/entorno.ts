@@ -29,6 +29,12 @@ const esquema = z.object({
       (valor) => valor === '' || (/^[A-Za-z0-9+/]+={0,2}$/.test(valor) && Buffer.from(valor, 'base64').length === 32),
       'debe ser de 32 bytes en base64 (genérala con: openssl rand -base64 32)',
     ),
+  // IA (OpenAI). Sin clave, la API arranca pero no responde por WhatsApp: el procesador no se inicia.
+  OPENAI_API_KEY: z.string().default(''),
+  // El modelo se cambia aquí, sin tocar código: si uno barato falla las conversaciones de prueba, se sube.
+  OPENAI_MODELO: z.string().min(1).default('gpt-6-luna'),
+  // Cuánto razona el modelo antes de responder. Más esfuerzo, más tokens de salida y más demora.
+  OPENAI_ESFUERZO: z.enum(['none', 'low', 'medium', 'high']).default('low'),
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
   // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),
