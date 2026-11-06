@@ -1,4 +1,5 @@
 import type { Transaccion } from '../db/contexto.js';
+import { derivar } from '../modulos/conversaciones/conversaciones.repositorio.js';
 
 /** Único lugar con SQL del procesador de conversaciones pendientes. */
 
@@ -116,17 +117,6 @@ export async function registrarFallo(tx: Transaccion, conversacionId: string, re
  * Se agotaron los intentos: la conversación pasa a una persona (la IA calla) y queda la
  * derivación con motivo `error`. El aviso al dueño por plantilla llega con las tareas de WhatsApp.
  */
-export async function derivarPorError(tx: Transaccion, negocioId: string, conversacionId: string, ahora: Date): Promise<void> {
-  await tx.consultar(
-    `INSERT INTO derivaciones (negocio_id, conversacion_id, motivo) VALUES ($1, $2, 'error')`,
-    [negocioId, conversacionId],
-  );
-  await tx.consultar(
-    `UPDATE conversaciones
-        SET estado = 'humano', humano_desde = $2,
-            ia_pendiente_desde = NULL, ia_pendiente_en = NULL,
-            ia_procesando_hasta = NULL, ia_intentos = 0, ia_reintentar_en = NULL
-      WHERE id = $1`,
-    [conversacionId, ahora],
-  );
+export function derivarPorError(tx: Transaccion, negocioId: string, conversacionId: string, ahora: Date): Promise<void> {
+  return derivar(tx, { negocioId, conversacionId, motivo: 'error', detalle: null, ahora });
 }

@@ -434,6 +434,17 @@ export async function listarCitas(tx: Transaccion, f: FiltroCitas): Promise<Cita
   return rows.map(aDetalle);
 }
 
+/** Citas activas de un cliente que aún no terminan, de la más próxima a la más lejana. */
+export async function listarActivasDelCliente(tx: Transaccion, clienteId: string, ahora: Date): Promise<CitaDetalle[]> {
+  const { rows } = await tx.consultar<FilaDetalle>(
+    `${DETALLE_SQL}
+      WHERE c.cliente_id = $1 AND c.fin > $2 AND c.estado = ANY($3)
+      ORDER BY c.inicio, c.id`,
+    [clienteId, ahora, ESTADOS_ACTIVOS],
+  );
+  return rows.map(aDetalle);
+}
+
 export async function obtenerCitaDetalle(tx: Transaccion, citaId: string): Promise<CitaDetalle | null> {
   const { rows } = await tx.consultar<FilaDetalle>(`${DETALLE_SQL} WHERE c.id = $1`, [citaId]);
   return rows[0] ? aDetalle(rows[0]) : null;
