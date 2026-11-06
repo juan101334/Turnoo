@@ -197,7 +197,8 @@ Aprobaciones vencidas, autocompletar y limpieza ya corren, con un temporizador d
 - Los recordatorios y avisos al dueño casi siempre salen fuera de esa ventana, por lo que son **plantillas de utilidad con costo**.
 - La IA y la transcripción de audio se pagan por uso.
 - `uso_mensual` cuenta citas, conversaciones de IA, plantillas, segundos de audio y tokens por negocio, para aplicar los límites y calcular el costo real.
-- Al 80% del límite se avisa al dueño; al 100% la IA deja de responder y deriva.
+- Al 80% del límite se avisa al dueño (pendiente: plantilla). Al 100%, las conversaciones nuevas del mes no pasan por la IA: se derivan con motivo `limite_plan`. Las que ya se contaron ese mes siguen atendidas, para no cortarle la conversación a nadie a mitad de camino.
+- Una conversación de IA cuenta una vez por mes, la primera vez que la IA la atiende. Los tokens se suman en cada atención, aunque falle.
 
 ## 12. Seguridad y datos personales
 

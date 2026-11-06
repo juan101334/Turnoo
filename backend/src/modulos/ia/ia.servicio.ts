@@ -1,10 +1,11 @@
-import { logger } from '../../compartido/logger.js';
+import { errorParaLog, logger } from '../../compartido/logger.js';
 import { fechaLocal, horaLocal } from '../../compartido/tiempo.js';
 import type { Atender, ConversacionPendiente } from '../../procesador/procesador.js';
 import { citasActivasDelCliente } from '../citas/citas.servicio.js';
 import { conocimientoActivo } from '../conocimiento/conocimiento.servicio.js';
 import type { MensajeDelHistorial, PasoDeIA } from '../conversaciones/conversaciones.tipos.js';
-import { contextoDeConversacion, guardarPasosDeIA } from '../conversaciones/conversaciones.servicio.js';
+import { contextoDeConversacion, derivarConversacion, guardarPasosDeIA } from '../conversaciones/conversaciones.servicio.js';
+import { registrarTokens, reservarConversacionIA } from '../uso/uso.servicio.js';
 import { enviarMensaje, MAX_TEXTO, type DependenciasEnvio } from '../whatsapp/whatsapp.envio.js';
 import { ejecutarHerramienta, HERRAMIENTAS } from './ia.herramientas.js';
 import { armarInstrucciones } from './ia.instrucciones.js';
@@ -23,6 +24,9 @@ import { ErrorDelModelo, llamarModelo, type DependenciasModelo, type ItemEntrada
 
 /** Llamadas al modelo por atención. Cada función pedida cuesta una llamada más. */
 export const MAX_LLAMADAS = 6;
+/** Lo que recibe el cliente cuando el negocio llegó al límite de conversaciones de IA de su plan. */
+export const TEXTO_LIMITE_DEL_PLAN =
+  'En este momento no podemos responderte por aquí. Una persona del negocio te va a escribir pronto.';
 
 const DESCRIPCION_ADJUNTO: Record<string, string> = {
   audio: '[El cliente envió un audio. Todavía no puedes escucharlo.]',
@@ -79,11 +83,25 @@ export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date()
   return async ({ negocioId, conversacionId, clienteId }: ConversacionPendiente) => {
     const ahora = reloj();
     const [contexto, conocimiento, activas] = await Promise.all([
-      contextoDeConversacion(negocioId, conversacionId),
+      contextoDeConversacion(negocioId, conversacionId, ahora),
       conocimientoActivo(negocioId),
       citasActivasDelCliente(negocioId, clienteId, ahora),
     ]);
     const zona = contexto.negocio.zonaHoraria;
+
+    // Antes de gastar tokens: si el plan ya no tiene cupo para una conversación nueva, se deriva.
+    if ((await reservarConversacionIA(negocioId, conversacionId, zona, ahora)) === 'sin_cupo') {
+      await derivarConversacion(negocioId, conversacionId, 'limite_plan', null, ahora);
+      logger.warn({ negocioId }, 'Límite de conversaciones de IA del plan: conversación derivada');
+      try {
+        await enviarMensaje({ negocioId, conversacionId, texto: TEXTO_LIMITE_DEL_PLAN, emisor: 'sistema' }, reloj(), envio);
+      } catch (error) {
+        // Ya quedó derivada: si el aviso no sale, la persona del negocio igual la ve.
+        logger.warn({ negocioId, fallo: errorParaLog(error) }, 'No se pudo avisar al cliente del límite del plan');
+      }
+      return;
+    }
+
     const instrucciones = armarInstrucciones({
       contexto,
       conocimiento,
@@ -105,25 +123,32 @@ export function crearAtender({ modelo = {}, envio = {}, reloj = () => new Date()
     const funciones: string[] = [];
     const pasos: Omit<PasoDeIA, 'creadoEn' | 'orden'>[] = [];
 
-    for (let llamada = 0; llamada < MAX_LLAMADAS && !texto; llamada += 1) {
-      const respuesta = await llamarModelo({ instrucciones, entrada, herramientas: HERRAMIENTAS, identificador: clienteId }, modelo);
-      uso = sumar(uso, respuesta.uso);
-      if (respuesta.llamadas.length === 0) {
-        texto = respuesta.texto;
-        if (!texto) throw new ErrorDelModelo('El modelo no respondió texto ni pidió funciones', true);
-        break;
+    try {
+      for (let llamada = 0; llamada < MAX_LLAMADAS && !texto; llamada += 1) {
+        const respuesta = await llamarModelo({ instrucciones, entrada, herramientas: HERRAMIENTAS, identificador: clienteId }, modelo);
+        uso = sumar(uso, respuesta.uso);
+        if (respuesta.llamadas.length === 0) {
+          texto = respuesta.texto;
+          if (!texto) throw new ErrorDelModelo('El modelo no respondió texto ni pidió funciones', true);
+          break;
+        }
+        // Con store: false, lo que el modelo devolvió (razonamiento incluido) vuelve en la siguiente llamada.
+        entrada.push(...respuesta.salida);
+        for (const pedida of respuesta.llamadas) {
+          funciones.push(pedida.nombre);
+          const { salida } = await ejecutarHerramienta(pedida.nombre, pedida.argumentos, herramienta);
+          entrada.push({ type: 'function_call_output', call_id: pedida.callId, output: salida });
+          pasos.push({ callId: pedida.callId, nombre: pedida.nombre, argumentos: pedida.argumentos, resultado: salida });
+        }
       }
-      // Con store: false, lo que el modelo devolvió (razonamiento incluido) vuelve en la siguiente llamada.
-      entrada.push(...respuesta.salida);
-      for (const pedida of respuesta.llamadas) {
-        funciones.push(pedida.nombre);
-        const { salida } = await ejecutarHerramienta(pedida.nombre, pedida.argumentos, herramienta);
-        entrada.push({ type: 'function_call_output', call_id: pedida.callId, output: salida });
-        pasos.push({ callId: pedida.callId, nombre: pedida.nombre, argumentos: pedida.argumentos, resultado: salida });
-      }
+    } finally {
+      // Los tokens se gastaron aunque la atención falle. Si no se pueden anotar, no se pierde la respuesta.
+      await registrarTokens(negocioId, zona, ahora, uso).catch((error: unknown) =>
+        logger.error({ negocioId, fallo: errorParaLog(error) }, 'No se pudieron anotar los tokens de la IA'),
+      );
+      // Solo conteos y nombres de funciones: nunca el texto de la conversación.
+      logger.info({ negocioId, funciones, uso }, 'IA atendió una conversación');
     }
-    // Solo conteos y nombres de funciones: nunca el texto de la conversación.
-    logger.info({ negocioId, funciones, uso }, 'IA atendió una conversación');
     if (!texto) throw new ErrorDelModelo(`Sin respuesta final tras ${MAX_LLAMADAS} llamadas`, true);
 
     // Antes de enviar: si el envío falla y se reintenta, el reintento ya sabe lo que se hizo.
