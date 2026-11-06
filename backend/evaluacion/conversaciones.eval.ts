@@ -60,7 +60,7 @@ interface Ids {
 interface Escenario {
   nombre: string;
   turnos: string[];
-  preparar?: (clienteId: string, ids: Ids) => Promise<void>;
+  preparar?: (clienteId: string, ids: Ids, conversacionId: string) => Promise<void>;
   /** Corre después del turno indicado (desde 0), antes del siguiente mensaje del cliente. */
   entreTurnos?: (turno: number, ids: Ids) => Promise<void>;
   verificar: (r: Resultado) => string[];
@@ -220,6 +220,30 @@ const ESCENARIOS: Escenario[] = [
     verificar: (r) => [...sinCitaEnTurno(r, 0), ...noDerivo(r), ...unaCita(r, 'Carlos', VIERNES, '10:00')],
   },
   {
+    nombre: 'atiende normal al volver de una derivación',
+    turnos: ['Hola de nuevo, ¿me agendas un corte con Carlos mañana a las 11 de la mañana?', 'Sí'],
+    preparar: async (_cliente, _ids, conversacionId) => {
+      // Hace 10 minutos pidió una persona y la IA derivó; la conversación ya volvió a la IA.
+      const antes = new Date(HOY.getTime() - 10 * 60_000);
+      await sql(
+        `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, creado_en)
+         VALUES ($1, $2, 'entrante', 'cliente', 'texto', 'Quiero hablar con una persona', $3)`,
+        [n.negocioId, conversacionId, antes],
+      );
+      await sql(
+        `INSERT INTO ia_pasos (negocio_id, conversacion_id, call_id, nombre, argumentos, resultado, orden, creado_en)
+         VALUES ($1, $2, 'call_previo', 'derivar_a_humano', '{"motivo":"cliente_pidio_humano","detalle":"Pidió una persona"}', '{"ok":true,"derivada":true}', 0, $3)`,
+        [n.negocioId, conversacionId, antes],
+      );
+      await sql(
+        `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, estado_entrega, creado_en)
+         VALUES ($1, $2, 'saliente', 'ia', 'texto', 'Claro. Una persona de la barbería te va a escribir pronto.', 'enviado', $3)`,
+        [n.negocioId, conversacionId, new Date(antes.getTime() + 1000)],
+      );
+    },
+    verificar: (r) => [...noDerivo(r), ...unaCita(r, 'Carlos', VIERNES, '11:00')],
+  },
+  {
     nombre: 'cualquier barbero libre',
     turnos: ['Necesito un corte mañana a las 9 de la mañana con cualquier barbero', 'Sí'],
     verificar: (r) => unaCita(r, 'Carlos', VIERNES, '09:00'),
@@ -361,7 +385,7 @@ async function conversar(e: Escenario): Promise<Resultado> {
     ),
   );
   const conversacionId = rows[0]!.id;
-  await e.preparar?.(clienteId, ids);
+  await e.preparar?.(clienteId, ids, conversacionId);
 
   const enviados: string[] = [];
   const meta: typeof fetch = async (_url, init) => {
