@@ -1,5 +1,12 @@
 import type { Transaccion } from '../../db/contexto.js';
-import type { ContextoDeConversacion, MensajeDelHistorial, MotivoDerivacion, PasoDeIA } from './conversaciones.tipos.js';
+import type {
+  ContextoDeConversacion,
+  ConversacionDelPanel,
+  MensajeDelHistorial,
+  MensajeDelPanel,
+  MotivoDerivacion,
+  PasoDeIA,
+} from './conversaciones.tipos.js';
 
 /** Único lugar con SQL de conversaciones y derivaciones. */
 
@@ -135,8 +142,8 @@ export async function derivar(
   d: { negocioId: string; conversacionId: string; motivo: MotivoDerivacion; detalle: string | null; ahora: Date },
 ): Promise<void> {
   await tx.consultar(
-    'INSERT INTO derivaciones (negocio_id, conversacion_id, motivo, detalle) VALUES ($1, $2, $3, $4)',
-    [d.negocioId, d.conversacionId, d.motivo, d.detalle],
+    'INSERT INTO derivaciones (negocio_id, conversacion_id, motivo, detalle, created_at) VALUES ($1, $2, $3, $4, $5)',
+    [d.negocioId, d.conversacionId, d.motivo, d.detalle, d.ahora],
   );
   await tx.consultar(
     `UPDATE conversaciones
@@ -146,4 +153,97 @@ export async function derivar(
       WHERE id = $1`,
     [d.conversacionId, d.ahora],
   );
+}
+
+// ---------------------------------------------------------------------
+// Panel: el dueño lee y responde las conversaciones
+// ---------------------------------------------------------------------
+
+export async function listarParaPanel(
+  tx: Transaccion,
+  estado: 'bot' | 'humano' | null,
+  limite: number,
+): Promise<ConversacionDelPanel[]> {
+  const { rows } = await tx.consultar<{
+    id: string;
+    estado: ConversacionDelPanel['estado'];
+    humano_desde: Date | null;
+    ultimo_mensaje_en: Date | null;
+    cliente_id: string;
+    cliente_nombre: string | null;
+    cliente_telefono: string | null;
+    motivo: MotivoDerivacion | null;
+    detalle: string | null;
+    derivada_en: Date | null;
+  }>(
+    `SELECT c.id, c.estado, c.humano_desde, c.ultimo_mensaje_en,
+            cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono,
+            d.motivo, d.detalle, d.created_at AS derivada_en
+       FROM conversaciones c
+       JOIN clientes cl ON cl.id = c.cliente_id
+       LEFT JOIN LATERAL (
+         SELECT motivo, detalle, created_at FROM derivaciones WHERE conversacion_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1
+       ) d ON true
+      WHERE ($1::text IS NULL OR c.estado = $1)
+      ORDER BY c.ultimo_mensaje_en DESC NULLS LAST, c.id
+      LIMIT $2`,
+    [estado, limite],
+  );
+  return rows.map((f) => ({
+    id: f.id,
+    estado: f.estado,
+    humanoDesde: f.humano_desde,
+    ultimoMensajeEn: f.ultimo_mensaje_en,
+    cliente: { id: f.cliente_id, nombre: f.cliente_nombre, telefono: f.cliente_telefono },
+    ultimaDerivacion: f.motivo ? { motivo: f.motivo, detalle: f.detalle, creadaEn: f.derivada_en! } : null,
+  }));
+}
+
+/** Los últimos `limite` mensajes, del más viejo al más nuevo. */
+export async function mensajesParaPanel(tx: Transaccion, conversacionId: string, limite: number): Promise<MensajeDelPanel[]> {
+  const { rows } = await tx.consultar<{
+    id: string;
+    direccion: MensajeDelPanel['direccion'];
+    emisor: MensajeDelPanel['emisor'];
+    tipo: MensajeDelPanel['tipo'];
+    contenido: string | null;
+    transcripcion: string | null;
+    tiene_imagen: boolean;
+    estado_entrega: string | null;
+    creado_en: Date;
+  }>(
+    `SELECT * FROM (
+       SELECT id, direccion, emisor, tipo, contenido, transcripcion, archivo_ruta IS NOT NULL AS tiene_imagen, estado_entrega, creado_en
+         FROM mensajes WHERE conversacion_id = $1
+        ORDER BY creado_en DESC, id DESC
+        LIMIT $2
+     ) ultimos ORDER BY creado_en, id`,
+    [conversacionId, limite],
+  );
+  return rows.map((f) => ({
+    id: f.id,
+    direccion: f.direccion,
+    emisor: f.emisor,
+    tipo: f.tipo,
+    contenido: f.contenido,
+    transcripcion: f.transcripcion,
+    tieneImagen: f.tiene_imagen,
+    estadoEntrega: f.estado_entrega,
+    creadoEn: f.creado_en,
+  }));
+}
+
+/**
+ * Una persona del negocio toma la conversación: la IA calla y el plazo del modo humano empieza
+ * de nuevo, para que la IA no vuelva mientras la persona está respondiendo.
+ */
+export async function tomarConversacion(tx: Transaccion, conversacionId: string, ahora: Date): Promise<boolean> {
+  const { rowCount } = await tx.consultar(
+    `UPDATE conversaciones
+        SET estado = 'humano', humano_desde = $2,
+            ia_pendiente_desde = NULL, ia_pendiente_en = NULL, ia_intentos = 0, ia_reintentar_en = NULL
+      WHERE id = $1 AND estado <> 'cerrada'`,
+    [conversacionId, ahora],
+  );
+  return (rowCount ?? 0) > 0;
 }

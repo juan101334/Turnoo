@@ -1,8 +1,17 @@
 import { NoEncontrado } from '../../compartido/errores.js';
 import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio } from '../../db/contexto.js';
+import { exigirNegocioOperativo } from '../negocios/negocios.reglas.js';
+import { enviarMensaje, type DependenciasEnvio } from '../whatsapp/whatsapp.envio.js';
+import type { ResultadoEnvio } from '../whatsapp/whatsapp.tipos.js';
 import * as repositorio from './conversaciones.repositorio.js';
-import type { ContextoDeConversacion, MotivoDerivacion, PasoDeIA } from './conversaciones.tipos.js';
+import type {
+  ContextoDeConversacion,
+  ConversacionDelPanel,
+  MensajeDelPanel,
+  MotivoDerivacion,
+  PasoDeIA,
+} from './conversaciones.tipos.js';
 
 /** Cuántos mensajes recientes lee la IA. Más mensajes cuestan más tokens en cada respuesta. */
 export const MENSAJES_DEL_HISTORIAL = 30;
@@ -63,4 +72,48 @@ export async function derivarConversacion(
     if (!(await repositorio.datosDeLaConversacion(tx, conversacionId))) throw new NoEncontrado('La conversación');
     await repositorio.derivar(tx, { negocioId, conversacionId, motivo, detalle: limpio, ahora });
   });
+}
+
+// ---------------------------------------------------------------------
+// Panel: el dueño lee y responde. Es lo mínimo para atender una derivación, sobre todo la de un
+// cliente que no comparte su teléfono: solo se le puede escribir por el número del negocio.
+// ---------------------------------------------------------------------
+
+export const MAX_CONVERSACIONES_PANEL = 100;
+export const MAX_MENSAJES_PANEL = 200;
+
+export function listarConversaciones(
+  negocioId: string,
+  estado: 'bot' | 'humano' | null,
+  limite = 50,
+): Promise<ConversacionDelPanel[]> {
+  return conNegocio(negocioId, (tx) => repositorio.listarParaPanel(tx, estado, Math.min(limite, MAX_CONVERSACIONES_PANEL)));
+}
+
+export async function mensajesDeConversacion(negocioId: string, conversacionId: string, limite = 50): Promise<MensajeDelPanel[]> {
+  if (!esUuid(conversacionId)) throw new NoEncontrado('La conversación');
+  return conNegocio(negocioId, async (tx) => {
+    if (!(await repositorio.datosDeLaConversacion(tx, conversacionId))) throw new NoEncontrado('La conversación');
+    return repositorio.mensajesParaPanel(tx, conversacionId, Math.min(limite, MAX_MENSAJES_PANEL));
+  });
+}
+
+/**
+ * Responde como persona del negocio. Primero toma la conversación (la IA calla desde ya y el
+ * modo humano dura otra vez sus horas) y después envía. Las reglas del envío (ventana de 24 h,
+ * negocio suspendido, cuenta activa) las aplica enviarMensaje.
+ */
+export async function responderComoNegocio(
+  negocioId: string,
+  conversacionId: string,
+  texto: string,
+  ahora: Date = new Date(),
+  envio: DependenciasEnvio = {},
+): Promise<ResultadoEnvio> {
+  if (!esUuid(conversacionId)) throw new NoEncontrado('La conversación');
+  await conNegocio(negocioId, async (tx) => {
+    await exigirNegocioOperativo(tx, negocioId);
+    if (!(await repositorio.tomarConversacion(tx, conversacionId, ahora))) throw new NoEncontrado('La conversación');
+  });
+  return enviarMensaje({ negocioId, conversacionId, texto, emisor: 'humano' }, ahora, envio);
 }

@@ -117,3 +117,56 @@ export async function descargarMediaDeMeta(
   if (bytes.length > maxBytes) return { ok: false, reintentable: false, motivo: 'muy_grande', detalle: `El archivo pesa ${bytes.length} bytes` };
   return { ok: true, bytes, mimeType };
 }
+
+export interface Plantilla {
+  /** Nombre de la plantilla aprobada en la cuenta de WhatsApp Business del negocio. */
+  nombre: string;
+  idioma: string;
+  /** Parámetros con nombre del cuerpo ({{cliente}}, {{motivo}}...). */
+  parametros: Record<string, string>;
+}
+
+/**
+ * Envía una plantilla aprobada a un teléfono. Las plantillas son lo único que WhatsApp deja enviar
+ * fuera de la ventana de 24 horas, y Meta cobra cada una. No lanza: traduce el resultado.
+ */
+export async function enviarPlantillaAMeta(
+  destino: DestinoMeta,
+  telefono: string,
+  plantilla: Plantilla,
+  pedir: typeof fetch = fetch,
+): Promise<RespuestaMeta> {
+  let respuesta: Response;
+  try {
+    respuesta = await pedir(`${URL_GRAPH}/${encodeURIComponent(destino.phoneNumberId)}/messages`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${destino.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: telefono,
+        type: 'template',
+        template: {
+          name: plantilla.nombre,
+          language: { code: plantilla.idioma },
+          components: [
+            {
+              type: 'body',
+              parameters: Object.entries(plantilla.parametros).map(([nombre, texto]) => ({ type: 'text', parameter_name: nombre, text: texto })),
+            },
+          ],
+        },
+      }),
+      signal: AbortSignal.timeout(ESPERA_MAXIMA_MS),
+    });
+  } catch {
+    return { ok: false, reintentable: true, detalle: 'Sin respuesta de Meta' };
+  }
+  const cuerpo: unknown = await respuesta.json().catch(() => null);
+  if (!respuesta.ok) {
+    return { ok: false, reintentable: esReintentable(respuesta.status), detalle: detalleDeError(respuesta.status, cuerpo) };
+  }
+  const id = (cuerpo as { messages?: { id?: unknown }[] } | null)?.messages?.[0]?.id;
+  if (typeof id !== 'string' || id === '') return { ok: false, reintentable: false, detalle: 'Meta respondió sin id de mensaje' };
+  return { ok: true, waMessageId: id };
+}

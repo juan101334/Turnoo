@@ -143,6 +143,7 @@ stateDiagram-v2
 
 - `bot`: la IA responde.
 - `humano`: la IA calla. Pasa a `humano` al derivar (queda `humano_desde`) y vuelve a `bot` sola pasadas `horas_modo_humano` (se evalúa cuando llega el siguiente mensaje).
+- Al derivar, una tarea avisa al dueño con la plantilla `turnoo_derivacion`: quién es el cliente, el motivo, lo que pidió y su teléfono (o que lo responda desde Turnoo, si el cliente no lo comparte). Si el dueño responde por `POST /conversaciones/:id/mensajes`, la conversación sigue en `humano` y sus horas empiezan de nuevo.
 - `cerrada`: reservado para la bandeja de la fase 2.
 
 ## 8. Recorrido de un mensaje entrante
@@ -199,7 +200,7 @@ Aprobaciones vencidas, autocompletar y limpieza ya corren, con un temporizador d
 - Los recordatorios y avisos al dueño casi siempre salen fuera de esa ventana, por lo que son **plantillas de utilidad con costo**.
 - La IA y la transcripción de audio se pagan por uso.
 - `uso_mensual` cuenta citas, conversaciones de IA, plantillas, segundos de audio y tokens por negocio, para aplicar los límites y calcular el costo real.
-- Al 80% del límite se avisa al dueño (pendiente: plantilla). Al 100%, las conversaciones nuevas del mes no pasan por la IA: se derivan con motivo `limite_plan`. Las que ya se contaron ese mes siguen atendidas, para no cortarle la conversación a nadie a mitad de camino.
+- Al 80% del límite se avisa al dueño con la plantilla `turnoo_limite_plan`, una vez por mes. Al 100%, las conversaciones nuevas del mes no pasan por la IA: se derivan con motivo `limite_plan`. Las que ya se contaron ese mes siguen atendidas, para no cortarle la conversación a nadie a mitad de camino.
 - Una conversación de IA cuenta una vez por mes, la primera vez que la IA la atiende. Los tokens se suman en cada atención, aunque falle.
 
 ## 12. Seguridad y datos personales
