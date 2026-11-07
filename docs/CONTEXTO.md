@@ -85,7 +85,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Utilidades de tiempo (Luxon) y validación | `backend/src/compartido/tiempo.ts`, `validacion.ts` |
 | Módulo de disponibilidad: cálculo puro + servicio `consultarDisponibilidad` | `backend/src/modulos/citas/` |
 | Crear, cancelar, reprogramar, aprobar/rechazar y marcar citas (`crearCita`, `cancelarCita`, `reprogramarCita`, `aprobarCita`, `rechazarCita`, `marcarCita`) con todas las reglas de la sección 5 | `backend/src/modulos/citas/citas.servicio.ts` |
-| **744 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp + 16 de clientes por BSUID + 16 del aviso de datos + 26 del procesador de conversaciones + 21 de la base de conocimiento + 38 de la IA con un modelo simulado + 11 del uso del plan + 18 de notas de voz e imágenes + 23 de avisos al dueño y conversaciones del panel + 23 del control de migraciones + 32 del recordatorio) contra una base `turnoo_test` aparte | `backend/pruebas/` |
+| **748 pruebas automáticas en verde** (85 + 28 de gestión de citas + 18 de autenticación + 8 de clientes + 12 de rutas de citas + 31 de negocios + 46 de barberos y usuarios + 57 de servicios, horarios y bloqueos + 59 de rutas de clientes + 33 del límite de login + 35 de tareas internas + 56 del webhook + 52 del envío por WhatsApp + 16 de clientes por BSUID + 16 del aviso de datos + 26 del procesador de conversaciones + 21 de la base de conocimiento + 38 de la IA con un modelo simulado + 11 del uso del plan + 18 de notas de voz e imágenes + 23 de avisos al dueño y conversaciones del panel + 23 del control de migraciones + 32 del recordatorio + 4 de recuperar al superadmin) contra una base `turnoo_test` aparte | `backend/pruebas/` |
 | Agenda de cada barbero: servicios y horarios por `/profesionales/:id/...`, y bloqueos por `/bloqueos`. Crear un bloqueo o quitar un horario devuelve las citas afectadas, sin tocarlas | `backend/src/modulos/profesionales/agenda.*` |
 | Barberos: el dueño los crea (respetando el límite del plan), renombra, desactiva, reactiva y asocia a un usuario por `/profesionales`; el empleado solo consulta el suyo | `backend/src/modulos/profesionales/` |
 | Usuarios: listar, desactivar y reenviar invitación por `/auth/usuarios`. Invitar a un empleado exige su barbero. Solo una invitación activa a un usuario | `backend/src/modulos/auth/` |
@@ -124,6 +124,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Rutas `/clientes` para el panel: `GET /` (búsqueda por nombre o teléfono, paginada con `limite`, `desplazamiento` y `hayMas`), `GET /:id`, `PATCH /:id` y `POST /:id/anonimizar`. El dueño ve todo el negocio; el empleado, los clientes con citas de su barbero | `backend/src/modulos/clientes/clientes.rutas.ts` |
 | Autenticación: login con argon2, sesiones en la base (7 días, revocables), invitaciones (72 h) y recuperación (1 h) con enlace de un solo uso, roles; rutas `/auth/*` | `backend/src/modulos/auth/` |
 | Script del primer superadmin: `npm run superadmin -- correo "Nombre"` (imprime el enlace para fijar la contraseña) | `backend/scripts/crear-superadmin.ts` |
+| Recuperar al superadmin: `npm run recuperar-superadmin -- correo` anula sus enlaces anteriores e imprime uno nuevo: de recuperación (1 h) si está activo o de invitación (72 h) si nunca definió su contraseña. A uno desactivado no le da enlace. Solo con acceso al servidor: no hay ruta HTTP | `backend/scripts/recuperar-superadmin.ts` |
 
 **No existe todavía:**
 
@@ -152,7 +153,7 @@ npm run dev           # servidor con recarga
 npm run typecheck     # tipos de todo el código, pruebas incluidas
 npm run db:pruebas    # recrea turnoo_test aplicando todas las migraciones (tras cada migración nueva)
 npm run db:migrar     # aplica a la base de desarrollo las migraciones pendientes (-- --estado solo las lista)
-npm test              # 744 pruebas
+npm test              # 748 pruebas
 npm run ia:evaluar    # 24 conversaciones con el modelo real de OpenAI (cuesta saldo: pedir visto bueno)
 ```
 
