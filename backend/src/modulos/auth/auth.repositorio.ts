@@ -82,6 +82,18 @@ export async function obtenerUsuario(
   return rows[0] ?? null;
 }
 
+/** Superadmin por su correo (sin distinguir mayúsculas). Solo para el script de recuperación. */
+export async function superadminPorEmail(
+  tx: Transaccion,
+  email: string,
+): Promise<{ id: string; activo: boolean; pendiente: boolean } | null> {
+  const { rows } = await tx.consultar<{ id: string; activo: boolean; pendiente: boolean }>(
+    `SELECT id, activo, password_hash IS NULL AS pendiente FROM usuarios WHERE email = $1 AND rol = 'superadmin'`,
+    [email],
+  );
+  return rows[0] ?? null;
+}
+
 /** Inactivo sin contraseña: invitado que no ha aceptado. Inactivo con contraseña: desactivado. */
 function estadoDeUsuario(activo: boolean, pendiente: boolean): EstadoUsuario {
   if (activo) return 'activo';

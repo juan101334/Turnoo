@@ -236,6 +236,33 @@ export async function invitarSuperadmin(
   return { token, expiraEn };
 }
 
+/**
+ * Solo para el script de recuperación (`npm run recuperar-superadmin`), que exige acceso al
+ * servidor: no pasa por ninguna ruta HTTP. Anula los enlaces anteriores del superadmin y da uno nuevo:
+ * - activo: enlace de recuperación (1 h); al usarlo se cierran sus sesiones;
+ * - invitado que nunca definió su contraseña: invitación nueva (72 h);
+ * - desactivado: no hay enlace, porque la recuperación nunca reactiva.
+ */
+export async function recuperarSuperadmin(
+  email: string,
+  ahora: Date = new Date(),
+): Promise<EnlaceUnico & { tipo: 'invitacion' | 'recuperacion' }> {
+  if (!FORMATO_EMAIL.test(email.trim())) throw new DatosInvalidos('Correo no válido');
+  return conSistema(async (tx) => {
+    const usuario = await repositorio.superadminPorEmail(tx, email.trim());
+    if (!usuario) throw new NoEncontrado('El superadmin');
+    if (!usuario.activo && !usuario.pendiente) {
+      throw new Conflicto('El superadmin está desactivado: la recuperación no lo reactiva');
+    }
+    const tipo = usuario.activo ? 'recuperacion' : 'invitacion';
+    const { token, hash } = generarToken(null);
+    const expiraEn = sumarHoras(ahora, tipo === 'recuperacion' ? HORAS_RECUPERACION : HORAS_INVITACION);
+    await repositorio.invalidarTokensDeUsuario(tx, usuario.id, ahora);
+    await repositorio.crearToken(tx, { usuarioId: usuario.id, tipo, tokenHash: hash, expiraEn });
+    return { token, expiraEn, tipo };
+  });
+}
+
 /** Consume el token y fija la contraseña, todo en una transacción. */
 async function usarToken(
   token: unknown,
