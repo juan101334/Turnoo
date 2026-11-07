@@ -17,7 +17,7 @@ import * as repositorio from './avisos.repositorio.js';
 
 export const PLANTILLA_DERIVACION = 'turnoo_derivacion';
 export const PLANTILLA_LIMITE = 'turnoo_limite_plan';
-export const IDIOMA_PLANTILLAS = 'es';
+export const IDIOMA_PLANTILLAS = 'es_CO';
 /** Sin teléfono de avisos, la derivación espera hasta esto a que el dueño lo configure. */
 export const VIGENCIA_AVISO_MS = 24 * 3_600_000;
 export const MAX_INTENTOS_AVISO = 3;

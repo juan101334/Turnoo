@@ -108,7 +108,7 @@ describe('avisos al dueño', () => {
       const p = plantillaDeDerivacion({ motivo: 'cliente_pidio_humano', detalle: 'Quiere\nhablar', clienteNombre: 'Laura', clienteTelefono: '573001234567', horasModoHumano: 2 });
       expect(p).toEqual({
         nombre: PLANTILLA_DERIVACION,
-        idioma: 'es',
+        idioma: 'es_CO',
         parametros: { cliente: 'Laura', motivo: 'pidió hablar con una persona', detalle: 'Quiere hablar', contacto: '+573001234567', horas: '2' },
       });
     });
@@ -135,7 +135,7 @@ describe('avisos al dueño', () => {
       expect(propios).toHaveLength(1);
       expect(propios[0]!.url).toContain(`/${e.phoneNumberId}/messages`);
       expect(propios[0]!.autorizacion).toBe(`Bearer ${TOKEN}`);
-      expect(propios[0]!.cuerpo).toMatchObject({ to: DUENO, type: 'template', template: { name: PLANTILLA_DERIVACION, language: { code: 'es' } } });
+      expect(propios[0]!.cuerpo).toMatchObject({ to: DUENO, type: 'template', template: { name: PLANTILLA_DERIVACION, language: { code: 'es_CO' } } });
       expect(meta.parametros(meta.enviados.indexOf(propios[0]!))).toMatchObject({ cliente: 'Laura', motivo: 'pidió hablar con una persona', detalle: 'Quiere hablar con alguien', horas: '2' });
       expect(await aviso(e, c.conversacionId)).toMatchObject({ aviso_resultado: 'enviado', avisada_en: T });
       expect((await sql<{ p: number }>(e, `SELECT plantillas_enviadas AS p FROM uso_mensual WHERE periodo = '2035-03-01'`))[0]!.p).toBe(1);
