@@ -113,7 +113,7 @@ describe('envío de mensajes por WhatsApp', () => {
 
     const [mensaje] = await mensajesDe(c);
     expect(mensaje).toMatchObject({
-      id: resultado.mensajeId,
+      id: (resultado as { mensajeId: string }).mensajeId,
       direccion: 'saliente',
       emisor: 'ia',
       tipo: 'texto',

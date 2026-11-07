@@ -59,7 +59,9 @@ export type EmisorSaliente = 'ia' | 'humano' | 'sistema';
  */
 export type ResultadoEnvio =
   | { estado: 'enviado'; mensajeId: string; waMessageId: string }
-  | { estado: 'fallido'; mensajeId: string; reintentable: boolean };
+  | { estado: 'fallido'; mensajeId: string; reintentable: boolean }
+  /** No se guardó ni se envió: una persona del negocio tomó la conversación mientras la IA respondía. */
+  | { estado: 'descartado' };
 
 /** Respuesta de la API de Meta, ya traducida. */
 export type RespuestaMeta =

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoConfigurado } from '../src/compartido/errores.js';
 import { conNegocio } from '../src/db/contexto.js';
-import { MENSAJES_DEL_HISTORIAL, MINUTOS_VIGENCIA_PASOS } from '../src/modulos/conversaciones/conversaciones.servicio.js';
+import { MENSAJES_DEL_HISTORIAL, MINUTOS_VIGENCIA_PASOS, responderComoNegocio } from '../src/modulos/conversaciones/conversaciones.servicio.js';
 import { HERRAMIENTAS, MAX_DIAS_DISPONIBILIDAD } from '../src/modulos/ia/ia.herramientas.js';
 import { armarInstrucciones, nombreSeguro } from '../src/modulos/ia/ia.instrucciones.js';
 import { ErrorDelModelo, llamarModelo, URL_RESPUESTAS } from '../src/modulos/ia/ia.proveedor.js';
@@ -469,6 +469,16 @@ describe('IA', () => {
       expect(modelo.meta).toHaveBeenCalledTimes(1);
       expect(JSON.parse(String(modelo.meta.mock.calls[0]![1]!.body)).text.body).toBe('Abrimos hasta las 6:00 p. m.');
       expect(await salientes(c)).toEqual([{ emisor: 'ia', contenido: 'Abrimos hasta las 6:00 p. m.', estado_entrega: 'enviado' }]);
+    });
+
+    it('si una persona del negocio toma la conversación mientras la IA piensa, la respuesta de la IA se descarta', async () => {
+      const c = await conversacion(['¿Tienen cita hoy?']);
+      const modelo = atenderCon([{ texto: 'Sí, a las 4:00 p. m.' }]);
+      // El dueño responde un segundo después de que la IA empezó (T): la IA ya no debe hablar.
+      await responderComoNegocio(n.negocioId, c.conversacionId, 'Hola, ya te atiendo yo', new Date(T.getTime() + 1000), { pedir: modelo.meta });
+      await modelo.atender(c);
+      expect(modelo.meta).toHaveBeenCalledTimes(1);
+      expect(await salientes(c)).toEqual([{ emisor: 'humano', contenido: 'Hola, ya te atiendo yo', estado_entrega: 'enviado' }]);
     });
 
     it('agenda con funciones: devuelve cada resultado con su call_id y repite el razonamiento', async () => {
