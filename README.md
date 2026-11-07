@@ -47,17 +47,14 @@ docker compose ps             # turnoo-db debe aparecer como "healthy"
 
 La base queda disponible en `localhost:5433` (el puerto 5433 evita chocar con un PostgreSQL local en el 5432).
 
-Aplicar las migraciones, en orden:
+Aplicar las migraciones (desde `backend/`, después de `npm install` y de crear `backend/.env` a partir de `backend/.env.example`):
 
 ```bash
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/001_init.sql
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/002_inasistencias_y_aprobacion.sql
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/003_sesiones.sql
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/004_anonimizar_clientes.sql
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/005_intentos_login.sql
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/006_cancelada_por_sistema.sql
-docker exec -i turnoo-db psql -U turnoo_admin -d turnoo -v ON_ERROR_STOP=1 < db/migrations/007_media_id_mensajes.sql
+npm run db:migrar                # aplica las pendientes, en orden, y las anota en migraciones_aplicadas
+npm run db:migrar -- --estado    # solo muestra cuáles están aplicadas y cuáles faltan
 ```
+
+Usa el servidor y la base de `DATABASE_URL` (`backend/.env`) con el administrador `POSTGRES_USER` / `POSTGRES_PASSWORD` (`.env` de la raíz). Cada migración se aplica con su anotación en una sola transacción, y el comando se detiene si una migración ya aplicada se editó. Si tu base se migró a mano antes de este control, anota una sola vez las que ya tiene, sin ejecutarlas: `npm run db:migrar -- --registrar-hasta NNN` (NNN es la última que aplicaste).
 
 Después se le pone contraseña al rol que usa la aplicación, de forma interactiva:
 
