@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
-import { DatosInvalidos, NoAutorizado, NoEncontrado, Prohibido, Duplicado } from '../src/compartido/errores.js';
+import { Conflicto, DatosInvalidos, NoAutorizado, NoEncontrado, Prohibido, Duplicado } from '../src/compartido/errores.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
 import {
   aceptarInvitacion,
@@ -13,6 +13,7 @@ import {
   iniciarSesion,
   invitarSuperadmin,
   invitarUsuario,
+  recuperarSuperadmin,
   restablecerContrasena,
 } from '../src/modulos/auth/auth.servicio.js';
 import type { Rol, UsuarioAutenticado } from '../src/modulos/auth/auth.tipos.js';
@@ -191,6 +192,52 @@ describe('autenticación', () => {
       expect(await autenticar(s.token, ahora)).toEqual(s.usuario);
       const { rows } = await conSistema((tx) => tx.consultar<{ id: string }>('SELECT id FROM usuarios WHERE email = $1', [email]));
       superadminsCreados.push(rows[0]!.id);
+    });
+  });
+
+  describe('recuperar al superadmin (script)', () => {
+    it('activo: enlace de recuperación de 1 h que anula el anterior y cierra sus sesiones', async () => {
+      const admin = await crearUsuario(null, 'superadmin');
+      const vieja = await iniciarSesion(admin.email, CLAVE, ahora);
+      const primero = await recuperarSuperadmin(admin.email.toUpperCase(), ahora);
+      const segundo = await recuperarSuperadmin(admin.email, ahora);
+      expect(segundo).toMatchObject({ tipo: 'recuperacion', expiraEn: horas(1) });
+      expect(segundo.token.startsWith('sis.')).toBe(true);
+
+      await expect(restablecerContrasena(primero.token, 'clave-nueva-muy-larga', ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      await expect(restablecerContrasena(segundo.token, 'clave-nueva-muy-larga', horas(2))).rejects.toBeInstanceOf(NoAutorizado);
+      const tercero = await recuperarSuperadmin(admin.email, ahora);
+      await restablecerContrasena(tercero.token, 'clave-nueva-muy-larga', ahora);
+      await expect(autenticar(vieja.token, ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      expect((await iniciarSesion(admin.email, 'clave-nueva-muy-larga', ahora)).usuario.rol).toBe('superadmin');
+    });
+
+    it('invitado que nunca definió su contraseña: invitación nueva que anula la anterior', async () => {
+      const email = correo();
+      const vieja = await invitarSuperadmin(email, 'Admin', ahora);
+      const { rows } = await conSistema((tx) => tx.consultar<{ id: string }>('SELECT id FROM usuarios WHERE email = $1', [email]));
+      superadminsCreados.push(rows[0]!.id);
+
+      const nueva = await recuperarSuperadmin(email, ahora);
+      expect(nueva).toMatchObject({ tipo: 'invitacion', expiraEn: dias(3) });
+      await expect(aceptarInvitacion(vieja.token, CLAVE, ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      await aceptarInvitacion(nueva.token, CLAVE, ahora);
+      expect((await iniciarSesion(email, CLAVE, ahora)).usuario.rol).toBe('superadmin');
+    });
+
+    it('desactivado: no da enlace, porque la recuperación nunca reactiva', async () => {
+      const admin = await crearUsuario(null, 'superadmin');
+      await conSistema((tx) => tx.consultar('UPDATE usuarios SET activo = false WHERE id = $1', [admin.id]));
+      await expect(recuperarSuperadmin(admin.email, ahora)).rejects.toBeInstanceOf(Conflicto);
+      const { rows } = await conSistema((tx) => tx.consultar('SELECT 1 FROM tokens_usuario WHERE usuario_id = $1', [admin.id]));
+      expect(rows).toHaveLength(0);
+    });
+
+    it('solo sirve para superadmins con un correo válido', async () => {
+      const dueno = await crearUsuario(a, 'dueno');
+      await expect(recuperarSuperadmin(dueno.email, ahora)).rejects.toBeInstanceOf(NoEncontrado);
+      await expect(recuperarSuperadmin(correo(), ahora)).rejects.toBeInstanceOf(NoEncontrado);
+      await expect(recuperarSuperadmin('no-es-correo', ahora)).rejects.toBeInstanceOf(DatosInvalidos);
     });
   });
 
