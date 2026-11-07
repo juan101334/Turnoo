@@ -32,7 +32,7 @@ Dos tipos de negocio objetivo:
 | Datos del cliente | Nombre, teléfono (viene de WhatsApp), hora, servicios y notas libres. |
 | Intervalo y límites | Configurables por negocio: intervalo de citas (15 min por defecto), anticipación mínima (1 h) y máxima (30 días), máximo de citas activas por cliente (2). |
 | Cancelar o reprogramar | El cliente lo hace por WhatsApp hasta un límite de horas antes (configurable, 2 h por defecto). El negocio puede siempre desde el panel y se avisa al cliente con plantilla. |
-| Recordatorio | Uno solo, unas 10-12 horas antes (11 h por defecto), con plantilla de WhatsApp. No se envía de noche (07:00 a 21:00 por defecto). |
+| Recordatorio | Uno solo, unas 10-12 horas antes (11 h por defecto), con plantilla de WhatsApp. No se envía de noche (07:00 a 21:00 por defecto): si el momento ideal cae de noche, sale en el borde más cercano del horario. No se envía si la cita se agendó después del momento ideal, ni a clientes sin consentimiento de datos o sin teléfono. |
 | IA | Solo habla de temas del negocio, usando su base de conocimiento. Si no sabe, deriva a una persona; no inventa. Proveedor: OpenAI, con el modelo en una variable de entorno. Antes de agendar confirma con el cliente el día, la hora, el barbero y los servicios. |
 | Audios | Se transcriben; si no se puede, se pide al cliente que escriba. |
 | Imágenes | Se guardan y se adjuntan a la cita como referencia; la conversación sigue normal. |
@@ -186,7 +186,7 @@ Reglas de seguridad (no negociables):
 
 | Tarea | Qué hace |
 |---|---|
-| Recordatorios | Envía la plantilla de recordatorio según `horas_recordatorio`, respetando el horario permitido. |
+| Recordatorios | Envía la plantilla de recordatorio según `horas_recordatorio`, respetando el horario permitido. Reserva cada cita con `SKIP LOCKED`, reintenta hasta 3 veces y anota el resultado en `citas.recordatorio_resultado`. |
 | Aprobaciones vencidas | Pasa a `cancelada` las citas `por_aprobar` cuyo plazo venció, con `cancelada_por = 'sistema'`. El aviso al cliente queda pendiente hasta el webhook. |
 | Autocompletar | Pasa a `completada` las citas pasadas que nadie marcó, pasadas `horas_autocompletar_cita`. |
 | Limpieza | Borra las filas vencidas de `intentos_login`. |
