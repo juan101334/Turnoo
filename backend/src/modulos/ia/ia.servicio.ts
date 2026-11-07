@@ -183,7 +183,8 @@ export function crearAtender({ modelo = {}, envio = {}, adjuntos = {}, reloj = (
     // Antes de enviar: si el envío falla y se reintenta, el reintento ya sabe lo que se hizo.
     await guardarPasosDeIA(negocioId, conversacionId, pasos, ahora);
     const resultado = await enviarMensaje(
-      { negocioId, conversacionId, texto: texto.slice(0, MAX_TEXTO), emisor: 'ia' },
+      // Si una persona tomó la conversación mientras la IA pensaba, su respuesta se descarta.
+      { negocioId, conversacionId, texto: texto.slice(0, MAX_TEXTO), emisor: 'ia', atencionDesde: ahora },
       reloj(),
       envio,
     );

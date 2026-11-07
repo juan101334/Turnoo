@@ -133,6 +133,8 @@ export interface DestinoConversacion {
   phoneNumberId: string;
   tokenCifrado: string;
   cuentaActiva: boolean;
+  /** Cuándo pasó a una persona por última vez (la tomó o se derivó). */
+  humanoDesde: Date | null;
 }
 
 /** Bloquea la conversación: dos envíos a la misma persona se guardan en orden. */
@@ -144,8 +146,10 @@ export async function destinoDeConversacion(tx: Transaccion, conversacionId: str
     phone_number_id: string;
     token_acceso_cifrado: string;
     activa: boolean;
+    humano_desde: Date | null;
   }>(
-    `SELECT cl.telefono, cl.wa_user_id, c.ultimo_mensaje_cliente_en, w.phone_number_id, w.token_acceso_cifrado, w.activa
+    `SELECT cl.telefono, cl.wa_user_id, c.ultimo_mensaje_cliente_en, w.phone_number_id, w.token_acceso_cifrado, w.activa,
+            c.humano_desde
        FROM conversaciones c
        JOIN clientes cl ON cl.id = c.cliente_id
        JOIN whatsapp_cuentas w ON w.id = c.whatsapp_cuenta_id
@@ -162,6 +166,7 @@ export async function destinoDeConversacion(tx: Transaccion, conversacionId: str
     phoneNumberId: fila.phone_number_id,
     tokenCifrado: fila.token_acceso_cifrado,
     cuentaActiva: fila.activa,
+    humanoDesde: fila.humano_desde,
   };
 }
 

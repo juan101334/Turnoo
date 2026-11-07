@@ -19,6 +19,11 @@ export interface EntradaEnvio {
   conversacionId: string;
   texto: string;
   emisor: EmisorSaliente;
+  /**
+   * Solo para respuestas de la IA: cuándo empezó a atender. Si después de ese instante una persona
+   * tomó la conversación (o la IA la derivó en otra atención), la respuesta se descarta.
+   */
+  atencionDesde?: Date;
 }
 
 export interface DependenciasEnvio {
@@ -42,7 +47,9 @@ function textoValido(texto: string): string {
  * 3. Anota el resultado: `enviado` con su id de WhatsApp, o `fallido`.
  *
  * Lanza un error del dominio si el envío no está permitido (sin guardar nada). Un fallo de Meta
- * no lanza: devuelve `fallido` y si conviene reintentar.
+ * no lanza: devuelve `fallido` y si conviene reintentar. Con `atencionDesde`, devuelve `descartado`
+ * si una persona tomó la conversación mientras tanto. Se comprueba con la conversación bloqueada:
+ * si la persona la toma justo después, su mensaje queda detrás del de la IA, nunca al revés.
  */
 export async function enviarMensaje(
   entrada: EntradaEnvio,
@@ -53,10 +60,13 @@ export async function enviarMensaje(
   if (!esUuid(negocioId) || !esUuid(conversacionId)) throw new NoEncontrado('La conversación');
   const texto = textoValido(entrada.texto);
 
-  const { mensajeId, destino, destinatario } = await conNegocio(negocioId, async (tx) => {
+  const preparado = await conNegocio(negocioId, async (tx) => {
     await exigirNegocioOperativo(tx, negocioId);
     const conversacion = await repositorio.destinoDeConversacion(tx, conversacionId);
     if (!conversacion) throw new NoEncontrado('La conversación');
+    const tomada =
+      entrada.atencionDesde !== undefined && conversacion.humanoDesde !== null && conversacion.humanoDesde > entrada.atencionDesde;
+    if (tomada) return null;
     if (!conversacion.cuentaActiva) throw new Conflicto('La cuenta de WhatsApp del negocio está desactivada');
     const destinatario: Destinatario | null =
       conversacion.telefono !== null
@@ -85,6 +95,11 @@ export async function enviarMensaje(
     const destinoMeta: DestinoMeta = { phoneNumberId: conversacion.phoneNumberId, token };
     return { mensajeId: id, destino: destinoMeta, destinatario };
   });
+  if (!preparado) {
+    logger.info({ negocioId, emisor }, 'Respuesta descartada: una persona tomó la conversación');
+    return { estado: 'descartado' };
+  }
+  const { mensajeId, destino, destinatario } = preparado;
 
   const respuesta = await enviarTextoAMeta(destino, destinatario, texto, pedir);
 
