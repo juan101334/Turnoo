@@ -235,6 +235,8 @@ export interface NuevaCita {
   notas: string | null;
   origen: 'whatsapp' | 'panel';
   creadaPorUsuarioId: string | null;
+  /** Cuándo se agenda: decide si el recordatorio llega a tiempo. */
+  programadaEn: Date;
 }
 
 /** Inserta la cita. Si el hueco se ocupó entre tanto, la base lanza 23P01 (→ HorarioNoDisponible). */
@@ -245,11 +247,11 @@ export async function insertarCita(
 ): Promise<Cita> {
   const { rows } = await tx.consultar<FilaCita>(
     `INSERT INTO citas (negocio_id, sede_id, profesional_id, cliente_id, inicio, fin, estado,
-                        aprobacion_expira_en, precio_total_cop, notas, origen, creada_por_usuario_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                        aprobacion_expira_en, precio_total_cop, notas, origen, creada_por_usuario_id, programada_en)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING ${COLUMNAS_CITA}`,
     [negocioId, c.sedeId, c.profesionalId, c.clienteId, c.inicio, c.fin, c.estado,
-     c.aprobacionExpiraEn, c.precioTotalCop, c.notas, c.origen, c.creadaPorUsuarioId],
+     c.aprobacionExpiraEn, c.precioTotalCop, c.notas, c.origen, c.creadaPorUsuarioId, c.programadaEn],
   );
   return aCita(rows[0]!);
 }
@@ -379,11 +381,14 @@ export async function reprogramar(
   citaId: string,
   inicio: Date,
   fin: Date,
+  ahora: Date,
 ): Promise<Cita> {
+  // Nueva hora, nuevo recordatorio: se vuelve a calcular desde cero.
   const { rows } = await tx.consultar<FilaCita>(
-    `UPDATE citas SET inicio = $2, fin = $3, recordatorio_enviado_en = NULL
+    `UPDATE citas SET inicio = $2, fin = $3, programada_en = $4, recordatorio_enviado_en = NULL,
+                      recordatorio_resultado = NULL, recordatorio_intentos = 0, recordatorio_reservado_hasta = NULL
       WHERE id = $1 RETURNING ${COLUMNAS_CITA}`,
-    [citaId, inicio, fin],
+    [citaId, inicio, fin, ahora],
   );
   return aCita(rows[0]!);
 }

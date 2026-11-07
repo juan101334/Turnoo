@@ -75,3 +75,12 @@ export async function sumarSegundosDeAudio(tx: Transaccion, negocioId: string, p
     [negocioId, periodo, segundos],
   );
 }
+
+/** Una plantilla enviada (aviso al dueño o recordatorio): Meta la cobra. */
+export async function sumarPlantilla(tx: Transaccion, negocioId: string, periodo: string): Promise<void> {
+  await tx.consultar(
+    `INSERT INTO uso_mensual (negocio_id, periodo, plantillas_enviadas) VALUES ($1, $2::date, 1)
+     ON CONFLICT (negocio_id, periodo) DO UPDATE SET plantillas_enviadas = uso_mensual.plantillas_enviadas + 1`,
+    [negocioId, periodo],
+  );
+}

@@ -89,6 +89,8 @@ describe('gestión de citas', () => {
       expect(cita.precioTotalCop).toBe(30000);
       expect(cita.aprobacionExpiraEn).toBeNull();
       expect(cita.servicios.map((s) => s.nombre)).toEqual(['Corte', 'Barba']);
+      // Cuándo se agendó decide si el recordatorio llega a tiempo.
+      expect(await leer('SELECT programada_en AS p, recordatorio_resultado AS r FROM citas WHERE id = $1', [cita.id])).toEqual([{ p: AHORA, r: null }]);
 
       await conNegocio(n.negocioId, (tx) => tx.consultar('UPDATE servicios SET precio_cop = 99999 WHERE id = $1', [e.corte]));
       expect(
@@ -289,11 +291,16 @@ describe('gestión de citas', () => {
       const e = await escenario();
       const clienteId = await crearCliente(n);
       const cita = await e.agendar(clienteId, '15:30');
-      await conNegocio(n.negocioId, (tx) => tx.consultar('UPDATE citas SET recordatorio_enviado_en = now() WHERE id = $1', [cita.id]));
+      await conNegocio(n.negocioId, (tx) =>
+        tx.consultar(`UPDATE citas SET recordatorio_enviado_en = now(), recordatorio_resultado = 'enviado', recordatorio_intentos = 1 WHERE id = $1`, [cita.id]),
+      );
       // 15:30 → 15:45 se cruza con su propio hueco anterior y debe poder.
-      const movida = await reprogramarCita(n.negocioId, cita.id, hora('15:45'), { tipo: 'cliente', clienteId }, AHORA);
+      const despues = new Date(AHORA.getTime() + 60_000);
+      const movida = await reprogramarCita(n.negocioId, cita.id, hora('15:45'), { tipo: 'cliente', clienteId }, despues);
       expect([movida.id, movida.inicio, movida.fin]).toEqual([cita.id, hora('15:45'), hora('16:15')]);
-      expect(await leer('SELECT recordatorio_enviado_en AS r FROM citas WHERE id = $1', [cita.id])).toEqual([{ r: null }]);
+      expect(
+        await leer('SELECT recordatorio_enviado_en AS r, recordatorio_resultado AS res, recordatorio_intentos AS i, programada_en AS p FROM citas WHERE id = $1', [cita.id]),
+      ).toEqual([{ r: null, res: null, i: 0, p: despues }]);
     });
 
     it('rechaza un hueco ocupado por otra cita y deja la cita como estaba', async () => {

@@ -3,6 +3,7 @@ import { conSistema, type Transaccion } from '../db/contexto.js';
 import { inicioDeVentanaVigente } from '../modulos/auth/auth.intentos.js';
 import { borrarIntentosVencidos } from '../modulos/auth/auth.repositorio.js';
 import { avisarDerivaciones, avisarLimitesDelPlan } from '../modulos/avisos/avisos.servicio.js';
+import { enviarRecordatorios } from '../modulos/recordatorios/recordatorios.servicio.js';
 import { autocompletarVencidas, expirarPorAprobar } from '../modulos/citas/citas.repositorio.js';
 
 /**
@@ -56,9 +57,10 @@ const TAREAS: Tarea[] = [
   { nombre: 'expirar_aprobaciones', ejecutar: (ahora) => expirarAprobaciones(ahora) },
   { nombre: 'autocompletar_citas', ejecutar: (ahora) => autocompletarCitas(ahora) },
   { nombre: 'limpiar_intentos_login', ejecutar: limpiarIntentosLogin },
-  // Estas dos no usan candado: reservan cada aviso con SKIP LOCKED, como el procesador.
+  // Estas no usan candado: reservan cada envío con SKIP LOCKED, como el procesador.
   { nombre: 'avisar_derivaciones', ejecutar: (ahora) => avisarDerivaciones(ahora) },
   { nombre: 'avisar_limites_del_plan', ejecutar: (ahora) => avisarLimitesDelPlan(ahora) },
+  { nombre: 'enviar_recordatorios', ejecutar: (ahora) => enviarRecordatorios(ahora) },
 ];
 
 /**
