@@ -309,6 +309,7 @@ export async function crearCita(
       notas: entrada.notas ?? null,
       origen: entrada.origen ?? 'whatsapp',
       creadaPorUsuarioId: entrada.creadaPorUsuarioId ?? null,
+      programadaEn: ahora,
     });
     await repositorio.insertarServiciosDeCita(
       tx,
@@ -384,7 +385,7 @@ export async function reprogramarCita(
       ahora,
       cita.id,
     );
-    return repositorio.reprogramar(tx, cita.id, nuevoInicio, sumarMinutos(nuevoInicio, duracionMinutos));
+    return repositorio.reprogramar(tx, cita.id, nuevoInicio, sumarMinutos(nuevoInicio, duracionMinutos), ahora);
   });
 }
 

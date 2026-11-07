@@ -102,3 +102,32 @@ export function minutosEntre(desde: Date, hasta: Date): number {
 export function primerDiaDelMes(instante: Date, zona: string): string {
   return local(instante, zona).startOf('month').toFormat('yyyy-MM-dd');
 }
+
+/** ¿La hora local del instante está entre `desde` y `hasta` ('HH:MM', ambas incluidas)? */
+export function dentroDeHorarioLocal(instante: Date, desde: string, hasta: string, zona: string): boolean {
+  const fecha = fechaLocal(instante, zona);
+  return instante >= instanteLocal(fecha, desde, zona) && instante <= instanteLocal(fecha, hasta, zona);
+}
+
+/**
+ * Lleva `ideal` al horario local permitido [desde, hasta] de cada día. Si cae fuera, elige el
+ * borde más cercano: el cierre anterior o la apertura siguiente (empate: el cierre anterior).
+ * La apertura siguiente solo vale si es antes de `limite`.
+ */
+export function alHorarioPermitido(ideal: Date, desde: string, hasta: string, zona: string, limite: Date): Date {
+  const fecha = fechaLocal(ideal, zona);
+  const abre = instanteLocal(fecha, desde, zona);
+  const cierra = instanteLocal(fecha, hasta, zona);
+  if (ideal >= abre && ideal <= cierra) return ideal;
+  const antes = ideal > cierra ? cierra : instanteLocal(sumarDias(fecha, -1), hasta, zona);
+  const despues = ideal > cierra ? instanteLocal(sumarDias(fecha, 1), desde, zona) : abre;
+  const despuesSirve = despues < limite && despues.getTime() - ideal.getTime() < ideal.getTime() - antes.getTime();
+  return despuesSirve ? despues : antes;
+}
+
+/** '3:30 p. m.' (12 horas, como se dice en Colombia) en la hora local del instante. */
+export function horaEnPalabras(instante: Date, zona: string): string {
+  const l = local(instante, zona);
+  const hora12 = l.hour % 12 === 0 ? 12 : l.hour % 12;
+  return `${hora12}:${String(l.minute).padStart(2, '0')} ${l.hour < 12 ? 'a. m.' : 'p. m.'}`;
+}
