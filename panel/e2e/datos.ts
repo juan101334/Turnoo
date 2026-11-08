@@ -13,6 +13,8 @@ export interface Datos {
   agenda: { fecha: string; citaAjena: string };
   /** Clientes sin citas (ver sembrar.ts). */
   clientes: { editable: string; borrable: string };
+  /** Conversaciones de WhatsApp: derivada hace 11 min, vieja (cliente escribió hace 30 h) y otra con el asistente. */
+  conversaciones: { derivada: string; vieja: string; conIa: string };
 }
 
 let leidos: Datos | undefined;

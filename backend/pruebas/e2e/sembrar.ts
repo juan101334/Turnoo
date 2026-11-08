@@ -12,6 +12,7 @@ const { conNegocio, conSistema } = await import('../../src/db/contexto.js');
 const { pool } = await import('../../src/db/pool.js');
 const { generarRecuperacion, invitarUsuario } = await import('../../src/modulos/auth/auth.servicio.js');
 const { crearHorario, crearNegocio, crearProfesional, crearServicio } = await import('../ayudas.js');
+const { registrarCuenta } = await import('../../src/modulos/whatsapp/whatsapp.cuentas.js');
 
 const DOMINIO = 'e2e.turnoo.test';
 const NEGOCIO = 'Barbería E2E';
@@ -134,6 +135,82 @@ async function clienteSinCitas(nombre: string) {
 const clienteEditable = await clienteSinCitas('Cliente Editable');
 const clienteBorrable = await clienteSinCitas('Cliente Borrable');
 
+// Conversaciones de WhatsApp. La cuenta usa un token de mentira: el backend de e2e envía a un Meta
+// de prueba (ver servidor.ts), nunca al real.
+const cuenta = await registrarCuenta(negocio.negocioId, {
+  phoneNumberId: `e2e-${randomUUID().slice(0, 8)}`,
+  wabaId: 'e2e-waba',
+  numeroVisible: '3000000000',
+  token: 'token-de-mentira-e2e',
+});
+
+type Linea = [emisor: 'cliente' | 'ia' | 'humano', texto: string, haceMinutos: number];
+
+async function conversacionCon(
+  clienteNombre: string,
+  estado: 'bot' | 'humano',
+  lineas: Linea[],
+  derivacion?: { motivo: string; detalle: string },
+) {
+  const clienteId = randomUUID();
+  const telefono = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
+  const momento = (min: number) => ahora.minus({ minutes: min }).toJSDate();
+  const ultimoDelCliente = lineas.filter(([e]) => e === 'cliente').at(-1);
+  return conNegocio(negocio.negocioId, async (tx) => {
+    await tx.consultar('INSERT INTO clientes (id, negocio_id, nombre, telefono) VALUES ($1, $2, $3, $4)', [clienteId, negocio.negocioId, clienteNombre, telefono]);
+    const { rows: filas } = await tx.consultar<{ id: string }>(
+      `INSERT INTO conversaciones (negocio_id, cliente_id, whatsapp_cuenta_id, estado, humano_desde, ultimo_mensaje_cliente_en, ultimo_mensaje_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [
+        negocio.negocioId,
+        clienteId,
+        cuenta.id,
+        estado,
+        estado === 'humano' ? momento(lineas.at(-1)![2]) : null,
+        ultimoDelCliente ? momento(ultimoDelCliente[2]) : null,
+        momento(lineas.at(-1)![2]),
+      ],
+    );
+    const id = filas[0]!.id;
+    for (const [emisor, texto, min] of lineas) {
+      await tx.consultar(
+        `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, estado_entrega, creado_en)
+         VALUES ($1, $2, $3, $4, 'texto', $5, $6, $7)`,
+        [negocio.negocioId, id, emisor === 'cliente' ? 'entrante' : 'saliente', emisor, texto, emisor === 'cliente' ? null : 'entregado', momento(min)],
+      );
+    }
+    if (derivacion) {
+      await tx.consultar('INSERT INTO derivaciones (negocio_id, conversacion_id, motivo, detalle) VALUES ($1, $2, $3, $4)', [
+        negocio.negocioId,
+        id,
+        derivacion.motivo,
+        derivacion.detalle,
+      ]);
+    }
+    return id;
+  });
+}
+
+const conversaciones = {
+  derivada: await conversacionCon(
+    'Cliente Derivado',
+    'humano',
+    [
+      ['cliente', '¿Tienen parqueadero?', 12],
+      ['ia', 'Ya le aviso a alguien del negocio para que te responda.', 11],
+    ],
+    { motivo: 'sin_informacion', detalle: 'Pregunta si hay parqueadero' },
+  ),
+  vieja: await conversacionCon('Cliente Antiguo', 'humano', [['cliente', 'Hola, ¿siguen abiertos?', 30 * 60]], {
+    motivo: 'cliente_pidio_humano',
+    detalle: 'Quiere hablar con una persona',
+  }),
+  conIa: await conversacionCon('Cliente Con Asistente', 'bot', [
+    ['cliente', 'Quiero un corte mañana', 40],
+    ['ia', 'Claro, ¿a qué hora te queda bien?', 39],
+  ]),
+};
+
 await pool.end();
 console.log(
   JSON.stringify({
@@ -146,5 +223,6 @@ console.log(
     recuperacion: { email: recuperable.email, token: recuperacion.token },
     agenda: { fecha: pasadoManana.toISODate(), citaAjena },
     clientes: { editable: clienteEditable, borrable: clienteBorrable },
+    conversaciones,
   }),
 );

@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { ErrorDelBackend, llamarAlBackend } from './backend';
 import type { Configuracion, Horario, UsuarioDelNegocio } from './administracion';
 import type { Bloqueo } from './bloqueos';
+import type { BaseDeConocimiento } from './conocimiento';
+import type { Conversacion, Mensaje } from './conversaciones';
 import type { Cita, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
 
@@ -154,4 +156,23 @@ export interface MiNegocio {
 /** Datos y reglas del negocio de la sesión (solo el dueño). */
 export async function miNegocio(): Promise<MiNegocio> {
   return leer<MiNegocio>('/negocio');
+}
+
+/** El backend devuelve como mucho 100 conversaciones, la de mensaje más reciente primero. */
+export const MAX_CONVERSACIONES = 100;
+
+/** Conversaciones de WhatsApp (solo el dueño). `humano`: las que esperan a una persona. */
+export async function conversaciones(estado?: 'humano' | 'bot'): Promise<Conversacion[]> {
+  const consulta = new URLSearchParams({ limite: String(MAX_CONVERSACIONES), ...(estado && { estado }) });
+  return (await leer<{ conversaciones: Conversacion[] }>(`/conversaciones?${consulta}`)).conversaciones;
+}
+
+/** Los últimos 200 mensajes, del más viejo al más nuevo. */
+export async function mensajesDe(conversacionId: string): Promise<Mensaje[]> {
+  if (!esId(conversacionId)) notFound();
+  return (await leer<{ mensajes: Mensaje[] }>(`/conversaciones/${conversacionId}/mensajes?limite=200`)).mensajes;
+}
+
+export async function conocimiento(): Promise<BaseDeConocimiento> {
+  return leer<BaseDeConocimiento>('/conocimiento');
 }
