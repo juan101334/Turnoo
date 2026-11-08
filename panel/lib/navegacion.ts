@@ -20,6 +20,15 @@ export type ClaveSeccion =
   | 'cuenta'
   | 'mas';
 
+/** Número a mostrar junto a una sección (0 o ausente: no se muestra). */
+export type Contadores = Partial<Record<ClaveSeccion, number>>;
+
+/** '9+' a partir de 10: el número exacto está en la página. */
+export function textoDelContador(n: number | undefined): string | null {
+  if (!n || n <= 0) return null;
+  return n > 9 ? '9+' : String(n);
+}
+
 export interface Seccion {
   ruta: string;
   etiqueta: string;

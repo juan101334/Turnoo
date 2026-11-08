@@ -1,4 +1,4 @@
-import { ChevronLeft, MessageCircle, Phone } from 'lucide-react';
+import { ChevronLeft, MessageCircle, Pencil, Phone } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Aviso } from '@/componentes/aviso';
@@ -6,14 +6,23 @@ import { telefonoLegible } from '@/lib/citas';
 import { cliente as leerCliente } from '@/lib/datos';
 import { fechaDe, fechaLarga } from '@/lib/fechas';
 import { exigirUsuario } from '@/lib/sesion';
+import { AnonimizarCliente } from './anonimizar';
 
 export const metadata: Metadata = { title: 'Cliente' };
 
-export default async function PaginaCliente({ params }: { params: Promise<{ id: string }> }) {
+const LISTO: Record<string, string> = {
+  editado: 'Cambios guardados.',
+  anonimizado: 'Se borraron los datos del cliente.',
+};
+
+export default async function PaginaCliente({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ listo?: string }> }) {
   const usuario = await exigirUsuario('clientes');
   const { id } = await params;
+  const { listo } = await searchParams;
   const c = await leerCliente(id);
   const zona = usuario.negocio.zonaHoraria;
+  const esDueno = usuario.rol === 'dueno';
+  const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
     <div className="mx-auto max-w-xl">
@@ -22,14 +31,32 @@ export default async function PaginaCliente({ params }: { params: Promise<{ id: 
         Clientes
       </Link>
 
+      {mensaje && (
+        <div className="mb-3">
+          <Aviso tipo="exito">{mensaje}</Aviso>
+        </div>
+      )}
+
       {c.anonimizadoEn ? (
         <>
           <h1 className="mb-3 text-2xl font-semibold">Cliente anonimizado</h1>
           <Aviso tipo="info">Sus datos personales se borraron a pedido suyo. Sus citas se conservan sin nombre ni teléfono.</Aviso>
         </>
       ) : (
+        <>
         <section className="rounded-2xl border border-borde bg-superficie p-4">
-          <h1 className="text-2xl font-semibold">{c.nombre ?? 'Sin nombre'}</h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 text-2xl font-semibold break-words">{c.nombre ?? 'Sin nombre'}</h1>
+            {esDueno && (
+              <Link
+                href={`/clientes/${c.id}/editar`}
+                className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
+              >
+                <Pencil aria-hidden className="size-4" />
+                Editar
+              </Link>
+            )}
+          </div>
           <p className="mb-4 text-sm text-suave">Cliente desde el {fechaLarga(fechaDe(c.createdAt, zona))}</p>
 
           {c.telefono && (
@@ -59,8 +86,9 @@ export default async function PaginaCliente({ params }: { params: Promise<{ id: 
               <p className="whitespace-pre-line">{c.notas}</p>
             </div>
           )}
-
         </section>
+        {esDueno && <AnonimizarCliente clienteId={c.id} />}
+        </>
       )}
     </div>
   );
