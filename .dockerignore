@@ -10,3 +10,10 @@ backend/scripts/_*.tmp.ts
 backups
 .git
 docs
+panel/.next
+panel/.next-*
+panel/e2e
+panel/pruebas
+panel/test-results
+panel/playwright-report
+**/*.tsbuildinfo

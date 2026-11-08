@@ -1,7 +1,14 @@
-# Caddy saca y renueva solo el certificado de HTTPS para el dominio de la API.
-# DOMINIO_API viene de .env.produccion (por ejemplo api.turnooapp.com).
-# Con DOMINIO_API=localhost usa un certificado propio, para probar en tu equipo.
+# Caddy saca y renueva solo los certificados de HTTPS de la API y del panel.
+# DOMINIO_API y DOMINIO_PANEL vienen de .env.produccion (api.turnooapp.com y app.turnooapp.com).
+# Para probar en tu equipo: DOMINIO_API=localhost y DOMINIO_PANEL=app.localhost (certificado propio).
 {$DOMINIO_API} {
 	encode zstd gzip
 	reverse_proxy api:3000
+}
+
+# El panel calcula la IP real del usuario con la que Caddy agrega en X-Forwarded-For
+# (SALTOS_PROXY=1), así el límite de intentos de login cuenta a cada persona por separado.
+{$DOMINIO_PANEL} {
+	encode zstd gzip
+	reverse_proxy panel:3001
 }
