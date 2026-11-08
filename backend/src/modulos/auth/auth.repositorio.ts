@@ -54,6 +54,28 @@ export async function revocarSesionesDeUsuario(
   );
 }
 
+/** Cierra las demás sesiones del usuario y deja abierta la que tiene `tokenHashActual`. */
+export async function revocarOtrasSesiones(
+  tx: Transaccion,
+  usuarioId: string,
+  tokenHashActual: string,
+  ahora: Date,
+): Promise<void> {
+  await tx.consultar(
+    'UPDATE sesiones SET revocada_en = $3 WHERE usuario_id = $1 AND token_hash <> $2 AND revocada_en IS NULL',
+    [usuarioId, tokenHashActual, ahora],
+  );
+}
+
+/** Hash de la contraseña de un usuario activo, con la fila bloqueada: dos cambios a la vez no se pisan. */
+export async function passwordDeActivoParaCambio(tx: Transaccion, usuarioId: string): Promise<string | null> {
+  const { rows } = await tx.consultar<{ password_hash: string | null }>(
+    'SELECT password_hash FROM usuarios WHERE id = $1 AND activo FOR UPDATE',
+    [usuarioId],
+  );
+  return rows[0]?.password_hash ?? null;
+}
+
 export async function registrarLogin(tx: Transaccion, usuarioId: string, ahora: Date): Promise<void> {
   await tx.consultar('UPDATE usuarios SET ultimo_login_en = $2 WHERE id = $1', [usuarioId, ahora]);
 }

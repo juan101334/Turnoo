@@ -25,6 +25,10 @@ export function crearRutasConversaciones(envio: DependenciasEnvio = {}) {
     res.json({ conversaciones: await servicio.listarConversaciones(negocioDeSesion(req), q.estado ?? null, q.limite) });
   });
 
+  rutas.get('/:id', async (req, res) => {
+    res.json(await servicio.obtenerConversacion(negocioDeSesion(req), String(req.params.id)));
+  });
+
   rutas.get('/:id/mensajes', async (req, res) => {
     const q = validarEsquema(
       z.strictObject({ limite: z.coerce.number().int().min(1).max(servicio.MAX_MENSAJES_PANEL).default(50) }),

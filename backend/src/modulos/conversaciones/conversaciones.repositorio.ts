@@ -159,44 +159,59 @@ export async function derivar(
 // Panel: el dueño lee y responde las conversaciones
 // ---------------------------------------------------------------------
 
-export async function listarParaPanel(
-  tx: Transaccion,
-  estado: 'bot' | 'humano' | null,
-  limite: number,
-): Promise<ConversacionDelPanel[]> {
-  const { rows } = await tx.consultar<{
-    id: string;
-    estado: ConversacionDelPanel['estado'];
-    humano_desde: Date | null;
-    ultimo_mensaje_en: Date | null;
-    cliente_id: string;
-    cliente_nombre: string | null;
-    cliente_telefono: string | null;
-    motivo: MotivoDerivacion | null;
-    detalle: string | null;
-    derivada_en: Date | null;
-  }>(
-    `SELECT c.id, c.estado, c.humano_desde, c.ultimo_mensaje_en,
-            cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono,
-            d.motivo, d.detalle, d.created_at AS derivada_en
-       FROM conversaciones c
-       JOIN clientes cl ON cl.id = c.cliente_id
-       LEFT JOIN LATERAL (
-         SELECT motivo, detalle, created_at FROM derivaciones WHERE conversacion_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1
-       ) d ON true
-      WHERE ($1::text IS NULL OR c.estado = $1)
-      ORDER BY c.ultimo_mensaje_en DESC NULLS LAST, c.id
-      LIMIT $2`,
-    [estado, limite],
-  );
-  return rows.map((f) => ({
+interface FilaConversacionDelPanel {
+  id: string;
+  estado: ConversacionDelPanel['estado'];
+  humano_desde: Date | null;
+  ultimo_mensaje_en: Date | null;
+  cliente_id: string;
+  cliente_nombre: string | null;
+  cliente_telefono: string | null;
+  motivo: MotivoDerivacion | null;
+  detalle: string | null;
+  derivada_en: Date | null;
+}
+
+/** La conversación con su cliente y la derivación más reciente. Se completa con WHERE / ORDER / LIMIT. */
+const CONVERSACION_DEL_PANEL_SQL = `
+  SELECT c.id, c.estado, c.humano_desde, c.ultimo_mensaje_en,
+         cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono,
+         d.motivo, d.detalle, d.created_at AS derivada_en
+    FROM conversaciones c
+    JOIN clientes cl ON cl.id = c.cliente_id
+    LEFT JOIN LATERAL (
+      SELECT motivo, detalle, created_at FROM derivaciones WHERE conversacion_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1
+    ) d ON true`;
+
+function aConversacionDelPanel(f: FilaConversacionDelPanel): ConversacionDelPanel {
+  return {
     id: f.id,
     estado: f.estado,
     humanoDesde: f.humano_desde,
     ultimoMensajeEn: f.ultimo_mensaje_en,
     cliente: { id: f.cliente_id, nombre: f.cliente_nombre, telefono: f.cliente_telefono },
     ultimaDerivacion: f.motivo ? { motivo: f.motivo, detalle: f.detalle, creadaEn: f.derivada_en! } : null,
-  }));
+  };
+}
+
+export async function listarParaPanel(
+  tx: Transaccion,
+  estado: 'bot' | 'humano' | null,
+  limite: number,
+): Promise<ConversacionDelPanel[]> {
+  const { rows } = await tx.consultar<FilaConversacionDelPanel>(
+    `${CONVERSACION_DEL_PANEL_SQL}
+      WHERE ($1::text IS NULL OR c.estado = $1)
+      ORDER BY c.ultimo_mensaje_en DESC NULLS LAST, c.id
+      LIMIT $2`,
+    [estado, limite],
+  );
+  return rows.map(aConversacionDelPanel);
+}
+
+export async function obtenerParaPanel(tx: Transaccion, conversacionId: string): Promise<ConversacionDelPanel | null> {
+  const { rows } = await tx.consultar<FilaConversacionDelPanel>(`${CONVERSACION_DEL_PANEL_SQL} WHERE c.id = $1`, [conversacionId]);
+  return rows[0] ? aConversacionDelPanel(rows[0]) : null;
 }
 
 /** Los últimos `limite` mensajes, del más viejo al más nuevo. */

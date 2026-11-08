@@ -31,6 +31,8 @@ const PASSWORD_MAX = 128; // argon2 es costoso: no se aceptan contraseñas enorm
 
 const MENSAJE_LOGIN = 'Correo o contraseña incorrectos';
 const MENSAJE_ENLACE = 'El enlace no es válido o ya venció';
+const MENSAJE_SESION = 'Tu sesión no es válida o venció. Inicia sesión de nuevo';
+const MENSAJE_ACTUAL = 'La contraseña actual no es correcta';
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FORMATO_SECRETO = /^[A-Za-z0-9_-]{43}$/; // 32 bytes en base64url
 
@@ -125,7 +127,7 @@ export async function autenticar(token: unknown, ahora: Date = new Date()): Prom
   const usuario = leido
     ? await enAmbito(leido.negocioId, (tx) => repositorio.buscarSesion(tx, leido.hash, leido.negocioId, ahora))
     : null;
-  if (!usuario) throw new NoAutorizado('Tu sesión no es válida o venció. Inicia sesión de nuevo');
+  if (!usuario) throw new NoAutorizado(MENSAJE_SESION);
   return usuario;
 }
 
@@ -299,6 +301,37 @@ async function usarToken(
       throw new NoAutorizado(MENSAJE_ENLACE);
     }
     await repositorio.revocarSesionesDeUsuario(tx, usuarioId, ahora);
+  });
+}
+
+/**
+ * Cambia la contraseña de quien tiene la sesión. Pide la actual: una sesión que quedó abierta en un
+ * equipo ajeno no basta para quedarse con la cuenta. Cierra las demás sesiones y anula los enlaces
+ * pendientes (invitación o recuperación); la sesión desde la que se cambia sigue abierta.
+ */
+export async function cambiarContrasena(
+  token: unknown,
+  actual: unknown,
+  nueva: unknown,
+  ahora: Date = new Date(),
+): Promise<void> {
+  validarPassword(nueva);
+  if (typeof actual !== 'string' || actual.length === 0 || actual.length > PASSWORD_MAX) {
+    throw new DatosInvalidos(MENSAJE_ACTUAL);
+  }
+  if (actual === nueva) throw new DatosInvalidos('La contraseña nueva debe ser distinta de la actual');
+  const leido = leerToken(token);
+  if (!leido) throw new NoAutorizado(MENSAJE_SESION);
+
+  await enAmbito(leido.negocioId, async (tx) => {
+    const usuario = await repositorio.buscarSesion(tx, leido.hash, leido.negocioId, ahora);
+    if (!usuario) throw new NoAutorizado(MENSAJE_SESION);
+    const hashActual = await repositorio.passwordDeActivoParaCambio(tx, usuario.usuarioId);
+    const coincide = hashActual !== null && (await argon2.verify(hashActual, actual).catch(() => false));
+    if (!coincide) throw new DatosInvalidos(MENSAJE_ACTUAL);
+    await repositorio.cambiarPasswordDeActivo(tx, usuario.usuarioId, await argon2.hash(nueva));
+    await repositorio.revocarOtrasSesiones(tx, usuario.usuarioId, leido.hash, ahora);
+    await repositorio.invalidarTokensDeUsuario(tx, usuario.usuarioId, ahora);
   });
 }
 

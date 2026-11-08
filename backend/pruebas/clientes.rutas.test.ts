@@ -189,6 +189,39 @@ describe('rutas de clientes', () => {
       expect(fila).toEqual({ nombre: 'Intocable', anonimizado_en: null });
     });
 
+    it('historial: la cita más reciente primero, por páginas; el empleado ve solo las de su barbero', async () => {
+      const { id } = await cliente(a, 'Con historial');
+      const vieja = await crearCita(a, { profesionalId: barberoA, clienteId: id, inicio: hora('10:00', '2031-02-01'), fin: hora('10:30', '2031-02-01'), estado: 'completada' });
+      const ajena = await crearCita(a, { profesionalId: barberoB, clienteId: id, inicio: hora('10:00', '2031-02-02'), fin: hora('10:30', '2031-02-02') });
+      const nueva = await crearCita(a, { profesionalId: barberoA, clienteId: id, inicio: hora('10:00', '2031-02-03'), fin: hora('10:30', '2031-02-03'), estado: 'cancelada' });
+
+      const todo = await api(duenoA, 'GET', `/clientes/${id}/citas`);
+      expect(todo.status).toBe(200);
+      expect(ids(todo.json.citas)).toEqual([nueva, ajena, vieja]);
+      expect(todo.json.hayMas).toBe(false);
+      expect(todo.json.citas[0]).toMatchObject({ estado: 'cancelada', profesionalNombre: 'Del empleado', clienteNombre: 'Con historial' });
+
+      const primera = await api(duenoA, 'GET', `/clientes/${id}/citas?limite=2`);
+      expect([ids(primera.json.citas), primera.json.hayMas]).toEqual([[nueva, ajena], true]);
+      const segunda = await api(duenoA, 'GET', `/clientes/${id}/citas?limite=2&desplazamiento=2`);
+      expect([ids(segunda.json.citas), segunda.json.hayMas]).toEqual([[vieja], false]);
+
+      expect(ids((await api(empleadoA, 'GET', `/clientes/${id}/citas`)).json.citas)).toEqual([nueva, vieja]);
+      expect((await api(duenoA, 'GET', `/clientes/${id}/citas?limite=101`)).status).toBe(400);
+    });
+
+    it('historial: cliente ajeno, de otro negocio o sin sesión no se ve', async () => {
+      const ajeno = await cliente(a, 'Historial ajeno');
+      await citaDe(a, barberoB, ajeno.id);
+      const deB = await cliente(b, 'Historial de B');
+      expect((await api(empleadoA, 'GET', `/clientes/${ajeno.id}/citas`)).status).toBe(404);
+      expect((await api(duenoA, 'GET', `/clientes/${deB.id}/citas`)).status).toBe(404);
+      expect((await api(duenoA, 'GET', `/clientes/${NINGUNO}/citas`)).status).toBe(404);
+      expect((await api(duenoA, 'GET', '/clientes/no-es-id/citas')).status).toBe(404);
+      expect((await api(null, 'GET', `/clientes/${ajeno.id}/citas`)).status).toBe(401);
+      expect((await api(admin, 'GET', `/clientes/${ajeno.id}/citas`)).status).toBe(403);
+    });
+
     it('un cliente de otro negocio responde 404, y su lista no se mezcla', async () => {
       const deB = await cliente(b, 'Secreto de B');
       const duenoB = await sesion(b, 'dueno');

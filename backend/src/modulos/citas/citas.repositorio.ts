@@ -451,6 +451,25 @@ export async function listarActivasDelCliente(tx: Transaccion, clienteId: string
   return rows.map(aDetalle);
 }
 
+/**
+ * Historial de un cliente, de la cita más reciente a la más vieja. Con `profesionalId`, solo las de
+ * ese barbero (el empleado no ve las citas que el cliente tuvo con otros).
+ */
+export async function listarCitasDelCliente(
+  tx: Transaccion,
+  clienteId: string,
+  f: { profesionalId: string | null; limite: number; desplazamiento: number },
+): Promise<CitaDetalle[]> {
+  const { rows } = await tx.consultar<FilaDetalle>(
+    `${DETALLE_SQL}
+      WHERE c.cliente_id = $1 AND ($2::uuid IS NULL OR c.profesional_id = $2)
+      ORDER BY c.inicio DESC, c.id DESC
+      LIMIT $3 OFFSET $4`,
+    [clienteId, f.profesionalId, f.limite, f.desplazamiento],
+  );
+  return rows.map(aDetalle);
+}
+
 export async function obtenerCitaDetalle(tx: Transaccion, citaId: string): Promise<CitaDetalle | null> {
   const { rows } = await tx.consultar<FilaDetalle>(`${DETALLE_SQL} WHERE c.id = $1`, [citaId]);
   return rows[0] ? aDetalle(rows[0]) : null;
