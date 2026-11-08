@@ -113,7 +113,8 @@ export interface CitaDetalle extends Cita {
   clienteTelefono: string | null;
   profesionalNombre: string;
   notas: string | null;
-  servicios: { nombre: string; duracionMinutos: number; precioCop: number }[];
+  /** `servicioId` sirve para pedir la disponibilidad al reprogramar (mismos servicios, misma duración). */
+  servicios: { servicioId: string; nombre: string; duracionMinutos: number; precioCop: number }[];
 }
 
 export interface FiltroCitas {

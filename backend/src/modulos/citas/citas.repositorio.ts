@@ -397,7 +397,8 @@ const DETALLE_SQL = `
   SELECT c.id, c.profesional_id, c.cliente_id, c.inicio, c.fin, c.estado, c.precio_total_cop,
          c.aprobacion_expira_en, c.notas,
          cl.nombre AS cliente_nombre, cl.telefono AS cliente_telefono, p.nombre AS profesional_nombre,
-         COALESCE((SELECT json_agg(json_build_object('nombre', s.nombre,
+         COALESCE((SELECT json_agg(json_build_object('servicioId', s.servicio_id,
+                                                     'nombre', s.nombre,
                                                      'duracionMinutos', s.duracion_minutos,
                                                      'precioCop', s.precio_cop) ORDER BY s.orden)
                      FROM cita_servicios s WHERE s.cita_id = c.id), '[]'::json) AS servicios
