@@ -15,6 +15,7 @@ export const config = {
   matcher: [
     '/hoy/:path*',
     '/agenda/:path*',
+    '/citas/:path*',
     '/por-aprobar/:path*',
     '/mensajes/:path*',
     '/bloqueos/:path*',

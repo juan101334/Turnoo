@@ -31,4 +31,4 @@ npm test           # unitarias (Vitest): IP, llamadas al backend, navegación po
 npm run e2e        # de punta a punta (Playwright)
 ```
 
-`npm run e2e` arranca solo un backend sobre `turnoo_test` (puerto 3100) y el panel (puerto 3101), siembra los datos con `backend/pruebas/e2e/sembrar.ts` y usa el Google Chrome instalado en el equipo. Necesita la base de pruebas creada (`npm run db:pruebas` en `backend/`). Nunca toca la base de desarrollo.
+`npm run e2e` arranca solo un backend sobre `turnoo_test` (puerto 3100) y el panel (puerto 3101), siembra los datos con `backend/pruebas/e2e/sembrar.ts` y usa el Google Chrome instalado en el equipo. Necesita la base de pruebas creada (`npm run db:pruebas` en `backend/`). Nunca toca la base de desarrollo. Compila en `.next-e2e/`, así que corre aunque tengas `npm run dev` abierto.

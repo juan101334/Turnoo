@@ -29,5 +29,6 @@ backups/
 panel/next-env.d.ts
 panel/*.tsbuildinfo
 panel/e2e/.datos.json
+panel/.next-e2e/
 panel/test-results/
 panel/playwright-report/
