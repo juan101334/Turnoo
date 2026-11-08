@@ -7,7 +7,7 @@ import { conNegocio, conSistema } from '../src/db/contexto.js';
 import { anonimizarCliente } from '../src/modulos/clientes/clientes.servicio.js';
 import { registrarCuenta } from '../src/modulos/whatsapp/whatsapp.cuentas.js';
 import { enviarMensaje, MAX_TEXTO } from '../src/modulos/whatsapp/whatsapp.envio.js';
-import { URL_GRAPH } from '../src/modulos/whatsapp/whatsapp.meta.js';
+import { enviarPlantillaAMeta, URL_GRAPH } from '../src/modulos/whatsapp/whatsapp.meta.js';
 import { crearNegocio, limpiar, type NegocioDePrueba } from './ayudas.js';
 
 const AHORA = new Date('2035-03-10T12:00:00Z');
@@ -317,13 +317,64 @@ describe('envío de mensajes por WhatsApp', () => {
       expect(String(mensaje!.error)).not.toContain('5732');
     });
 
-    it('sin respuesta (red caída o tiempo agotado) queda fallido y reintentable', async () => {
+    /** Como lo lanza el fetch de Node: TypeError('fetch failed') con el código de red en `cause`. */
+    const falloDeRed = (code: string) => Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('red'), { code }) });
+
+    it('tiempo agotado: queda fallido y reintentable, sin reintentar el envío (Meta pudo recibirlo)', async () => {
       const c = await conversacion();
       const pedir = vi.fn<typeof fetch>(async () => {
         throw new DOMException('Se agotó el tiempo', 'TimeoutError');
       });
       expect(await enviar(c, pedir)).toMatchObject({ estado: 'fallido', reintentable: true });
-      expect((await mensajesDe(c))[0]).toMatchObject({ estado_entrega: 'fallido', error: 'Sin respuesta de Meta' });
+      expect(pedir).toHaveBeenCalledTimes(1);
+      expect((await mensajesDe(c))[0]).toMatchObject({ estado_entrega: 'fallido', error: 'Sin respuesta de Meta (tiempo agotado)' });
+    });
+
+    it.each(['ECONNRESET', 'UND_ERR_SOCKET', 'ECONNREFUSED'])(
+      'conexión caída (%s): reintenta el envío una vez, enseguida, y queda enviado',
+      async (codigo) => {
+        const c = await conversacion();
+        const acepta = metaAcepta();
+        const pedir = vi.fn<typeof fetch>(async (...args) => {
+          if (pedir.mock.calls.length === 1) throw falloDeRed(codigo);
+          return acepta(...args);
+        });
+        expect(await enviar(c, pedir)).toMatchObject({ estado: 'enviado' });
+        expect(pedir).toHaveBeenCalledTimes(2);
+        // El mismo mensaje, enviado una sola vez a la base: no hay un segundo registro.
+        expect(await mensajesDe(c)).toHaveLength(1);
+        expect((await mensajesDe(c))[0]).toMatchObject({ estado_entrega: 'enviado' });
+      },
+    );
+
+    it('si la conexión vuelve a fallar, no insiste: queda fallido con la causa', async () => {
+      const c = await conversacion();
+      const pedir = vi.fn<typeof fetch>(async () => {
+        throw falloDeRed('ECONNRESET');
+      });
+      expect(await enviar(c, pedir)).toMatchObject({ estado: 'fallido', reintentable: true });
+      expect(pedir).toHaveBeenCalledTimes(2);
+      expect((await mensajesDe(c))[0]).toMatchObject({ error: 'Sin respuesta de Meta (ECONNRESET)' });
+    });
+
+    it('un fallo de red sin código conocido no se reintenta', async () => {
+      const c = await conversacion();
+      const pedir = vi.fn<typeof fetch>(async () => {
+        throw new TypeError('fetch failed');
+      });
+      expect(await enviar(c, pedir)).toMatchObject({ estado: 'fallido', reintentable: true });
+      expect(pedir).toHaveBeenCalledTimes(1);
+      expect((await mensajesDe(c))[0]).toMatchObject({ error: 'Sin respuesta de Meta (desconocida)' });
+    });
+
+    it('las plantillas también reintentan una vez si la conexión cayó', async () => {
+      const pedir = vi.fn<typeof fetch>(async () => {
+        if (pedir.mock.calls.length === 1) throw falloDeRed('UND_ERR_SOCKET');
+        return respuestaMeta(200, { messages: [{ id: 'wamid.plantilla' }] });
+      });
+      const plantilla = { nombre: 'turnoo_derivacion', idioma: 'es_CO', parametros: { cliente: 'Laura' } };
+      expect(await enviarPlantillaAMeta({ phoneNumberId: '1', token: 't' }, '573000000000', plantilla, pedir)).toEqual({ ok: true, waMessageId: 'wamid.plantilla' });
+      expect(pedir).toHaveBeenCalledTimes(2);
     });
 
     it('limita la espera a Meta con una señal de tiempo', async () => {
