@@ -125,10 +125,11 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Autenticación: login con argon2, sesiones en la base (7 días, revocables), invitaciones (72 h) y recuperación (1 h) con enlace de un solo uso, roles; rutas `/auth/*` | `backend/src/modulos/auth/` |
 | Script del primer superadmin: `npm run superadmin -- correo "Nombre"` (imprime el enlace para fijar la contraseña) | `backend/scripts/crear-superadmin.ts` |
 | Recuperar al superadmin: `npm run recuperar-superadmin -- correo` anula sus enlaces anteriores e imprime uno nuevo: de recuperación (1 h) si está activo o de invitación (72 h) si nunca definió su contraseña. A uno desactivado no le da enlace. Solo con acceso al servidor: no hay ruta HTTP | `backend/scripts/recuperar-superadmin.ts` |
+| Archivos de despliegue: imagen del backend (`api` y `herramientas`), `docker-compose.prod.yml` (base sin puertos, migraciones antes de la API, Caddy con HTTPS) y copias de seguridad de la base y de las imágenes. Guía en `docs/DESPLIEGUE.md` | `backend/Dockerfile`, `docker-compose.prod.yml`, `despliegue/` |
 
 **No existe todavía:**
 
-- Integración de la IA, panel, despliegue y envío de correo.
+- Panel, envío de correo y el despliegue en un servidor real (los archivos ya están; falta el servidor).
 - Del webhook falta: descarga de audios e imágenes y estados de entrega (los `statuses` de Meta).
 - Del envío falta: plantillas (fuera de la ventana de 24 h) y la prueba con WhatsApp real.
 - Tareas con WhatsApp: recordatorios, avisos de derivación y avisos al cliente.
@@ -316,7 +317,9 @@ Decisiones ya tomadas para estos puntos:
 
 **Aviso al dueño: hecho.** Al derivar y al llegar al 80% del límite del plan, una tarea interna envía una plantilla al teléfono de avisos del negocio (a cualquier hora; pasos 6 y 7 de "Conectar una cuenta de WhatsApp"). Para responder a un cliente, sobre todo uno que no comparte su teléfono, el dueño tiene `GET /conversaciones`, `GET /conversaciones/:id/mensajes` y `POST /conversaciones/:id/mensajes`; responder toma la conversación y reinicia las horas del modo humano. Si el dueño la toma mientras la IA está respondiendo, la respuesta de la IA se descarta: se comprueba con la conversación bloqueada, justo antes de guardar y enviar. **Probado con WhatsApp real (2026-11-07):** la plantilla `turnoo_derivacion` llegó al teléfono de avisos con nombre, motivo, detalle y número del cliente; la derivación quedó `enviado` y `uso_mensual.plantillas_enviadas` sumó 1. El primer intento falló con 132001 porque el código enviaba `es` y la plantilla estaba en `es_CO`. Esos dos defectos de redacción (dos puntos seguidos si el detalle terminaba en punto, y "solicitó" con los motivos `error` o `limite_plan`) se corrigieron con el texto nuevo, de un dato por línea (paso 6); falta la aprobación de Meta y volver a recibir ambos avisos. `turnoo_limite_plan` también llegó con WhatsApp real (2026-11-07), con un plan temporal de 1 conversación que después se quitó. El control de las migraciones aplicadas ya está: `npm run db:migrar`.
 
-**Recordatorio de la cita: hecho en código** (decisiones del 7 de noviembre de 2026: borde más cercano, sin envío si se agendó tarde, solo con consentimiento, plantilla completa). Falta crear y aprobar `turnoo_recordatorio_cita` en Meta (paso 6 de "Conectar una cuenta de WhatsApp") y la prueba con WhatsApp real, que cuesta una plantilla.
+**Recordatorio de la cita: hecho en código** (decisiones del 7 de noviembre de 2026: borde más cercano, sin envío si se agendó tarde, solo con consentimiento, plantilla completa). `turnoo_recordatorio_cita` está en revisión en Meta (paso 6 de "Conectar una cuenta de WhatsApp"); falta la prueba con WhatsApp real, que cuesta una plantilla.
+
+**Despliegue: archivos hechos, sin servidor todavía.** Dominio comprado el 7 de noviembre de 2026: `turnooapp.com` (la API irá en `api.turnooapp.com` y el panel en `app.turnooapp.com`). La guía `docs/DESPLIEGUE.md` cubre la prueba en el equipo con `DOMINIO_API=localhost`, el primer despliegue, las copias de seguridad, restaurar y actualizar. Falta: construir y probar la imagen en local (no se ha construido todavía), elegir el VPS, y llevar las copias de seguridad fuera del servidor antes de tener clientes reales.
 
 ## 7. Pendientes por decidir
 
