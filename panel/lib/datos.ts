@@ -5,6 +5,7 @@ import type { Configuracion, Horario, UsuarioDelNegocio } from './administracion
 import type { Bloqueo } from './bloqueos';
 import type { BaseDeConocimiento } from './conocimiento';
 import type { Conversacion, Mensaje } from './conversaciones';
+import type { EstadoNegocio, UsoDelMes } from './plan';
 import type { Cita, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
 
@@ -149,7 +150,15 @@ export async function usuarios(): Promise<UsuarioDelNegocio[]> {
 }
 
 export interface MiNegocio {
-  negocio: { id: string; nombre: string; telefonoAvisos: string | null; zonaHoraria: string };
+  negocio: {
+    id: string;
+    nombre: string;
+    telefonoAvisos: string | null;
+    zonaHoraria: string;
+    estado: EstadoNegocio;
+    pruebaHasta: string | null;
+    pagadoHasta: string | null;
+  };
   configuracion: Configuracion;
 }
 
@@ -175,4 +184,9 @@ export async function mensajesDe(conversacionId: string): Promise<Mensaje[]> {
 
 export async function conocimiento(): Promise<BaseDeConocimiento> {
   return leer<BaseDeConocimiento>('/conocimiento');
+}
+
+/** Uso del mes frente a los límites del plan (solo el dueño). */
+export async function usoDelMes(): Promise<UsoDelMes> {
+  return leer<UsoDelMes>('/negocio/uso');
 }
