@@ -9,6 +9,8 @@ import { ICONOS } from './iconos';
 function activa(clave: ClaveSeccion, ruta: string): boolean {
   const propia = SECCIONES[clave].ruta;
   if (ruta === propia || ruta.startsWith(`${propia}/`)) return true;
+  // El detalle, la nueva cita y reprogramar cuelgan de la agenda.
+  if (clave === 'agenda' && ruta.startsWith('/citas/')) return true;
   return clave === 'mas' && SECCIONES_DE_MAS.some((s) => ruta === SECCIONES[s].ruta || ruta.startsWith(`${SECCIONES[s].ruta}/`));
 }
 
