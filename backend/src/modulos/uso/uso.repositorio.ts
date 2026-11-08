@@ -84,3 +84,50 @@ export async function sumarPlantilla(tx: Transaccion, negocioId: string, periodo
     [negocioId, periodo],
   );
 }
+
+export interface PlanDelNegocio {
+  zonaHoraria: string;
+  /** null = el negocio no tiene plan asignado (sin límites). */
+  plan: { nombre: string; maxConversacionesIa: number | null; maxCitasMes: number | null } | null;
+}
+
+export async function planDelNegocio(tx: Transaccion, negocioId: string): Promise<PlanDelNegocio | null> {
+  const { rows } = await tx.consultar<{
+    zona_horaria: string;
+    plan: string | null;
+    max_conversaciones_ia_mes: number | null;
+    max_citas_mes: number | null;
+  }>(
+    `SELECT n.zona_horaria, p.nombre AS plan, p.max_conversaciones_ia_mes, p.max_citas_mes
+       FROM negocios n LEFT JOIN planes p ON p.id = n.plan_id
+      WHERE n.id = $1`,
+    [negocioId],
+  );
+  const f = rows[0];
+  if (!f) return null;
+  return {
+    zonaHoraria: f.zona_horaria,
+    plan: f.plan === null ? null : { nombre: f.plan, maxConversacionesIa: f.max_conversaciones_ia_mes, maxCitasMes: f.max_citas_mes },
+  };
+}
+
+export interface UsoDelPeriodo {
+  conversacionesIa: number;
+  citasCreadas: number;
+  plantillasEnviadas: number;
+}
+
+/** Contadores de un mes. Un mes sin fila es un mes sin uso: todo en cero. */
+export async function usoDelPeriodo(tx: Transaccion, negocioId: string, periodo: string): Promise<UsoDelPeriodo> {
+  const { rows } = await tx.consultar<{ conversaciones_ia: number; citas_creadas: number; plantillas_enviadas: number }>(
+    `SELECT conversaciones_ia, citas_creadas, plantillas_enviadas
+       FROM uso_mensual WHERE negocio_id = $1 AND periodo = $2::date`,
+    [negocioId, periodo],
+  );
+  const f = rows[0];
+  return {
+    conversacionesIa: f?.conversaciones_ia ?? 0,
+    citasCreadas: f?.citas_creadas ?? 0,
+    plantillasEnviadas: f?.plantillas_enviadas ?? 0,
+  };
+}

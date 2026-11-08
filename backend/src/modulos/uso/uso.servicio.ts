@@ -44,3 +44,20 @@ export async function registrarTokens(
   const periodo = primerDiaDelMes(ahora, zonaHoraria);
   await conNegocio(negocioId, (tx) => repositorio.sumarTokens(tx, negocioId, periodo, tokens.entrada, tokens.salida));
 }
+
+export interface UsoDelMes {
+  /** Primer día del mes en la zona del negocio (YYYY-MM-DD). */
+  periodo: string;
+  plan: repositorio.PlanDelNegocio['plan'];
+  uso: repositorio.UsoDelPeriodo;
+}
+
+/** Uso del mes actual (en la zona del negocio) frente a los límites de su plan. Para el panel del dueño. */
+export async function usoDelMes(negocioId: string, ahora: Date = new Date()): Promise<UsoDelMes> {
+  return conNegocio(negocioId, async (tx) => {
+    const datos = await repositorio.planDelNegocio(tx, negocioId);
+    if (!datos) throw new NoEncontrado('El negocio');
+    const periodo = primerDiaDelMes(ahora, datos.zonaHoraria);
+    return { periodo, plan: datos.plan, uso: await repositorio.usoDelPeriodo(tx, negocioId, periodo) };
+  });
+}

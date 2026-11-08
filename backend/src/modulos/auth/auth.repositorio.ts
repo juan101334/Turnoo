@@ -244,3 +244,12 @@ export async function borrarIntentosVencidos(tx: Transaccion, ventanaVencidaHast
   const { rowCount } = await tx.consultar('DELETE FROM intentos_login WHERE ventana_inicio <= $1', [ventanaVencidaHasta]);
   return rowCount ?? 0;
 }
+
+/** Lo que el panel necesita saber del negocio de la sesión: su nombre y su zona horaria. */
+export async function negocioDeLaSesion(tx: Transaccion, negocioId: string): Promise<{ nombre: string; zonaHoraria: string } | null> {
+  const { rows } = await tx.consultar<{ nombre: string; zona_horaria: string }>(
+    'SELECT nombre, zona_horaria FROM negocios WHERE id = $1',
+    [negocioId],
+  );
+  return rows[0] ? { nombre: rows[0].nombre, zonaHoraria: rows[0].zona_horaria } : null;
+}

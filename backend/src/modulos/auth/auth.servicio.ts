@@ -129,6 +129,18 @@ export async function autenticar(token: unknown, ahora: Date = new Date()): Prom
   return usuario;
 }
 
+/**
+ * Quién es el usuario de la sesión y, si pertenece a un negocio, su nombre y zona horaria: el
+ * panel los necesita para saber qué es "hoy". GET /negocio no sirve, porque es solo del dueño.
+ */
+export async function quienSoy(
+  usuario: UsuarioAutenticado,
+): Promise<{ usuario: UsuarioAutenticado; negocio: { nombre: string; zonaHoraria: string } | null }> {
+  const { negocioId } = usuario;
+  if (!negocioId) return { usuario, negocio: null };
+  return { usuario, negocio: await conNegocio(negocioId, (tx) => repositorio.negocioDeLaSesion(tx, negocioId)) };
+}
+
 export async function cerrarSesion(token: unknown, ahora: Date = new Date()): Promise<void> {
   const leido = leerToken(token);
   if (!leido) return;
