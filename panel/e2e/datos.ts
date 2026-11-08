@@ -11,6 +11,8 @@ export interface Datos {
   recuperacion: { email: string; token: string };
   /** Pasado mañana (en la zona del negocio), con citas sembradas; y una cita de otro barbero. */
   agenda: { fecha: string; citaAjena: string };
+  /** Clientes sin citas (ver sembrar.ts). */
+  clientes: { editable: string; borrable: string };
 }
 
 let leidos: Datos | undefined;

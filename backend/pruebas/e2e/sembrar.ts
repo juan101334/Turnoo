@@ -81,7 +81,13 @@ for (let dia = 1; dia <= 7; dia++) {
   await crearHorario(negocio, barberoDos, dia, '08:00', '20:00');
 }
 
-async function cita(profesionalId: string, servicio: typeof corte, inicio: DateTime, clienteNombre: string) {
+async function cita(
+  profesionalId: string,
+  servicio: typeof corte,
+  inicio: DateTime,
+  clienteNombre: string,
+  { estado = 'pendiente', aprobacionExpiraEn = null }: { estado?: 'pendiente' | 'por_aprobar'; aprobacionExpiraEn?: DateTime | null } = {},
+) {
   const id = randomUUID();
   const clienteId = randomUUID();
   const telefono = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
@@ -89,9 +95,9 @@ async function cita(profesionalId: string, servicio: typeof corte, inicio: DateT
   await conNegocio(negocio.negocioId, async (tx) => {
     await tx.consultar('INSERT INTO clientes (id, negocio_id, nombre, telefono) VALUES ($1, $2, $3, $4)', [clienteId, negocio.negocioId, clienteNombre, telefono]);
     await tx.consultar(
-      `INSERT INTO citas (id, negocio_id, sede_id, profesional_id, cliente_id, inicio, fin, estado, precio_total_cop, origen)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente', $8, 'panel')`,
-      [id, negocio.negocioId, negocio.sedeId, profesionalId, clienteId, inicio.toJSDate(), fin.toJSDate(), servicio.precio],
+      `INSERT INTO citas (id, negocio_id, sede_id, profesional_id, cliente_id, inicio, fin, estado, precio_total_cop, origen, aprobacion_expira_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'panel', $10)`,
+      [id, negocio.negocioId, negocio.sedeId, profesionalId, clienteId, inicio.toJSDate(), fin.toJSDate(), estado, servicio.precio, aprobacionExpiraEn?.toJSDate() ?? null],
     );
     await tx.consultar(
       `INSERT INTO cita_servicios (cita_id, servicio_id, negocio_id, profesional_id, nombre, duracion_minutos, precio_cop)
@@ -110,6 +116,24 @@ await cita(barberoE2E, corte, pasadoManana.set({ hour: 10 }), 'Cliente Futuro');
 await cita(barberoE2E, corte, pasadoManana.set({ hour: 11 }), 'Cliente Reprogramar');
 const citaAjena = await cita(barberoDos, corteDos, pasadoManana.set({ hour: 10 }), 'Cliente De Otro');
 
+// Por aprobar, en otro día para no cambiar la agenda de pasado mañana. La de Rechazar vence antes:
+// va primero en la lista y se marca como urgente (menos de una hora).
+const enTresDias = ahora.plus({ days: 3 }).startOf('day');
+await cita(barberoE2E, corte, enTresDias.set({ hour: 10 }), 'Cliente Aprobar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 2 }) });
+await cita(barberoDos, corteDos, enTresDias.set({ hour: 11 }), 'Cliente Rechazar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ minutes: 30 }) });
+
+// Clientes sin citas, para editarlos y anonimizarlos.
+async function clienteSinCitas(nombre: string) {
+  const id = randomUUID();
+  const telefono = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
+  await conNegocio(negocio.negocioId, (tx) =>
+    tx.consultar('INSERT INTO clientes (id, negocio_id, nombre, telefono) VALUES ($1, $2, $3, $4)', [id, negocio.negocioId, nombre, telefono]),
+  );
+  return id;
+}
+const clienteEditable = await clienteSinCitas('Cliente Editable');
+const clienteBorrable = await clienteSinCitas('Cliente Borrable');
+
 await pool.end();
 console.log(
   JSON.stringify({
@@ -121,5 +145,6 @@ console.log(
     invitacion: { email: invitado.email, token: invitacion.token },
     recuperacion: { email: recuperable.email, token: recuperacion.token },
     agenda: { fecha: pasadoManana.toISODate(), citaAjena },
+    clientes: { editable: clienteEditable, borrable: clienteBorrable },
   }),
 );
