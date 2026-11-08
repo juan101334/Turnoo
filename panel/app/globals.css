@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+
+/*
+ * Colores y medidas del panel. Los componentes usan estos nombres (bg-marca, text-suave…),
+ * nunca un color suelto: así un cambio de marca se hace aquí y en ningún otro lado.
+ * Contraste mínimo 4.5:1 para texto (WCAG AA).
+ */
+@theme {
+  --color-marca: #0369a1; /* blanco encima: 5.9:1 */
+  --color-marca-oscura: #075985;
+  --color-marca-suave: #e0f2fe;
+  --color-fondo: #f8fafc;
+  --color-superficie: #ffffff;
+  --color-texto: #0f172a;
+  --color-suave: #475569; /* sobre blanco: 7.6:1 */
+  --color-borde: #cbd5e1;
+  --color-peligro: #b91c1c;
+  --color-peligro-suave: #fee2e2;
+  --color-exito: #15803d;
+  --color-exito-suave: #dcfce7;
+  --color-aviso: #b45309;
+  --color-aviso-suave: #fef3c7;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-fondo text-texto antialiased;
+    /* Sin el destello gris al tocar en el celular: cada control tiene su propio estado activo. */
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-marca;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}

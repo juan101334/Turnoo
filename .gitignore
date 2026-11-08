@@ -23,3 +23,10 @@ dist/
 # Copias de seguridad de la base de datos
 backups/
 *.dump
+
+# Panel: tipos que genera Next y resultados de las pruebas de punta a punta
+panel/next-env.d.ts
+panel/*.tsbuildinfo
+panel/e2e/.datos.json
+panel/test-results/
+panel/playwright-report/
