@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
+import { primerDiaDelMes } from '../src/compartido/tiempo.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
 import { crearNegocio, crearProfesional, limpiar, type NegocioDePrueba } from './ayudas.js';
 
@@ -369,6 +370,85 @@ describe('rutas de negocios', () => {
       const ruta = `/auth/usuarios/${rows[0]!.id}/recuperacion`;
       expect((await pedir(ruta, tokens.duenoA, 'POST', {})).status).toBe(403);
       expect((await pedir(ruta, tokens.superadmin, 'POST', { negocioId: a.negocioId })).status).toBe(201);
+    });
+  });
+
+  describe('lo que necesita el panel', () => {
+    const negocioEnLaBase = async (n: NegocioDePrueba) => {
+      const { rows } = await conSistema((tx) =>
+        tx.consultar<{ nombre: string; zona_horaria: string }>('SELECT nombre, zona_horaria FROM negocios WHERE id = $1', [n.negocioId]),
+      );
+      return { nombre: rows[0]!.nombre, zonaHoraria: rows[0]!.zona_horaria };
+    };
+
+    it('GET /auth/yo trae el nombre y la zona horaria del negocio, también al empleado', async () => {
+      const r = await pedir('/auth/yo', tokens.empleadoA);
+      expect(r.status).toBe(200);
+      const datos = await r.json();
+      expect(datos.usuario).toMatchObject({ rol: 'empleado', negocioId: a.negocioId });
+      expect(datos.negocio).toEqual(await negocioEnLaBase(a));
+    });
+
+    it('el negocio de /auth/yo es siempre el de la sesión', async () => {
+      const datos = await (await pedir('/auth/yo', tokens.duenoB)).json();
+      expect(datos.negocio).toEqual(await negocioEnLaBase(b));
+    });
+
+    it('al superadmin no le trae negocio', async () => {
+      const datos = await (await pedir('/auth/yo', tokens.superadmin)).json();
+      expect(datos).toMatchObject({ usuario: { rol: 'superadmin', negocioId: null }, negocio: null });
+    });
+
+    it('GET /negocio/uso sin plan y sin uso: todo en cero y sin límites', async () => {
+      const r = await pedir('/negocio/uso', tokens.duenoA);
+      expect(r.status).toBe(200);
+      const { zonaHoraria } = await negocioEnLaBase(a);
+      expect(await r.json()).toEqual({
+        periodo: primerDiaDelMes(new Date(), zonaHoraria),
+        plan: null,
+        uso: { conversacionesIa: 0, citasCreadas: 0, plantillasEnviadas: 0 },
+      });
+    });
+
+    it('GET /negocio/uso trae el mes actual del negocio con los límites de su plan', async () => {
+      const nombrePlan = `Plan ${randomUUID()}`;
+      const { rows } = await conSistema((tx) =>
+        tx.consultar<{ id: string }>(
+          'INSERT INTO planes (nombre, precio_mensual_cop, max_conversaciones_ia_mes, max_citas_mes) VALUES ($1, 50000, 100, 300) RETURNING id',
+          [nombrePlan],
+        ),
+      );
+      planes.push(rows[0]!.id);
+      const { zonaHoraria } = await negocioEnLaBase(b);
+      const periodo = primerDiaDelMes(new Date(), zonaHoraria);
+      try {
+        await conSistema((tx) => tx.consultar('UPDATE negocios SET plan_id = $2 WHERE id = $1', [b.negocioId, rows[0]!.id]));
+        await conNegocio(b.negocioId, async (tx) => {
+          await tx.consultar(
+            `INSERT INTO uso_mensual (negocio_id, periodo, conversaciones_ia, citas_creadas, plantillas_enviadas)
+             VALUES ($1, $2::date, 80, 12, 5), ($1, $2::date - interval '1 month', 999, 999, 999)`,
+            [b.negocioId, periodo],
+          );
+        });
+        expect(await (await pedir('/negocio/uso', tokens.duenoB)).json()).toEqual({
+          periodo,
+          plan: { nombre: nombrePlan, maxConversacionesIa: 100, maxCitasMes: 300 },
+          uso: { conversacionesIa: 80, citasCreadas: 12, plantillasEnviadas: 5 },
+        });
+        // El uso de B no se ve desde A.
+        expect((await (await pedir('/negocio/uso', tokens.duenoA)).json()).uso.conversacionesIa).toBe(0);
+      } finally {
+        await conSistema(async (tx) => {
+          await tx.consultar('UPDATE negocios SET plan_id = NULL WHERE id = $1', [b.negocioId]);
+          await tx.consultar('DELETE FROM uso_mensual WHERE negocio_id = $1', [b.negocioId]);
+        });
+      }
+    });
+
+    it('solo el dueño ve el uso', async () => {
+      expect((await pedir('/negocio/uso', tokens.empleadoA)).status).toBe(403);
+      expect((await pedir('/negocio/uso', tokens.superadmin)).status).toBe(403);
+      expect((await pedir('/negocio/uso', undefined)).status).toBe(401);
     });
   });
 });
