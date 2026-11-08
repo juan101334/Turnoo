@@ -1,0 +1,12 @@
+# Lo que nunca entra a la imagen: secretos, datos de clientes y lo que se genera dentro.
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+backend/archivos
+backend/evaluacion
+backend/pruebas
+backend/scripts/_*.tmp.ts
+backups
+.git
+docs
