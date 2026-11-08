@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lateralDe, pestanasDe, puedeVer, rutaDeInicio, SECCIONES, SECCIONES_DE_MAS, type ClaveSeccion } from '@/lib/navegacion';
+import { lateralDe, pestanasDe, puedeVer, rutaDeInicio, SECCIONES, SECCIONES_DE_MAS, textoDelContador, type ClaveSeccion } from '@/lib/navegacion';
 
 const SOLO_DUENO: ClaveSeccion[] = ['porAprobar', 'mensajes', 'equipo', 'usuarios', 'conocimiento', 'plan', 'negocio', 'mas'];
 
@@ -30,5 +30,19 @@ describe('navegación por rol', () => {
     expect(lateralDe('superadmin')).toEqual([]);
     expect(rutaDeInicio('superadmin')).toBe('/superadmin');
     expect(rutaDeInicio('empleado')).toBe('/hoy');
+  });
+});
+
+describe('textoDelContador', () => {
+  it('no muestra nada sin pendientes', () => {
+    expect(textoDelContador(undefined)).toBeNull();
+    expect(textoDelContador(0)).toBeNull();
+    expect(textoDelContador(-1)).toBeNull();
+  });
+
+  it('muestra el número hasta 9 y "9+" desde 10', () => {
+    expect(textoDelContador(1)).toBe('1');
+    expect(textoDelContador(9)).toBe('9');
+    expect(textoDelContador(10)).toBe('9+');
   });
 });

@@ -2,7 +2,7 @@ import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { ErrorDelBackend, llamarAlBackend } from './backend';
 import type { Bloqueo } from './bloqueos';
-import type { Cita } from './citas';
+import type { Cita, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
 
 /**
@@ -27,15 +27,34 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Los ids van dentro de rutas del backend: solo se aceptan UUID, nunca texto libre como "../". */
 export const esId = (texto: unknown): texto is string => typeof texto === 'string' && UUID.test(texto);
 
-export async function citasDelDia(fecha: string, zona: string, profesionalId?: string): Promise<Cita[]> {
+export interface FiltroDeCitas {
+  /** Solo las de ese barbero (al barbero, el backend ya le da solo las suyas). */
+  profesionalId?: string | undefined;
+  estados?: EstadoCita[];
+}
+
+export async function citasDelDia(fecha: string, zona: string, filtro: FiltroDeCitas = {}): Promise<Cita[]> {
   const { desde, hasta } = limitesDelDia(fecha, zona);
-  return citasEntre(desde, hasta, profesionalId);
+  return citasEntre(desde, hasta, filtro);
 }
 
 /** Citas que empiezan entre `desde` (incluido) y `hasta` (excluido). El backend admite hasta 62 días. */
-export async function citasEntre(desde: string, hasta: string, profesionalId?: string): Promise<Cita[]> {
-  const consulta = new URLSearchParams({ desde, hasta, ...(profesionalId && { profesionalId }) });
+export async function citasEntre(desde: string, hasta: string, { profesionalId, estados }: FiltroDeCitas = {}): Promise<Cita[]> {
+  const consulta = new URLSearchParams({ desde, hasta });
+  if (profesionalId && esId(profesionalId)) consulta.set('profesionalId', profesionalId);
+  if (estados?.length) consulta.set('estado', estados.join(','));
   return (await leer<{ citas: Cita[] }>(`/citas?${consulta}`)).citas;
+}
+
+/** Hasta dónde se buscan citas por aprobar: el backend lista como mucho 62 días por consulta. */
+export const DIAS_POR_APROBAR = 60;
+
+/** Citas por aprobar que aún no empiezan, la que vence primero arriba. */
+export async function citasPorAprobar(ahora: Date = new Date()): Promise<Cita[]> {
+  const hasta = new Date(ahora.getTime() + DIAS_POR_APROBAR * 86_400_000);
+  const citas = await citasEntre(ahora.toISOString(), hasta.toISOString(), { estados: ['por_aprobar'] });
+  const vence = (c: Cita) => (c.aprobacionExpiraEn ? Date.parse(c.aprobacionExpiraEn) : Date.parse(c.inicio));
+  return citas.sort((a, b) => vence(a) - vence(b));
 }
 
 /** Bloqueos que se cruzan con el rango (el backend admite hasta 62 días). Al barbero, los suyos y los del negocio. */

@@ -58,15 +58,8 @@ export function fechaDe(instante: string | Date, zona: string): string {
   return d.setZone(zona).toISODate()!;
 }
 
-/** 'en 1 h 20 min', 'en 5 min' o 'vencido'. Para el tiempo que queda para aprobar una cita. */
-export function tiempoRestante(hasta: string | Date, ahora: Date = new Date()): string {
-  const minutos = Math.floor(((typeof hasta === 'string' ? Date.parse(hasta) : hasta.getTime()) - ahora.getTime()) / 60_000);
-  if (minutos <= 0) return 'vencido';
-  const horas = Math.floor(minutos / 60);
-  const resto = minutos % 60;
-  if (horas === 0) return `en ${resto} min`;
-  return resto === 0 ? `en ${horas} h` : `en ${horas} h ${resto} min`;
-}
+// Sin luxon: también lo usa la cuenta regresiva, que corre en el navegador.
+export { minutosRestantes, tiempoRestante } from './tiempo-restante';
 
 /** Hora del día (0 a 23) de un instante, en la zona del negocio. */
 export function horaDelDia(instante: string | Date, zona: string): number {
