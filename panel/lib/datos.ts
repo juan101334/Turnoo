@@ -1,6 +1,7 @@
 import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { ErrorDelBackend, llamarAlBackend } from './backend';
+import type { Configuracion, Horario, UsuarioDelNegocio } from './administracion';
 import type { Bloqueo } from './bloqueos';
 import type { Cita, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
@@ -95,6 +96,8 @@ export interface Barbero {
   id: string;
   nombre: string;
   activo: boolean;
+  /** Usuario del panel que atiende con este barbero (empleado, o dueño que también atiende). */
+  usuarioId: string | null;
 }
 
 export interface ServicioDelBarbero {
@@ -126,4 +129,29 @@ export async function huecosDelDia(profesionalId: string, servicioIds: string[],
   const consulta = new URLSearchParams({ profesionalId, servicioIds: servicioIds.join(','), desde: fecha, hasta: fecha });
   const { dias } = await leer<{ dias: { fecha: string; huecos: Hueco[] }[] }>(`/citas/disponibilidad?${consulta}`);
   return dias.find((d) => d.fecha === fecha)?.huecos ?? [];
+}
+
+export async function barbero(id: string): Promise<Barbero> {
+  if (!esId(id)) notFound();
+  return leer<Barbero>(`/profesionales/${id}`);
+}
+
+export async function horariosDe(profesionalId: string): Promise<Horario[]> {
+  if (!esId(profesionalId)) notFound();
+  return (await leer<{ horarios: Horario[] }>(`/profesionales/${profesionalId}/horarios`)).horarios;
+}
+
+/** Usuarios del negocio (solo el dueño; el backend responde 403 a los demás). */
+export async function usuarios(): Promise<UsuarioDelNegocio[]> {
+  return (await leer<{ usuarios: UsuarioDelNegocio[] }>('/auth/usuarios')).usuarios;
+}
+
+export interface MiNegocio {
+  negocio: { id: string; nombre: string; telefonoAvisos: string | null; zonaHoraria: string };
+  configuracion: Configuracion;
+}
+
+/** Datos y reglas del negocio de la sesión (solo el dueño). */
+export async function miNegocio(): Promise<MiNegocio> {
+  return leer<MiNegocio>('/negocio');
 }

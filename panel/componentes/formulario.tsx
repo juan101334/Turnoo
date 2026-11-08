@@ -1,7 +1,7 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 
 /** Campo con etiqueta siempre visible, ayuda y error debajo. 16 px: el iPhone no hace zoom. */
 export function Campo({
@@ -33,6 +33,36 @@ export function Campo({
       {error && (
         <p id={idError} className="text-sm text-peligro">
           {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Lista desplegable con etiqueta visible y ayuda debajo, igual que Campo. */
+export function CampoSeleccion({
+  etiqueta,
+  ayuda,
+  id,
+  children,
+  ...select
+}: { etiqueta: string; ayuda?: string; id: string; children: ReactNode } & SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium">
+        {etiqueta}
+      </label>
+      <select
+        id={id}
+        aria-describedby={ayuda ? `${id}-ayuda` : undefined}
+        className="min-h-11 rounded-lg border border-borde bg-superficie px-3 text-base"
+        {...select}
+      >
+        {children}
+      </select>
+      {ayuda && (
+        <p id={`${id}-ayuda`} className="text-sm text-suave">
+          {ayuda}
         </p>
       )}
     </div>
