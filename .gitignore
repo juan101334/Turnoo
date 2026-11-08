@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.produccion.example
 
 # Imágenes de los clientes (datos personales)
 backend/archivos/

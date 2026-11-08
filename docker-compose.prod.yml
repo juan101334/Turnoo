@@ -1,0 +1,101 @@
+# Producción: base de datos, API y Caddy (HTTPS). Guía completa en docs/DESPLIEGUE.md.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.produccion up -d --build
+#
+# Usa .env.produccion (raíz) y backend/.env.produccion; nunca los .env de desarrollo.
+# "name" separa este proyecto del de desarrollo: contenedores y volúmenes distintos, así que
+# probarlo en tu equipo no toca la base de desarrollo.
+name: turnoo-prod
+
+x-registros: &registros
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '5'
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?falta en .env.produccion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta en .env.produccion}
+      POSTGRES_DB: ${POSTGRES_DB:?falta en .env.produccion}
+      TZ: UTC
+    # Sin "ports": solo la ven los otros contenedores.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    <<: *registros
+
+  # Aplica las migraciones pendientes y termina. La API no arranca si fallan.
+  # También corre los scripts del superadmin (ver docs/DESPLIEGUE.md).
+  herramientas:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: herramientas
+    restart: 'no'
+    env_file:
+      - .env.produccion
+      - backend/.env.produccion
+    environment:
+      DATABASE_URL: postgresql://turnoo_app:${TURNOO_APP_PASSWORD:?falta en .env.produccion}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    <<: *registros
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: api
+    restart: unless-stopped
+    env_file:
+      - backend/.env.produccion
+    # Valores fijos de producción: no dependen de lo que diga el archivo.
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgresql://turnoo_app:${TURNOO_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+      ARCHIVOS_DIR: /datos/archivos
+      # Caddy es el único proxy delante de la API.
+      SALTOS_PROXY: '1'
+    volumes:
+      - archivos:/datos/archivos
+    depends_on:
+      db:
+        condition: service_healthy
+      herramientas:
+        condition: service_completed_successfully
+    <<: *registros
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMINIO_API: ${DOMINIO_API:?falta en .env.produccion}
+    volumes:
+      - ./despliegue/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificados de HTTPS: si se pierden, Caddy los pide de nuevo (con límite de Let's Encrypt).
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    <<: *registros
+
+volumes:
+  pgdata:
+  archivos:
+  caddy_data:
+  caddy_config:
