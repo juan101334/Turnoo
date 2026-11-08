@@ -40,7 +40,7 @@ export default defineConfig({
       url: `${PANEL}/login`,
       reuseExistingServer: false,
       timeout: 120_000,
-      env: { BACKEND_URL: 'http://localhost:3100', SALTOS_PROXY: '1' },
+      env: { BACKEND_URL: 'http://localhost:3100', SALTOS_PROXY: '1', PANEL_DIST_DIR: '.next-e2e' },
     },
   ],
 });

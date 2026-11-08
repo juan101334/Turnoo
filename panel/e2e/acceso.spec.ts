@@ -11,7 +11,8 @@ test.describe('acceso', () => {
 
   test('el dueño entra: cookie HttpOnly y SameSite=Lax, sin token en la URL ni en el almacenamiento', async ({ page, context }) => {
     await entrarYEsperar(page, datos().dueno);
-    await expect(page.getByText('Hola, Dueño E2E')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Hoy' })).toBeVisible();
+    await expect(page.getByText('Barbería E2E')).toBeVisible();
 
     const cookie = (await context.cookies()).find((c) => c.name === COOKIE);
     expect(cookie).toBeDefined();

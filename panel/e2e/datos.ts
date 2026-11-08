@@ -9,6 +9,8 @@ export interface Datos {
   limite: string;
   invitacion: { email: string; token: string };
   recuperacion: { email: string; token: string };
+  /** Pasado mañana (en la zona del negocio), con citas sembradas; y una cita de otro barbero. */
+  agenda: { fecha: string; citaAjena: string };
 }
 
 let leidos: Datos | undefined;
