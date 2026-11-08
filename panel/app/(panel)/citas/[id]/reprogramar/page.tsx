@@ -40,7 +40,7 @@ export default async function PaginaReprogramar({ params, searchParams }: { para
       <h1 className="text-2xl font-semibold">Reprogramar</h1>
       <p className="mb-4 text-sm text-suave">
         {cita.clienteNombre ?? 'Cliente sin nombre'} · {nombresDeServicios(cita.servicios)} con {cita.profesionalNombre}. Ahora:{' '}
-        {fechaLarga(actual)}, {horaLocal(cita.inicio, zona)}.
+        {fechaLarga(actual)}, {horaLocal(cita.inicio, zona)}
       </p>
       <div className="mb-4">
         <TiraDeDias seleccionada={dia} hoy={hoy} enlace={(f) => `/citas/${cita.id}/reprogramar?fecha=${f}`} />

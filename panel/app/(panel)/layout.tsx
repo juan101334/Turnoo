@@ -1,22 +1,28 @@
 import type { ReactNode } from 'react';
 import { NavInferior, NavLateral } from '@/componentes/navegacion';
 import { ErrorDelBackend } from '@/lib/backend';
-import { citasPorAprobar } from '@/lib/datos';
+import { citasPorAprobar, conversaciones } from '@/lib/datos';
 import { lateralDe, pestanasDe, type Contadores } from '@/lib/navegacion';
 import { exigirUsuario, type UsuarioDelNegocio } from '@/lib/sesion';
 
 /**
- * Números junto a las secciones (por ahora, las citas por aprobar del dueño). Si el backend falla,
- * el panel se muestra igual, sin el número: no vale la pena tumbar todas las páginas por él.
+ * Números junto a las secciones del dueño: citas por aprobar y clientes que esperan a una persona.
+ * Si el backend falla, el panel se muestra igual, sin ese número: no vale la pena tumbar todas
+ * las páginas por él.
  */
-async function contadoresDe(usuario: UsuarioDelNegocio): Promise<Contadores> {
-  if (usuario.rol !== 'dueno') return {};
+async function contar(leer: () => Promise<unknown[]>): Promise<number | undefined> {
   try {
-    return { porAprobar: (await citasPorAprobar()).length };
+    return (await leer()).length;
   } catch (error) {
-    if (error instanceof ErrorDelBackend) return {};
+    if (error instanceof ErrorDelBackend) return undefined;
     throw error;
   }
+}
+
+async function contadoresDe(usuario: UsuarioDelNegocio): Promise<Contadores> {
+  if (usuario.rol !== 'dueno') return {};
+  const [porAprobar, mensajes] = await Promise.all([contar(() => citasPorAprobar()), contar(() => conversaciones('humano'))]);
+  return { porAprobar, mensajes };
 }
 
 /**
