@@ -108,7 +108,7 @@ describe('rutas de citas', () => {
     expect(r.status).toBe(201);
     expect(r.json).toMatchObject({
       estado: 'pendiente', clienteTelefono: '573001000001', clienteNombre: 'Carlos',
-      precioTotalCop: 20000, servicios: [{ nombre: 'Corte', duracionMinutos: 30, precioCop: 20000 }],
+      precioTotalCop: 20000, servicios: [{ servicioId: e.servicioId, nombre: 'Corte', duracionMinutos: 30, precioCop: 20000 }],
     });
     expect((await api(tokens.duenoA, 'GET', `/citas/${r.json.id}`)).json).toEqual(r.json);
     const lista = await api(tokens.duenoA, 'GET', `/citas?${rango}&profesionalId=${e.profesionalId}`);
