@@ -211,6 +211,22 @@ const conversaciones = {
   ]),
 };
 
+// Plan con límites y uso del mes: 42 de 50 conversaciones (84%, en zona de aviso).
+// Sin tope de barberos, para no frenar las pruebas que agregan uno.
+await conSistema(async (tx) => {
+  const { rows: planes } = await tx.consultar<{ id: string }>(
+    `INSERT INTO planes (nombre, precio_mensual_cop, max_profesionales, max_citas_mes, max_conversaciones_ia_mes)
+     VALUES ('Prueba E2E', 50000, NULL, 100, 50)
+     ON CONFLICT (nombre) DO UPDATE SET max_citas_mes = 100, max_conversaciones_ia_mes = 50, max_profesionales = NULL
+     RETURNING id`,
+  );
+  await tx.consultar('UPDATE negocios SET plan_id = $1 WHERE id = $2', [planes[0]!.id, negocio.negocioId]);
+  await tx.consultar(
+    `INSERT INTO uso_mensual (negocio_id, periodo, conversaciones_ia, citas_creadas, plantillas_enviadas) VALUES ($1, $2::date, 42, 12, 3)`,
+    [negocio.negocioId, ahora.startOf('month').toISODate()],
+  );
+});
+
 await pool.end();
 console.log(
   JSON.stringify({
