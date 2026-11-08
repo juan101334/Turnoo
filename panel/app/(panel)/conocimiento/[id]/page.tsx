@@ -17,7 +17,7 @@ export default async function PaginaEditarEntrada({ params }: { params: Promise<
   if (!e) notFound();
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href="/conocimiento" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Base de conocimiento

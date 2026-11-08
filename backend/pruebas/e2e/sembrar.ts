@@ -117,6 +117,11 @@ await cita(barberoE2E, corte, pasadoManana.set({ hour: 10 }), 'Cliente Futuro');
 await cita(barberoE2E, corte, pasadoManana.set({ hour: 11 }), 'Cliente Reprogramar');
 const citaAjena = await cita(barberoDos, corteDos, pasadoManana.set({ hour: 10 }), 'Cliente De Otro');
 
+// Para las pruebas de flujos principales (e2e/flujos.spec.ts), una por tamaño de pantalla: ya
+// empezaron, así que se pueden marcar. Seguidas, sin cruzarse, con el Barbero Dos.
+await cita(barberoDos, corteDos, ahora.minus({ minutes: 55 }).startOf('minute'), 'Cliente Flujo Escritorio');
+await cita(barberoDos, corteDos, ahora.minus({ minutes: 25 }).startOf('minute'), 'Cliente Flujo Celular');
+
 // Por aprobar, en otro día para no cambiar la agenda de pasado mañana. La de Rechazar vence antes:
 // va primero en la lista y se marca como urgente (menos de una hora).
 const enTresDias = ahora.plus({ days: 3 }).startOf('day');

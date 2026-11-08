@@ -1,8 +1,9 @@
 import { CalendarPlus } from 'lucide-react';
-import Link from 'next/link';
 import { barberos as leerBarberos, citasDelDia } from '@/lib/datos';
 import { diaRelativo, fechaLarga, hoyEn } from '@/lib/fechas';
 import type { UsuarioDelNegocio } from '@/lib/sesion';
+import { AccionPrincipal } from './accion-principal';
+import { RefrescoAutomatico } from './refresco-automatico';
 import { FiltroDeBarberos } from './filtro-de-barberos';
 import { ListaDeCitas } from './lista-de-citas';
 import { TiraDeDias } from './tira-de-dias';
@@ -47,20 +48,15 @@ export async function VistaDeAgenda({
   const nueva = new URLSearchParams({ fecha: fecha < hoy ? hoy : fecha, ...(elegido && { barbero: elegido.id }) });
 
   return (
-    <>
+    <div className="mx-auto max-w-4xl">
+      <RefrescoAutomatico />
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-suave">{usuario.negocio.nombre}</p>
           <h1 className="text-2xl font-semibold">{relativo ?? 'Agenda'}</h1>
           <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
         </div>
-        <Link
-          href={`/citas/nueva?${nueva}`}
-          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-marca px-4 font-semibold text-white transition-colors duration-150 hover:bg-marca-oscura"
-        >
-          <CalendarPlus aria-hidden className="size-5" />
-          Nueva cita
-        </Link>
+        <AccionPrincipal href={`/citas/nueva?${nueva}`} etiqueta="Nueva cita" Icono={CalendarPlus} />
       </div>
       {conFiltro && (
         <div className="mb-3">
@@ -93,6 +89,6 @@ export async function VistaDeAgenda({
         {...(fecha === hoy && { ahora: new Date() })}
         vacia={<p>{relativo === 'Hoy' ? 'No hay citas para hoy' : 'No hay citas este día'}{elegido ? ` con ${elegido.nombre}.` : '.'}</p>}
       />
-    </>
+    </div>
   );
 }

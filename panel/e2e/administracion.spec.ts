@@ -7,6 +7,8 @@ import { alerta, datos, entrar, entrarYEsperar } from './datos';
  */
 
 const seccion = (page: Page, titulo: string) => page.getByRole('region', { name: titulo });
+/** El aviso breve que confirma lo que se hizo (abajo de la pantalla). */
+const aviso = (page: Page, texto: string) => page.getByRole('status').filter({ hasText: texto });
 
 /** Día ISO (1 lunes ... 7 domingo) de una fecha AAAA-MM-DD. */
 const diaIso = (fecha: string) => new Date(`${fecha}T12:00:00Z`).getUTCDay() || 7;
@@ -44,7 +46,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await servicios.getByLabel('Duración (min)').fill('15');
     await servicios.getByLabel('Precio ($)').fill('18.000');
     await servicios.getByRole('button', { name: 'Agregar servicio' }).click();
-    await expect(servicios.getByText('Servicio "Cerquillo" agregado.')).toBeVisible();
+    await expect(aviso(page, 'Servicio "Cerquillo" agregado.')).toBeVisible();
     await expect(servicios.getByText('15 min · $18.000')).toBeVisible();
 
     await servicios.getByRole('link', { name: 'Editar Cerquillo' }).click();
@@ -76,7 +78,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await horario.getByLabel('Desde').fill('08:00');
     await horario.getByLabel('Hasta').fill('12:00');
     await horario.getByRole('button', { name: 'Agregar horario' }).click();
-    await expect(horario.getByText('Lunes: 8:00 a. m. a 12:00 p. m. agregado.')).toBeVisible();
+    await expect(aviso(page, 'Lunes: 8:00 a. m. a 12:00 p. m. agregado.')).toBeVisible();
 
     const quitar = horario.getByRole('button', { name: 'Quitar Lunes de 8:00 a. m. a 12:00 p. m.' });
     await quitar.click();
@@ -129,14 +131,14 @@ test.describe.serial('barberos, servicios y horarios', () => {
     const acceso = seccion(page, 'Acceso al panel');
     await acceso.getByLabel('Usuario').selectOption({ label: 'Dueño E2E (dueño)' });
     await acceso.getByRole('button', { name: 'Guardar acceso' }).click();
-    await expect(acceso.getByText('Usuario asignado.')).toBeVisible();
+    await expect(aviso(page, 'Usuario asignado.')).toBeVisible();
     await page.goto('/equipo');
     await expect(page.getByRole('link', { name: /Barbero Admin/ })).toContainText('Entra al panel: Dueño E2E');
 
     await abrirBarbero(page, 'Barbero Admin');
     await acceso.getByLabel('Usuario').selectOption('');
     await acceso.getByRole('button', { name: 'Guardar acceso' }).click();
-    await expect(acceso.getByText('El barbero quedó sin usuario.')).toBeVisible();
+    await expect(aviso(page, 'El barbero quedó sin usuario.')).toBeVisible();
   });
 });
 

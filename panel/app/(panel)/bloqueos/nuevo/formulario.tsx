@@ -4,13 +4,13 @@ import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
-import { BotonEnviar, Campo } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio } from '@/componentes/formulario';
 import { crearBloqueo, type EstadoBloqueo } from '../acciones';
 
 const MOTIVOS = ['Almuerzo', 'Permiso', 'Cita médica', 'Vacaciones', 'Festivo'];
 
 export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { id: string; nombre: string }[] | null }) {
-  const [estado, enviar] = useActionState<EstadoBloqueo, FormData>(crearBloqueo, {});
+  const [estado, enviar, pendiente] = useActionState<EstadoBloqueo, FormData>(crearBloqueo, {});
   const [todoElDia, setTodoElDia] = useState(false);
 
   if (estado.creado) {
@@ -19,7 +19,7 @@ export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { 
       <div className="flex flex-col gap-4">
         <Aviso tipo="exito">Bloqueo guardado. En esas horas ya no se pueden agendar citas.</Aviso>
         {afectadas.length > 0 && (
-          <div className="rounded-2xl border border-aviso bg-aviso-suave p-4 text-aviso">
+          <div className="rounded-xl border border-aviso bg-aviso-suave p-4 text-aviso">
             <p className="mb-1 flex items-center gap-1.5 font-semibold">
               <TriangleAlert aria-hidden className="size-5" />
               {afectadas.length === 1 ? 'Ya había 1 cita a esa hora' : `Ya había ${afectadas.length} citas a esa hora`}
@@ -44,7 +44,8 @@ export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { 
   }
 
   return (
-    <form action={enviar} className="flex flex-col gap-4">
+    <EnvioSinReinicio pendiente={pendiente}>
+    <form action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4">
       {barberos && (
         <div className="flex flex-col gap-1.5">
           <label htmlFor="profesionalId" className="text-sm font-medium">
@@ -94,5 +95,6 @@ export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { 
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <BotonEnviar enviando="Guardando…">Guardar bloqueo</BotonEnviar>
     </form>
+    </EnvioSinReinicio>
   );
 }

@@ -93,8 +93,8 @@ test.describe('cambios a clientes', () => {
     await expect(page.getByRole('link', { name: 'Editar' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Borrar datos del cliente' })).toHaveCount(0);
 
-    const respuesta = await page.goto(`${page.url()}/editar`);
-    expect(respuesta?.status()).toBe(404);
+    await page.goto(`${page.url()}/editar`);
+    await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();
   });
 
   test('el dueño edita nombre, teléfono y notas; un teléfono inválido muestra el error del backend', async ({ page }) => {
@@ -112,7 +112,7 @@ test.describe('cambios a clientes', () => {
     await page.getByLabel('Notas').fill('Prefiere la máquina en 2');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
-    await expect(page).toHaveURL(`/clientes/${datos().clientes.editable}?listo=editado`);
+    await expect(page).toHaveURL(`/clientes/${datos().clientes.editable}`);
     await expect(page.getByText('Cambios guardados.')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Cliente Editado' })).toBeVisible();
     await expect(page.getByText('+57 300 111 2233')).toBeVisible();

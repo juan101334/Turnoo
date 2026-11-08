@@ -15,7 +15,7 @@ export default async function PaginaInvitar({ searchParams }: { searchParams: Pr
   const inicial = libres.some((b) => b.id === barbero) ? barbero! : '';
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href="/usuarios" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Usuarios

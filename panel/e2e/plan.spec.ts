@@ -24,7 +24,7 @@ test.describe('plan', () => {
 
   test('el barbero no ve el plan', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
-    const respuesta = await page.goto('/plan');
-    expect(respuesta?.status()).toBe(404);
+    await page.goto('/plan');
+    await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();
   });
 });

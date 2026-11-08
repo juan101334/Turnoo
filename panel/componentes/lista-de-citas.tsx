@@ -24,7 +24,7 @@ export function ListaDeCitas({
   vacia: ReactNode;
 }) {
   if (citas.length === 0) {
-    return <div className="rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">{vacia}</div>;
+    return <div className="rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">{vacia}</div>;
   }
   const ordenadas = [...citas].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio));
   const posicionAhora = ahora ? ordenadas.findIndex((c) => Date.parse(c.inicio) > ahora.getTime()) : -2;
@@ -33,7 +33,7 @@ export function ListaDeCitas({
     <li key={cita.id}>
       <Link
         href={`/citas/${cita.id}`}
-        className={`flex min-h-16 items-center gap-3 rounded-2xl border border-borde bg-superficie p-3 transition-colors duration-150 hover:bg-fondo ${
+        className={`flex min-h-16 items-center gap-3 rounded-xl border border-borde bg-superficie p-3 transition-colors duration-150 hover:bg-fondo ${
           cita.estado === 'cancelada' ? 'opacity-60' : ''
         }`}
       >

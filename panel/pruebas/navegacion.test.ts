@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lateralDe, pestanasDe, puedeVer, rutaDeInicio, SECCIONES, SECCIONES_DE_MAS, textoDelContador, type ClaveSeccion } from '@/lib/navegacion';
+import { gruposDe, gruposDeMas, lateralDe, pestanasDe, puedeVer, rutaDeInicio, SECCIONES, SECCIONES_DE_MAS, textoDelContador, type ClaveSeccion } from '@/lib/navegacion';
 
 const SOLO_DUENO: ClaveSeccion[] = ['porAprobar', 'mensajes', 'equipo', 'usuarios', 'conocimiento', 'plan', 'negocio', 'mas'];
 
@@ -44,5 +44,30 @@ describe('textoDelContador', () => {
     expect(textoDelContador(1)).toBe('1');
     expect(textoDelContador(9)).toBe('9');
     expect(textoDelContador(10)).toBe('9+');
+  });
+});
+
+describe('grupos del menú', () => {
+  it('el dueño ve tres grupos con todo, sin "Más" ni "Cuenta" (que va al pie)', () => {
+    const grupos = gruposDe('dueno');
+    expect(grupos.map((g) => g.titulo)).toEqual(['Día a día', 'Clientes y equipo', 'Negocio']);
+    const todas = grupos.flatMap((g) => g.secciones);
+    expect(todas).not.toContain('mas');
+    expect(todas).not.toContain('cuenta');
+    expect(lateralDe('dueno').at(-1)).toBe('cuenta');
+  });
+
+  it('al barbero no le aparecen secciones ni grupos que no puede ver', () => {
+    const grupos = gruposDe('empleado');
+    expect(grupos.map((g) => g.titulo)).toEqual(['Día a día', 'Clientes y equipo']);
+    for (const clave of grupos.flatMap((g) => g.secciones)) expect(puedeVer('empleado', clave)).toBe(true);
+  });
+
+  it('"Más" no repite lo que ya está en la barra inferior y termina en Cuenta', () => {
+    const mas = gruposDeMas('dueno');
+    const enMas = mas.flatMap((g) => g.secciones);
+    for (const clave of pestanasDe('dueno')) expect(enMas).not.toContain(clave);
+    expect(mas.at(-1)).toEqual({ titulo: 'Cuenta', secciones: ['cuenta'] });
+    expect(new Set([...pestanasDe('dueno'), ...enMas])).toEqual(new Set([...lateralDe('dueno'), 'mas']));
   });
 });

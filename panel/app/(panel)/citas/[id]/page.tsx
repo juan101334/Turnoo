@@ -1,7 +1,7 @@
 import { ChevronLeft, MessageCircle, Phone } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Aviso } from '@/componentes/aviso';
+import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { InsigniaEstado } from '@/componentes/estado-cita';
 import { accionesPosibles, pesos, telefonoLegible } from '@/lib/citas';
 import { cita as leerCita } from '@/lib/datos';
@@ -9,7 +9,11 @@ import { fechaDe, fechaLarga, horaLocal, tiempoRestante } from '@/lib/fechas';
 import { exigirUsuario } from '@/lib/sesion';
 import { AccionesCita } from './acciones-cita';
 
-export const metadata: Metadata = { title: 'Cita' };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const usuario = await exigirUsuario('agenda');
+  const c = await leerCita((await params).id);
+  return { title: `${horaLocal(c.inicio, usuario.negocio.zonaHoraria)} · ${c.clienteNombre ?? 'Cita'}` };
+}
 
 const LISTO: Record<string, string> = {
   creada: 'Cita agendada.',
@@ -26,19 +30,15 @@ export default async function PaginaCita({ params, searchParams }: { params: Pro
   const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href={`/agenda?fecha=${fecha}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Agenda del día
       </Link>
 
-      {mensaje && (
-        <div className="mb-3">
-          <Aviso tipo="exito">{mensaje}</Aviso>
-        </div>
-      )}
+      <AvisoDeLaUrl mensaje={mensaje} />
 
-      <section className="mb-4 rounded-2xl border border-borde bg-superficie p-4">
+      <section className="mb-4 rounded-xl border border-borde bg-superficie p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold tabular-nums">{horaLocal(cita.inicio, zona)}</h1>

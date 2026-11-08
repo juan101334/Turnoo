@@ -53,8 +53,7 @@ test.describe.serial('agenda y acciones sobre citas', () => {
 
   test('el barbero no puede abrir la cita de otro barbero', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
-    const respuesta = await page.goto(`/citas/${datos().agenda.citaAjena}`);
-    expect(respuesta?.status()).toBe(404);
+    await page.goto(`/citas/${datos().agenda.citaAjena}`);
     await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();
   });
 

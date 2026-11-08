@@ -50,9 +50,10 @@ test.describe('acceso', () => {
     for (const ajena of ['Por aprobar', 'Mensajes', 'Más']) await expect(nav.getByRole('link', { name: ajena })).toHaveCount(0);
 
     for (const ruta of ['/usuarios', '/por-aprobar', '/mensajes', '/plan', '/mas']) {
-      const respuesta = await page.goto(ruta);
-      expect(respuesta?.status(), ruta).toBe(404);
-      await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();
+      // Con las pantallas de carga la respuesta sale por partes y ya no lleva el código 404; lo
+      // que importa es que no se muestra nada de la sección.
+      await page.goto(ruta);
+      await expect(page.getByRole('heading', { name: 'Esta página no existe' }), ruta).toBeVisible();
     }
   });
 
@@ -135,9 +136,8 @@ test.describe('enlaces de un solo uso', () => {
     await page.getByRole('button', { name: 'Guardar contraseña' }).click();
     await expect(alerta(page)).toHaveText('Las dos contraseñas no coinciden.');
 
-    // Tras un error, el formulario se vacía: las contraseñas se vuelven a escribir.
-    await expect(page.getByLabel('Contraseña nueva')).toHaveValue('');
-    await page.getByLabel('Contraseña nueva').fill(nueva);
+    // Tras un error lo escrito se conserva: solo se corrige la que no coincidía.
+    await expect(page.getByLabel('Contraseña nueva')).toHaveValue(nueva);
     await page.getByLabel('Repite la contraseña').fill(nueva);
     await page.getByRole('button', { name: 'Guardar contraseña' }).click();
     await expect(page).toHaveURL('/login?listo=contrasena');

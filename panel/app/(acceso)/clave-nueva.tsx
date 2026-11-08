@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
-import { BotonEnviar, Campo } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio } from '@/componentes/formulario';
 import { CLAVE_MIN } from '@/lib/claves';
 import type { EstadoFormulario } from './acciones';
 
@@ -14,7 +14,7 @@ type Accion = (previo: EstadoFormulario, datos: FormData) => Promise<EstadoFormu
  * lee y se borra de la barra de direcciones y del historial, para que no quede a la vista.
  */
 export function FormularioClaveNueva({ accion, boton }: { accion: Accion; boton: string }) {
-  const [estado, enviar] = useActionState(accion, {});
+  const [estado, enviar, pendiente] = useActionState(accion, {});
   const [token, setToken] = useState<string | null | undefined>(undefined);
   // El efecto puede correr dos veces (React en desarrollo): la segunda ya no encontraría el token
   // en la URL, así que se guarda la primera lectura.
@@ -34,7 +34,8 @@ export function FormularioClaveNueva({ accion, boton }: { accion: Accion; boton:
   }
 
   return (
-    <form action={enviar} className="flex flex-col gap-4" noValidate>
+    <EnvioSinReinicio pendiente={pendiente}>
+    <form action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4" noValidate>
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <input type="hidden" name="token" value={token} />
       <Campo
@@ -50,5 +51,6 @@ export function FormularioClaveNueva({ accion, boton }: { accion: Accion; boton:
       <Campo id="confirmacion" name="confirmacion" type="password" etiqueta="Repite la contraseña" autoComplete="new-password" required />
       <BotonEnviar enviando="Guardando…">{boton}</BotonEnviar>
     </form>
+    </EnvioSinReinicio>
   );
 }

@@ -3,6 +3,7 @@
 import { Power, PowerOff, UserX } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { Aviso } from './aviso';
+import { useAvisar } from './avisos-flotantes';
 
 const ESTILOS = {
   primario: 'bg-marca text-white hover:bg-marca-oscura',
@@ -41,17 +42,19 @@ export function BotonDeAccion({
   const [confirmando, setConfirmando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoDeAccion>({});
   const [pendiente, iniciar] = useTransition();
+  const avisar = useAvisar();
 
   const ejecutar = () =>
     iniciar(async () => {
-      setResultado((await accion()) ?? {});
+      const r = (await accion()) ?? {};
+      setResultado(r);
       setConfirmando(false);
+      if (r.listo) avisar(r.listo);
     });
 
   return (
     <div className="flex flex-col gap-2">
       {resultado.error && <Aviso tipo="error">{resultado.error}</Aviso>}
-      {resultado.listo && <Aviso tipo="exito">{resultado.listo}</Aviso>}
       {confirmando && confirmar ? (
         <div className="flex flex-col gap-3 rounded-xl border border-peligro bg-peligro-suave p-3">
           <p className="font-semibold text-peligro">{confirmar.pregunta}</p>

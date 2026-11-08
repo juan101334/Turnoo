@@ -11,7 +11,7 @@ export default async function PaginaCuenta() {
   return (
     <>
       <h1 className="mb-4 text-2xl font-semibold">Cuenta</h1>
-      <div className="mb-6 rounded-2xl border border-borde bg-superficie p-4">
+      <div className="mb-6 rounded-xl border border-borde bg-superficie p-4">
         <p className="text-lg font-medium">{usuario.nombre}</p>
         <p className="text-sm text-suave">{ROLES[usuario.rol]}</p>
       </div>

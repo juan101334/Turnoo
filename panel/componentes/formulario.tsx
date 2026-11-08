@@ -1,7 +1,80 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import {
+  createContext,
+  startTransition,
+  useActionState,
+  useContext,
+  useEffect,
+  useRef,
+  type FormEvent,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from 'react';
+
+/** Si el formulario está enviando. null fuera de <EnvioSinReinicio> (ahí se usa useFormStatus). */
+const ContextoEnvio = createContext<boolean | null>(null);
+
+/**
+ * React 19 vacía un <form action> después de cada envío: si el backend rechazaba un dato, había
+ * que escribir todo de nuevo. Con este onSubmit, ya cargada la página, se envía sin vaciar; antes
+ * de que cargue el JavaScript sigue funcionando el atributo action. Va junto con <EnvioSinReinicio>,
+ * que le cuenta al botón que se está enviando.
+ */
+export function alEnviarSinReinicio(enviar: (datos: FormData) => void) {
+  return (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault();
+    const datos = new FormData(evento.currentTarget);
+    startTransition(() => enviar(datos));
+  };
+}
+
+export function EnvioSinReinicio({ pendiente, children }: { pendiente: boolean; children: ReactNode }) {
+  return <ContextoEnvio value={pendiente}>{children}</ContextoEnvio>;
+}
+
+/**
+ * Formulario de una Server Action que no se vacía al terminar (ver alEnviarSinReinicio).
+ * `limpiarSi` vacía los campos cuando conviene (al agregar algo) y `alTerminar` recibe cada resultado.
+ */
+export function Formulario<E extends object>({
+  accion,
+  inicial,
+  limpiarSi,
+  alTerminar,
+  className,
+  noValidate,
+  children,
+}: {
+  accion: (previo: E, datos: FormData) => Promise<E>;
+  inicial: E;
+  limpiarSi?: (estado: E) => boolean;
+  alTerminar?: (estado: E) => void;
+  className?: string;
+  noValidate?: boolean;
+  children: ReactNode | ((estado: E) => ReactNode);
+}) {
+  const [estado, enviar, pendiente] = useActionState<E, FormData>(accion, inicial as Awaited<E>);
+  const formulario = useRef<HTMLFormElement>(null);
+  const anterior = useRef(estado);
+
+  useEffect(() => {
+    if (estado === anterior.current) return;
+    anterior.current = estado;
+    if (limpiarSi?.(estado)) formulario.current?.reset();
+    alTerminar?.(estado);
+  }, [estado, limpiarSi, alTerminar]);
+
+  return (
+    <ContextoEnvio value={pendiente}>
+      <form ref={formulario} action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className={className} noValidate={noValidate}>
+        {typeof children === 'function' ? children(estado) : children}
+      </form>
+    </ContextoEnvio>
+  );
+}
 
 /** Campo con etiqueta siempre visible, ayuda y error debajo. 16 px: el iPhone no hace zoom. */
 export function Campo({
@@ -77,7 +150,9 @@ const ESTILOS = {
 
 /** Botón de envío: se desactiva y avisa mientras el formulario se procesa. */
 export function BotonEnviar({ children, enviando, variante = 'primario' }: { children: ReactNode; enviando: string; variante?: keyof typeof ESTILOS }) {
-  const { pending } = useFormStatus();
+  const deFormulario = useContext(ContextoEnvio);
+  const { pending: nativo } = useFormStatus();
+  const pending = deFormulario ?? nativo;
   return (
     <button
       type="submit"
