@@ -1,6 +1,7 @@
 import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { ErrorDelBackend, llamarAlBackend } from './backend';
+import type { Bloqueo } from './bloqueos';
 import type { Cita } from './citas';
 import { limitesDelDia } from './fechas';
 
@@ -28,8 +29,42 @@ export const esId = (texto: unknown): texto is string => typeof texto === 'strin
 
 export async function citasDelDia(fecha: string, zona: string, profesionalId?: string): Promise<Cita[]> {
   const { desde, hasta } = limitesDelDia(fecha, zona);
+  return citasEntre(desde, hasta, profesionalId);
+}
+
+/** Citas que empiezan entre `desde` (incluido) y `hasta` (excluido). El backend admite hasta 62 días. */
+export async function citasEntre(desde: string, hasta: string, profesionalId?: string): Promise<Cita[]> {
   const consulta = new URLSearchParams({ desde, hasta, ...(profesionalId && { profesionalId }) });
   return (await leer<{ citas: Cita[] }>(`/citas?${consulta}`)).citas;
+}
+
+/** Bloqueos que se cruzan con el rango (el backend admite hasta 62 días). Al barbero, los suyos y los del negocio. */
+export async function bloqueosEntre(desde: string, hasta: string): Promise<Bloqueo[]> {
+  return (await leer<{ bloqueos: Bloqueo[] }>(`/bloqueos?${new URLSearchParams({ desde, hasta })}`)).bloqueos;
+}
+
+export interface Cliente {
+  id: string;
+  nombre: string | null;
+  /** null si fue anonimizado. */
+  telefono: string | null;
+  notas: string | null;
+  anonimizadoEn: string | null;
+  createdAt: string;
+}
+
+export const CLIENTES_POR_PAGINA = 30;
+
+/** Al dueño, todo el negocio; al barbero, solo los clientes con citas suyas (lo decide el backend). */
+export async function clientes(buscar: string, pagina: number): Promise<{ clientes: Cliente[]; hayMas: boolean }> {
+  const consulta = new URLSearchParams({ limite: String(CLIENTES_POR_PAGINA), desplazamiento: String(pagina * CLIENTES_POR_PAGINA) });
+  if (buscar) consulta.set('buscar', buscar);
+  return leer(`/clientes?${consulta}`);
+}
+
+export async function cliente(id: string): Promise<Cliente> {
+  if (!esId(id)) notFound();
+  return leer<Cliente>(`/clientes/${id}`);
 }
 
 export async function cita(id: string): Promise<Cita> {
