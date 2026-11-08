@@ -371,6 +371,21 @@ describe('avisos al dueño', () => {
       expect((await api(dueno, 'GET', '/conversaciones?estado=otro')).status).toBe(400);
     });
 
+    it('trae una conversación por id; la de otro negocio o un id inválido responden 404', async () => {
+      const c = await derivada(e, T, 'sin_informacion', 'Pregunta por parqueadero');
+      const r = await api(dueno, 'GET', `/conversaciones/${c.conversacionId}`);
+      expect(r.status).toBe(200);
+      expect(r.json).toMatchObject({
+        id: c.conversacionId,
+        estado: 'humano',
+        cliente: { nombre: 'Laura' },
+        ultimaDerivacion: { motivo: 'sin_informacion', detalle: 'Pregunta por parqueadero' },
+      });
+      expect((await api(duenoOtro, 'GET', `/conversaciones/${c.conversacionId}`)).status).toBe(404);
+      expect((await api(dueno, 'GET', '/conversaciones/no-es-un-id')).status).toBe(404);
+      expect((await api(empleado, 'GET', `/conversaciones/${c.conversacionId}`)).status).toBe(403);
+    });
+
     it('muestra los mensajes en orden, del más viejo al más nuevo', async () => {
       const c = await derivada(e);
       for (const [i, texto] of ['uno', 'dos', 'tres'].entries()) {

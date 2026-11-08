@@ -8,6 +8,7 @@ import { conNegocio, conSistema } from '../src/db/contexto.js';
 import {
   aceptarInvitacion,
   autenticar,
+  cambiarContrasena,
   cerrarSesion,
   generarRecuperacion,
   iniciarSesion,
@@ -276,6 +277,69 @@ describe('autenticación', () => {
     });
   });
 
+  describe('cambiar la propia contraseña', () => {
+    const NUEVA = 'clave-nueva-muy-larga';
+
+    it('con la actual: cambia la clave, deja abierta esta sesión y cierra las demás', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      const esta = await iniciarSesion(u.email, CLAVE, ahora);
+      const otra = await iniciarSesion(u.email, CLAVE, ahora);
+
+      await cambiarContrasena(esta.token, CLAVE, NUEVA, ahora);
+
+      expect((await autenticar(esta.token, ahora)).usuarioId).toBe(u.id);
+      await expect(autenticar(otra.token, ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      await expect(iniciarSesion(u.email, CLAVE, ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      await iniciarSesion(u.email, NUEVA, ahora);
+    });
+
+    it('anula un enlace de recuperación pendiente', async () => {
+      const dueno = await comoActor((await crearUsuario(a, 'dueno')).email);
+      const emp = await crearUsuario(a, 'empleado');
+      const { token: enlace } = await generarRecuperacion(dueno, emp.id, undefined, ahora);
+      const sesion = await iniciarSesion(emp.email, CLAVE, ahora);
+
+      await cambiarContrasena(sesion.token, CLAVE, NUEVA, ahora);
+      await expect(restablecerContrasena(enlace, 'otra-clave-muy-larga', ahora)).rejects.toBeInstanceOf(NoAutorizado);
+    });
+
+    it('con la actual equivocada no cambia nada ni cierra sesiones', async () => {
+      const u = await crearUsuario(a, 'dueno');
+      const esta = await iniciarSesion(u.email, CLAVE, ahora);
+      const otra = await iniciarSesion(u.email, CLAVE, ahora);
+
+      await expect(cambiarContrasena(esta.token, 'no-es-la-clave', NUEVA, ahora)).rejects.toThrow('La contraseña actual no es correcta');
+      await expect(cambiarContrasena(esta.token, '', NUEVA, ahora)).rejects.toBeInstanceOf(DatosInvalidos);
+      await autenticar(otra.token, ahora);
+      await iniciarSesion(u.email, CLAVE, ahora);
+    });
+
+    it('la nueva debe tener de 10 a 128 caracteres y ser distinta de la actual', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      const s = await iniciarSesion(u.email, CLAVE, ahora);
+      await expect(cambiarContrasena(s.token, CLAVE, 'corta', ahora)).rejects.toBeInstanceOf(DatosInvalidos);
+      await expect(cambiarContrasena(s.token, CLAVE, 'x'.repeat(129), ahora)).rejects.toBeInstanceOf(DatosInvalidos);
+      await expect(cambiarContrasena(s.token, CLAVE, CLAVE, ahora)).rejects.toThrow('distinta de la actual');
+    });
+
+    it('sin una sesión vigente no se puede (token inválido, cerrado o vencido)', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      const s = await iniciarSesion(u.email, CLAVE, ahora);
+      await expect(cambiarContrasena('basura', CLAVE, NUEVA, ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      await expect(cambiarContrasena(s.token, CLAVE, NUEVA, dias(8))).rejects.toBeInstanceOf(NoAutorizado);
+      await cerrarSesion(s.token, ahora);
+      await expect(cambiarContrasena(s.token, CLAVE, NUEVA, ahora)).rejects.toBeInstanceOf(NoAutorizado);
+      await iniciarSesion(u.email, CLAVE, ahora);
+    });
+
+    it('sirve también al superadmin', async () => {
+      const admin = await crearUsuario(null, 'superadmin');
+      const s = await iniciarSesion(admin.email, CLAVE, ahora);
+      await cambiarContrasena(s.token, CLAVE, NUEVA, ahora);
+      await iniciarSesion(admin.email, NUEVA, ahora);
+    });
+  });
+
   describe('HTTP', () => {
     let servidor: ReturnType<ReturnType<typeof crearApp>['listen']>;
     let base: string;
@@ -312,6 +376,21 @@ describe('autenticación', () => {
 
       expect((await pedir('/auth/logout', 'POST', undefined, nueva.token)).status).toBe(204);
       expect((await pedir('/auth/yo', 'GET', undefined, nueva.token)).status).toBe(401);
+    });
+
+    it('POST /auth/contrasena: 204 con la actual correcta, 400 si no, 401 sin sesión', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      const { token } = await (await pedir('/auth/login', 'POST', { email: u.email, password: CLAVE })).json();
+
+      expect((await pedir('/auth/contrasena', 'POST', { actual: CLAVE, nueva: 'clave-nueva-muy-larga' })).status).toBe(401);
+      const mala = await pedir('/auth/contrasena', 'POST', { actual: 'equivocada', nueva: 'clave-nueva-muy-larga' }, token);
+      expect(mala.status).toBe(400);
+      expect((await mala.json()).error.mensaje).toBe('La contraseña actual no es correcta');
+      expect((await pedir('/auth/contrasena', 'POST', { actual: CLAVE }, token)).status).toBe(400);
+
+      const ok = await pedir('/auth/contrasena', 'POST', { actual: CLAVE, nueva: 'clave-nueva-muy-larga' }, token);
+      expect(ok.status).toBe(204);
+      expect((await pedir('/auth/yo', 'GET', undefined, token)).status).toBe(200);
     });
 
     it('responde 401, 403 y 400 con el formato de error del proyecto', async () => {

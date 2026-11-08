@@ -42,6 +42,18 @@ rutasClientes.get('/', async (req, res) => {
   );
 });
 
+rutasClientes.get('/:id/citas', async (req, res) => {
+  const soloBarbero = await barberoDelAlcance(req);
+  const q = validarEsquema(
+    z.strictObject({
+      limite: z.coerce.number().int().min(1).max(100).default(20),
+      desplazamiento: z.coerce.number().int().min(0).max(1_000_000).default(0),
+    }),
+    req.query,
+  );
+  res.json(await servicio.historialDelCliente(negocioDeSesion(req), String(req.params.id), { soloBarbero, ...q }));
+});
+
 rutasClientes.get('/:id', async (req, res) => {
   const profesionalId = await barberoDelAlcance(req);
   res.json(await servicio.obtenerCliente(negocioDeSesion(req), String(req.params.id), profesionalId));

@@ -4,6 +4,8 @@ import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio } from '../../db/contexto.js';
 import { borrarArchivos } from '../adjuntos/adjuntos.archivos.js';
 import { archivosDelCliente } from '../adjuntos/adjuntos.repositorio.js';
+import { listarCitasDelCliente } from '../citas/citas.repositorio.js';
+import type { CitaDetalle } from '../citas/citas.tipos.js';
 import { exigirNegocioOperativo } from '../negocios/negocios.reglas.js';
 import * as repositorio from './clientes.repositorio.js';
 import type { CambiosCliente, Cliente, ClienteResumen, EntradaCliente, FiltroClientes } from './clientes.tipos.js';
@@ -53,6 +55,31 @@ export async function listarClientes(
 }
 
 /** Con `soloBarbero`, un cliente sin citas con ese barbero se responde como "no existe". */
+/**
+ * Citas del cliente, la más reciente primero, de a `limite`. El empleado solo ve las que tuvo con
+ * su barbero, y un cliente sin citas con él se responde como "no existe", igual que su ficha.
+ */
+export async function historialDelCliente(
+  negocioId: string,
+  clienteId: string,
+  f: { soloBarbero: string | null; limite: number; desplazamiento: number },
+): Promise<{ citas: CitaDetalle[]; hayMas: boolean }> {
+  if (!esUuid(clienteId)) throw new NoEncontrado('El cliente');
+  return conNegocio(negocioId, async (tx) => {
+    if (!(await repositorio.obtener(tx, clienteId))) throw new NoEncontrado('El cliente');
+    if (f.soloBarbero && !(await repositorio.tieneCitasConBarbero(tx, clienteId, f.soloBarbero))) {
+      throw new NoEncontrado('El cliente');
+    }
+    // Se pide una de más para saber si hay otra página sin contar todas.
+    const citas = await listarCitasDelCliente(tx, clienteId, {
+      profesionalId: f.soloBarbero,
+      limite: f.limite + 1,
+      desplazamiento: f.desplazamiento,
+    });
+    return { citas: citas.slice(0, f.limite), hayMas: citas.length > f.limite };
+  });
+}
+
 export async function obtenerCliente(
   negocioId: string,
   clienteId: string,

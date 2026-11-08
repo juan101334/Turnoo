@@ -34,6 +34,13 @@ rutasAuth.get('/yo', exigirSesion, async (req, res) => {
   res.json(await servicio.quienSoy(usuarioDe(req)));
 });
 
+/** Cambiar la propia contraseña, con la actual. Las demás sesiones del usuario se cierran. */
+rutasAuth.post('/contrasena', exigirSesion, async (req, res) => {
+  const { actual, nueva } = validarEsquema(z.object({ actual: contrasena, nueva: contrasena }), req.body);
+  await servicio.cambiarContrasena(req.tokenSesion, actual, nueva);
+  res.status(204).end();
+});
+
 rutasAuth.post('/usuarios/invitar', exigirSesion, exigirRol('superadmin', 'dueno'), async (req, res) => {
   const entrada = validarEsquema(
     z.object({

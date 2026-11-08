@@ -90,6 +90,14 @@ export function listarConversaciones(
   return conNegocio(negocioId, (tx) => repositorio.listarParaPanel(tx, estado, Math.min(limite, MAX_CONVERSACIONES_PANEL)));
 }
 
+/** Una conversación con su cliente y su última derivación. RLS la limita al negocio de la sesión. */
+export async function obtenerConversacion(negocioId: string, conversacionId: string): Promise<ConversacionDelPanel> {
+  if (!esUuid(conversacionId)) throw new NoEncontrado('La conversación');
+  const conversacion = await conNegocio(negocioId, (tx) => repositorio.obtenerParaPanel(tx, conversacionId));
+  if (!conversacion) throw new NoEncontrado('La conversación');
+  return conversacion;
+}
+
 export async function mensajesDeConversacion(negocioId: string, conversacionId: string, limite = 50): Promise<MensajeDelPanel[]> {
   if (!esUuid(conversacionId)) throw new NoEncontrado('La conversación');
   return conNegocio(negocioId, async (tx) => {
