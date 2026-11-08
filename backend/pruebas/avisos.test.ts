@@ -109,17 +109,17 @@ describe('avisos al dueño', () => {
       expect(p).toEqual({
         nombre: PLANTILLA_DERIVACION,
         idioma: 'es_CO',
-        parametros: { cliente: 'Laura', motivo: 'pidió hablar con una persona', detalle: 'Quiere hablar', contacto: '+573001234567', horas: '2' },
+        parametros: { cliente: 'Laura', motivo: 'Pidió hablar con una persona', detalle: 'Quiere hablar', contacto: '+573001234567', horas: '2' },
       });
     });
 
     it('sin nombre, sin detalle o sin teléfono, igual se entiende', () => {
       const p = plantillaDeDerivacion({ motivo: 'error', detalle: null, clienteNombre: null, clienteTelefono: null, horasModoHumano: 5 });
       expect(p.parametros).toEqual({
-        cliente: 'Un cliente',
-        motivo: 'la IA falló varias veces seguidas',
-        detalle: 'no lo indicó',
-        contacto: 'no comparte su número; respóndele desde Turnoo',
+        cliente: 'Sin nombre',
+        motivo: 'El asistente falló varias veces seguidas',
+        detalle: 'No lo indicó',
+        contacto: 'No comparte su número. Respóndele desde Turnoo',
         horas: '5',
       });
     });
@@ -136,7 +136,7 @@ describe('avisos al dueño', () => {
       expect(propios[0]!.url).toContain(`/${e.phoneNumberId}/messages`);
       expect(propios[0]!.autorizacion).toBe(`Bearer ${TOKEN}`);
       expect(propios[0]!.cuerpo).toMatchObject({ to: DUENO, type: 'template', template: { name: PLANTILLA_DERIVACION, language: { code: 'es_CO' } } });
-      expect(meta.parametros(meta.enviados.indexOf(propios[0]!))).toMatchObject({ cliente: 'Laura', motivo: 'pidió hablar con una persona', detalle: 'Quiere hablar con alguien', horas: '2' });
+      expect(meta.parametros(meta.enviados.indexOf(propios[0]!))).toMatchObject({ cliente: 'Laura', motivo: 'Pidió hablar con una persona', detalle: 'Quiere hablar con alguien', horas: '2' });
       expect(await aviso(e, c.conversacionId)).toMatchObject({ aviso_resultado: 'enviado', avisada_en: T });
       expect((await sql<{ p: number }>(e, `SELECT plantillas_enviadas AS p FROM uso_mensual WHERE periodo = '2035-03-01'`))[0]!.p).toBe(1);
 
@@ -152,7 +152,7 @@ describe('avisos al dueño', () => {
       const meta = metaFalso();
       await avisarDerivaciones(T, { pedir: meta.pedir });
       const i = meta.enviados.indexOf(deEscena(e, meta)[0]!);
-      expect(meta.parametros(i).contacto).toBe('no comparte su número; respóndele desde Turnoo');
+      expect(meta.parametros(i).contacto).toBe('No comparte su número. Respóndele desde Turnoo');
       // El BSUID no va en el aviso: no le sirve al dueño.
       expect(JSON.stringify(meta.enviados[i])).not.toContain('CO.abc123');
     });
