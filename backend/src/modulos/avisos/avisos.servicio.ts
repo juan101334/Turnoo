@@ -31,13 +31,17 @@ export const MAX_INTENTOS_AVISO = 3;
 const RESERVA_MS = 2 * 60_000;
 const LIMITE_POR_VUELTA = 20;
 
+/**
+ * Cada dato va en su propia línea de la plantilla ("*Motivo:* {{motivo}}"): empieza en
+ * mayúscula, no termina en punto y habla del "asistente", que es lo que ve el dueño.
+ */
 export const MOTIVOS: Record<string, string> = {
-  sin_informacion: 'la IA no tenía esa información',
-  cliente_pidio_humano: 'pidió hablar con una persona',
-  fuera_de_tema: 'insistió en un tema que no es del negocio',
-  sin_comprension: 'la IA no entendió lo que quería',
-  limite_plan: 'el plan llegó al límite de conversaciones con IA',
-  error: 'la IA falló varias veces seguidas',
+  sin_informacion: 'El asistente no tenía esa información',
+  cliente_pidio_humano: 'Pidió hablar con una persona',
+  fuera_de_tema: 'Insistió en un tema que no es del negocio',
+  sin_comprension: 'El asistente no entendió lo que quería',
+  limite_plan: 'El plan llegó al límite de conversaciones con el asistente',
+  error: 'El asistente falló varias veces seguidas',
 };
 
 export function plantillaDeDerivacion(d: {
@@ -51,10 +55,10 @@ export function plantillaDeDerivacion(d: {
     nombre: PLANTILLA_DERIVACION,
     idioma: IDIOMA_PLANTILLAS,
     parametros: {
-      cliente: parametro(d.clienteNombre ?? 'Un cliente', 60),
+      cliente: parametro(d.clienteNombre ?? 'Sin nombre', 60),
       motivo: parametro(MOTIVOS[d.motivo] ?? d.motivo),
-      detalle: parametro(d.detalle ?? 'no lo indicó'),
-      contacto: d.clienteTelefono ? `+${d.clienteTelefono}` : 'no comparte su número; respóndele desde Turnoo',
+      detalle: parametro(d.detalle ?? 'No lo indicó'),
+      contacto: d.clienteTelefono ? `+${d.clienteTelefono}` : 'No comparte su número. Respóndele desde Turnoo',
       horas: String(d.horasModoHumano),
     },
   };
