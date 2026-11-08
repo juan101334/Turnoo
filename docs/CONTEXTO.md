@@ -125,10 +125,12 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 | Autenticación: login con argon2, sesiones en la base (7 días, revocables), invitaciones (72 h) y recuperación (1 h) con enlace de un solo uso, roles; rutas `/auth/*` | `backend/src/modulos/auth/` |
 | Script del primer superadmin: `npm run superadmin -- correo "Nombre"` (imprime el enlace para fijar la contraseña) | `backend/scripts/crear-superadmin.ts` |
 | Recuperar al superadmin: `npm run recuperar-superadmin -- correo` anula sus enlaces anteriores e imprime uno nuevo: de recuperación (1 h) si está activo o de invitación (72 h) si nunca definió su contraseña. A uno desactivado no le da enlace. Solo con acceso al servidor: no hay ruta HTTP | `backend/scripts/recuperar-superadmin.ts` |
+| Archivos de despliegue: imagen del backend (`api` y `herramientas`), `docker-compose.prod.yml` (base sin puertos, migraciones antes de la API, Caddy con HTTPS) y copias de seguridad de la base y de las imágenes. Guía en `docs/DESPLIEGUE.md` | `backend/Dockerfile`, `docker-compose.prod.yml`, `despliegue/` |
 
 **No existe todavía:**
 
 - Del panel: agenda, acciones sobre citas, bloqueos, clientes y la vista del dueño (hecho: acceso, sesión y navegación). Envío de correo.
+- El despliegue en un servidor real (los archivos ya están; falta el servidor).
 - Del webhook falta: descarga de audios e imágenes y estados de entrega (los `statuses` de Meta).
 - Del envío falta: plantillas (fuera de la ventana de 24 h) y la prueba con WhatsApp real.
 - Tareas con WhatsApp: recordatorios, avisos de derivación y avisos al cliente.
@@ -318,7 +320,9 @@ Decisiones ya tomadas para estos puntos:
 
 **Panel web: acceso hecho (PR 1 de 6).** Decisiones del 8 de noviembre de 2026 (todas las recomendadas): carpeta `panel/`; el panel hace de intermediario y guarda el token en una cookie `HttpOnly` y `SameSite=Lax` (sin CORS ni token en el navegador); Server Components para leer y Server Actions para actuar, con los filtros en la URL; Tailwind CSS 4 con colores como variables y unos pocos componentes propios, íconos de lucide-react; azul `#0369A1`, fuente del sistema, solo tema claro; barra inferior de 5 pestañas en el celular y lateral en escritorio; agenda como lista de tarjetas; "olvidé mi contraseña" pide el enlace al dueño hasta que haya correo; el superadmin no tiene panel en la versión 1; Vitest para la lógica y Playwright de punta a punta contra `turnoo_test`; "Nueva cita" simple (cliente, servicio, barbero y hora) con las reglas del backend. El panel reenvía al backend la IP real del usuario (`X-Forwarded-For` calculado con `SALTOS_PROXY`, descartando lo que escribe el navegador): las pruebas comprueban que frenar a una IP no frena a otra y que una cabecera falsificada no salta el límite. Orden de los PR: 1 acceso → 2 agenda de hoy, acciones, próximos días y nueva cita → 3 bloqueos y clientes → 4 vista del dueño → 5 conversaciones y base de conocimiento → backend `GET /negocio/uso` → 6 plan y despliegue del panel. Mejoras opcionales del backend (imagen de un mensaje, devolver la conversación al asistente) quedan para después de la versión 1.
 
-**Recordatorio de la cita: hecho en código** (decisiones del 7 de noviembre de 2026: borde más cercano, sin envío si se agendó tarde, solo con consentimiento, plantilla completa). Falta crear y aprobar `turnoo_recordatorio_cita` en Meta (paso 6 de "Conectar una cuenta de WhatsApp") y la prueba con WhatsApp real, que cuesta una plantilla.
+**Recordatorio de la cita: hecho en código** (decisiones del 7 de noviembre de 2026: borde más cercano, sin envío si se agendó tarde, solo con consentimiento, plantilla completa). `turnoo_recordatorio_cita` está en revisión en Meta (paso 6 de "Conectar una cuenta de WhatsApp"); falta la prueba con WhatsApp real, que cuesta una plantilla.
+
+**Despliegue: archivos hechos, sin servidor todavía.** Dominio comprado el 7 de noviembre de 2026: `turnooapp.com` (la API irá en `api.turnooapp.com` y el panel en `app.turnooapp.com`). La guía `docs/DESPLIEGUE.md` cubre la prueba en el equipo con `DOMINIO_API=localhost`, el primer despliegue, las copias de seguridad, restaurar y actualizar. Falta: construir y probar la imagen en local (no se ha construido todavía), elegir el VPS, y llevar las copias de seguridad fuera del servidor antes de tener clientes reales.
 
 ## 7. Pendientes por decidir
 

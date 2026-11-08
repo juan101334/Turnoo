@@ -89,6 +89,7 @@ Para correr el backend, ver [backend/README.md](backend/README.md); para el pane
 - [Contexto](docs/CONTEXTO.md): punto de partida para retomar el proyecto (decisiones, estado actual y siguiente paso).
 - [Arquitectura](docs/ARQUITECTURA.md): decisiones de producto, flujos, estados y modelo de datos.
 - [Convenciones](docs/CONVENCIONES.md): organización del código, nombres, errores, migraciones y Git.
+- [Despliegue](docs/DESPLIEGUE.md): servidor, HTTPS con Caddy, copias de seguridad y actualizaciones.
 
 ## Licencia
 
