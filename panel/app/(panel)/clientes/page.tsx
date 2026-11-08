@@ -1,11 +1,87 @@
+import { ChevronRight, Search, Users } from 'lucide-react';
 import type { Metadata } from 'next';
-import { EnConstruccion } from '@/componentes/en-construccion';
-import { SECCIONES } from '@/lib/navegacion';
+import Link from 'next/link';
+import { telefonoLegible } from '@/lib/citas';
+import { clientes as leerClientes } from '@/lib/datos';
 import { exigirUsuario } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: SECCIONES.clientes.etiqueta };
+export const metadata: Metadata = { title: 'Clientes' };
 
-export default async function Pagina() {
-  await exigirUsuario('clientes');
-  return <EnConstruccion titulo={SECCIONES.clientes.etiqueta} />;
+/** Búsqueda por nombre o teléfono, de 30 en 30. El barbero ve solo los clientes con citas suyas. */
+export default async function PaginaClientes({ searchParams }: { searchParams: Promise<{ buscar?: string; pagina?: string }> }) {
+  const usuario = await exigirUsuario('clientes');
+  const p = await searchParams;
+  const buscar = (p.buscar ?? '').trim().slice(0, 100);
+  const pagina = Math.max(0, Math.min(1000, Number.parseInt(p.pagina ?? '0', 10) || 0));
+  const { clientes, hayMas } = await leerClientes(buscar, pagina);
+  const enlace = (n: number) => `/clientes?${new URLSearchParams({ ...(buscar && { buscar }), pagina: String(n) })}`;
+
+  return (
+    <div className="mx-auto max-w-xl">
+      <h1 className="text-2xl font-semibold">{usuario.rol === 'dueno' ? 'Clientes' : 'Mis clientes'}</h1>
+      <p className="mb-4 text-sm text-suave">
+        {usuario.rol === 'dueno' ? 'Todos los clientes del negocio.' : 'Los clientes que tienen o tuvieron cita contigo.'}
+      </p>
+
+      <form action="/clientes" role="search" className="mb-4 flex gap-2">
+        <label htmlFor="buscar" className="sr-only">
+          Buscar por nombre o teléfono
+        </label>
+        <div className="relative flex-1">
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-suave" />
+          <input
+            id="buscar"
+            name="buscar"
+            type="search"
+            defaultValue={buscar}
+            placeholder="Nombre o teléfono"
+            maxLength={100}
+            autoComplete="off"
+            className="min-h-11 w-full rounded-lg border border-borde bg-superficie pr-3 pl-10 text-base"
+          />
+        </div>
+        <button type="submit" className="min-h-11 cursor-pointer rounded-lg bg-marca px-4 font-semibold text-white hover:bg-marca-oscura">
+          Buscar
+        </button>
+      </form>
+
+      {clientes.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+          <Users aria-hidden className="size-8" />
+          <p>{buscar ? `Ningún cliente coincide con "${buscar}".` : 'Todavía no hay clientes.'}</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-borde overflow-hidden rounded-2xl border border-borde bg-superficie">
+          {clientes.map((c) => (
+            <li key={c.id}>
+              <Link href={`/clientes/${c.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{c.anonimizadoEn ? 'Cliente anonimizado' : (c.nombre ?? 'Sin nombre')}</span>
+                  <span className="block text-sm text-suave tabular-nums">{c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}</span>
+                </span>
+                <ChevronRight aria-hidden className="size-5 shrink-0 text-suave" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {(pagina > 0 || hayMas) && (
+        <nav aria-label="Páginas" className="mt-4 grid grid-cols-2 gap-2">
+          {pagina > 0 ? (
+            <Link href={enlace(pagina - 1)} className="flex min-h-11 items-center justify-center rounded-lg border border-borde bg-superficie font-medium hover:bg-fondo">
+              Anteriores
+            </Link>
+          ) : (
+            <span />
+          )}
+          {hayMas && (
+            <Link href={enlace(pagina + 1)} className="flex min-h-11 items-center justify-center rounded-lg border border-borde bg-superficie font-medium hover:bg-fondo">
+              Siguientes
+            </Link>
+          )}
+        </nav>
+      )}
+    </div>
+  );
 }
