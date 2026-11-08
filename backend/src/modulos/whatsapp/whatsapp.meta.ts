@@ -1,3 +1,4 @@
+import { logger } from '../../compartido/logger.js';
 import type { RespuestaMeta } from './whatsapp.tipos.js';
 
 /**
@@ -28,15 +29,59 @@ function detalleDeError(estadoHttp: number, cuerpo: unknown): string {
   return typeof codigo === 'number' ? `Meta respondió ${estadoHttp} (código ${codigo})` : `Meta respondió ${estadoHttp}`;
 }
 
+/**
+ * Fallos de conexión en los que Meta no llegó a procesar la petición: no se pudo conectar, o la
+ * conexión que Node reutiliza (keep-alive) ya estaba cerrada por el otro lado. Se reintentan una
+ * vez, enseguida, sin volver a llamar a la IA. Un tiempo agotado NO está aquí: Meta pudo haber
+ * recibido el mensaje y reintentarlo podría duplicarlo.
+ *
+ * Con ECONNRESET o UND_ERR_SOCKET queda un riesgo pequeño: que Meta lo procesara y la conexión se
+ * cortara antes de responder. Se acepta: es raro, y lo común es el socket viejo, que Meta nunca leyó.
+ */
+const FALLOS_DE_CONEXION = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EPIPE',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+/** Qué falló, sin datos del destinatario: el código de red de Node, o "tiempo agotado". */
+export function causaDelFallo(error: unknown): string {
+  if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) return 'tiempo agotado';
+  const causa = (error as { cause?: { code?: unknown } } | null)?.cause;
+  return typeof causa?.code === 'string' ? causa.code : 'desconocida';
+}
+
+/** POST a Meta con espera máxima y un reintento inmediato si la conexión falló (ver arriba). */
+async function postAMeta(url: string, init: Omit<RequestInit, 'signal'>, pedir: typeof fetch): Promise<Response | { causa: string }> {
+  for (let intento = 1; ; intento++) {
+    try {
+      return await pedir(url, { ...init, signal: AbortSignal.timeout(ESPERA_MAXIMA_MS) });
+    } catch (error) {
+      const causa = causaDelFallo(error);
+      if (intento === 1 && FALLOS_DE_CONEXION.has(causa)) {
+        logger.info({ causa }, 'Falló la conexión con Meta; se reintenta el envío una vez');
+        continue;
+      }
+      return { causa };
+    }
+  }
+}
+
+const sinRespuesta = (causa: string): RespuestaMeta => ({ ok: false, reintentable: true, detalle: `Sin respuesta de Meta (${causa})` });
+
 export async function enviarTextoAMeta(
   destino: DestinoMeta,
   destinatario: Destinatario,
   texto: string,
   pedir: typeof fetch = fetch,
 ): Promise<RespuestaMeta> {
-  let respuesta: Response;
-  try {
-    respuesta = await pedir(`${URL_GRAPH}/${encodeURIComponent(destino.phoneNumberId)}/messages`, {
+  const respuesta = await postAMeta(
+    `${URL_GRAPH}/${encodeURIComponent(destino.phoneNumberId)}/messages`,
+    {
       method: 'POST',
       headers: { authorization: `Bearer ${destino.token}`, 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -47,13 +92,12 @@ export async function enviarTextoAMeta(
         type: 'text',
         text: { body: texto, preview_url: false },
       }),
-      signal: AbortSignal.timeout(ESPERA_MAXIMA_MS),
-    });
-  } catch {
-    // Sin respuesta (red caída o tiempo agotado) no se sabe si Meta lo recibió; reintentar puede
-    // duplicarlo, y quien envía debe tenerlo en cuenta.
-    return { ok: false, reintentable: true, detalle: 'Sin respuesta de Meta' };
-  }
+    },
+    pedir,
+  );
+  // Sin respuesta (tiempo agotado, o la conexión volvió a fallar) no se sabe si Meta lo recibió;
+  // reintentar puede duplicarlo, y quien envía debe tenerlo en cuenta.
+  if ('causa' in respuesta) return sinRespuesta(respuesta.causa);
 
   const cuerpo: unknown = await respuesta.json().catch(() => null);
   if (!respuesta.ok) {
@@ -136,9 +180,9 @@ export async function enviarPlantillaAMeta(
   plantilla: Plantilla,
   pedir: typeof fetch = fetch,
 ): Promise<RespuestaMeta> {
-  let respuesta: Response;
-  try {
-    respuesta = await pedir(`${URL_GRAPH}/${encodeURIComponent(destino.phoneNumberId)}/messages`, {
+  const respuesta = await postAMeta(
+    `${URL_GRAPH}/${encodeURIComponent(destino.phoneNumberId)}/messages`,
+    {
       method: 'POST',
       headers: { authorization: `Bearer ${destino.token}`, 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -157,11 +201,10 @@ export async function enviarPlantillaAMeta(
           ],
         },
       }),
-      signal: AbortSignal.timeout(ESPERA_MAXIMA_MS),
-    });
-  } catch {
-    return { ok: false, reintentable: true, detalle: 'Sin respuesta de Meta' };
-  }
+    },
+    pedir,
+  );
+  if ('causa' in respuesta) return sinRespuesta(respuesta.causa);
   const cuerpo: unknown = await respuesta.json().catch(() => null);
   if (!respuesta.ok) {
     return { ok: false, reintentable: esReintentable(respuesta.status), detalle: detalleDeError(respuesta.status, cuerpo) };
