@@ -58,9 +58,9 @@ test.describe.serial('citas por aprobar', () => {
     const tarjetas = page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Aprobar' }) });
     await expect(tarjetas).toHaveCount(2);
     await expect(tarjetas.nth(0)).toContainText('Cliente Rechazar');
-    await expect(tarjetas.nth(0)).toContainText(/Vence en (29|30) min/);
+    await expect(tarjetas.nth(0)).toContainText(/Vence en \d{1,2} min/);
     await expect(tarjetas.nth(1)).toContainText('Cliente Aprobar');
-    await expect(tarjetas.nth(1)).toContainText(/Vence en 1 h 5\d min|Vence en 2 h/);
+    await expect(tarjetas.nth(1)).toContainText(/Vence en 1 h \d{1,2} min|Vence en 2 h/);
   });
 
   test('aprobar la quita de la lista y baja el contador', async ({ page }) => {

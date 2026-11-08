@@ -14,18 +14,21 @@ export function FormularioConEstado({
   boton,
   enviando,
   children,
+  variante,
 }: {
   accion: (previo: EstadoAccion, datos: FormData) => Promise<EstadoAccion>;
   boton: string;
   enviando: string;
   children: ReactNode;
+  variante?: 'primario' | 'secundario';
 }) {
   const [estado, enviar] = useActionState(accion, {});
   return (
     <form action={enviar} className="flex flex-col gap-4">
       {children}
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
-      <BotonEnviar enviando={enviando}>{boton}</BotonEnviar>
+      {estado.listo && <Aviso tipo="exito">{estado.listo}</Aviso>}
+      <BotonEnviar enviando={enviando} {...(variante && { variante })}>{boton}</BotonEnviar>
     </form>
   );
 }
