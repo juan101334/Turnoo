@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, negocioDeSesion as negocioDe } from '../auth/auth.middleware.js';
+import { usoDelMes } from '../uso/uso.servicio.js';
 import * as cuentasWhatsapp from '../whatsapp/whatsapp.cuentas.js';
 import * as servicio from './negocios.servicio.js';
 
@@ -85,6 +86,11 @@ rutasMiNegocio.use(exigirSesion, exigirRol('dueno'));
 
 rutasMiNegocio.get('/', async (req, res) => {
   res.json(await servicio.obtenerMiNegocio(negocioDe(req)));
+});
+
+/** Uso del mes frente al límite del plan: conversaciones con la IA, citas creadas y plantillas enviadas. */
+rutasMiNegocio.get('/uso', async (req, res) => {
+  res.json(await usoDelMes(negocioDe(req)));
 });
 
 rutasMiNegocio.patch('/', async (req, res) => {

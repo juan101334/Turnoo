@@ -30,8 +30,8 @@ rutasAuth.post('/logout', exigirSesion, async (req, res) => {
   res.status(204).end();
 });
 
-rutasAuth.get('/yo', exigirSesion, (req, res) => {
-  res.json({ usuario: usuarioDe(req) });
+rutasAuth.get('/yo', exigirSesion, async (req, res) => {
+  res.json(await servicio.quienSoy(usuarioDe(req)));
 });
 
 rutasAuth.post('/usuarios/invitar', exigirSesion, exigirRol('superadmin', 'dueno'), async (req, res) => {
