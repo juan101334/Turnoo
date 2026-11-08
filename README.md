@@ -21,7 +21,8 @@ Una misma aplicación atiende a varios negocios (multi-negocio / SaaS), cada uno
 | Backend: tareas internas (autocompletar, expirar y limpiar) | Hecho |
 | Backend: webhook de WhatsApp (recibir y guardar; probado con mensajes de texto reales) | Hecho |
 | Backend: envío de mensajes, tareas con WhatsApp e IA | Pendiente |
-| Panel web (Next.js) | Pendiente |
+| Panel web (Next.js): acceso, sesión y navegación por rol | Hecho |
+| Panel web: agenda, bloqueos, clientes y vista del dueño | En curso |
 | Despliegue (VPS con Docker) | Pendiente |
 
 ## Stack
@@ -81,7 +82,7 @@ Turnoo/
     └── CONVENCIONES.md       Cómo se escribe y se versiona el código
 ```
 
-`panel/` se crea cuando empiece. Para correr el backend, ver [backend/README.md](backend/README.md).
+Para correr el backend, ver [backend/README.md](backend/README.md); para el panel, [panel/README.md](panel/README.md).
 
 ## Documentación
 

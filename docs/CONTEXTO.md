@@ -42,7 +42,7 @@ Sistema de citas para **barberías y salones de belleza**. El cliente escribe al
 
 La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3. Lo esencial:
 
-**Tecnología:** Node.js 22 + TypeScript (módulos ES, imports con extensión `.js`) + Express 5 + SQL directo con `pg` (sin ORM). PostgreSQL 17 en Docker (puerto **5433** en el equipo de desarrollo). Panel en Next.js (aún no creado). Las tareas internas corren con un temporizador simple dentro de la API; Los mensajes para la IA se procesarán con una marca de pendiente en la conversación y `SKIP LOCKED`, sin pg-boss (decidido en la sesión 6). Despliegue en un VPS con Docker Compose y Caddy para HTTPS. Un solo repositorio con `backend/` y `panel/`.
+**Tecnología:** Node.js 22 + TypeScript (módulos ES, imports con extensión `.js`) + Express 5 + SQL directo con `pg` (sin ORM). PostgreSQL 17 en Docker (puerto **5433** en el equipo de desarrollo). Panel en Next.js 16 (App Router, Tailwind CSS 4), en `panel/`: el navegador solo habla con el panel y el panel llama al backend desde su servidor. Las tareas internas corren con un temporizador simple dentro de la API; Los mensajes para la IA se procesarán con una marca de pendiente en la conversación y `SKIP LOCKED`, sin pg-boss (decidido en la sesión 6). Despliegue en un VPS con Docker Compose y Caddy para HTTPS. Un solo repositorio con `backend/` y `panel/`.
 
 **WhatsApp:** API oficial (Cloud API de Meta). Un número por negocio (`whatsapp_cuentas`); el modelo permite un número por barbero (`profesional_id` opcional) pero no se implementa en el MVP.
 
@@ -128,12 +128,12 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 
 **No existe todavía:**
 
-- Integración de la IA, panel, despliegue y envío de correo.
+- Del panel: agenda, acciones sobre citas, bloqueos, clientes y la vista del dueño (hecho: acceso, sesión y navegación). Envío de correo.
 - Del webhook falta: descarga de audios e imágenes y estados de entrega (los `statuses` de Meta).
 - Del envío falta: plantillas (fuera de la ventana de 24 h) y la prueba con WhatsApp real.
 - Tareas con WhatsApp: recordatorios, avisos de derivación y avisos al cliente.
 - Creación de planes: la tabla `planes` sigue vacía a propósito (sección 7), así que hoy solo se puede asignar un plan creado con SQL.
-- CORS en `app.ts`: hace falta para el panel.
+- CORS en `app.ts`: no hace falta. El navegador nunca llama al backend; lo llama el servidor del panel.
 
 **Huecos conocidos del código actual** (los corrige el plan de la sección 6.1, salvo que se indique otra cosa):
 
@@ -315,6 +315,8 @@ Decisiones ya tomadas para estos puntos:
 7. Audios e imágenes. **Hecho y probado con WhatsApp real (2026-11-06):** una nota de voz transcrita llevó a la IA a proponer la cita, la foto quedó guardada y, con el "sí", la cita quedó creada con la imagen adjunta. Las 24 conversaciones de prueba pasaron dos veces seguidas (unos US$0,009 por corrida), después de aclarar que con "cualquier barbero" hay que consultar a todos.
 
 **Aviso al dueño: hecho.** Al derivar y al llegar al 80% del límite del plan, una tarea interna envía una plantilla al teléfono de avisos del negocio (a cualquier hora; pasos 6 y 7 de "Conectar una cuenta de WhatsApp"). Para responder a un cliente, sobre todo uno que no comparte su teléfono, el dueño tiene `GET /conversaciones`, `GET /conversaciones/:id/mensajes` y `POST /conversaciones/:id/mensajes`; responder toma la conversación y reinicia las horas del modo humano. Si el dueño la toma mientras la IA está respondiendo, la respuesta de la IA se descarta: se comprueba con la conversación bloqueada, justo antes de guardar y enviar. **Probado con WhatsApp real (2026-11-07):** la plantilla `turnoo_derivacion` llegó al teléfono de avisos con nombre, motivo, detalle y número del cliente; la derivación quedó `enviado` y `uso_mensual.plantillas_enviadas` sumó 1. El primer intento falló con 132001 porque el código enviaba `es` y la plantilla estaba en `es_CO`. Esos dos defectos de redacción (dos puntos seguidos si el detalle terminaba en punto, y "solicitó" con los motivos `error` o `limite_plan`) se corrigieron con el texto nuevo, de un dato por línea (paso 6); falta la aprobación de Meta y volver a recibir ambos avisos. `turnoo_limite_plan` también llegó con WhatsApp real (2026-11-07), con un plan temporal de 1 conversación que después se quitó. El control de las migraciones aplicadas ya está: `npm run db:migrar`.
+
+**Panel web: acceso hecho (PR 1 de 6).** Decisiones del 8 de noviembre de 2026 (todas las recomendadas): carpeta `panel/`; el panel hace de intermediario y guarda el token en una cookie `HttpOnly` y `SameSite=Lax` (sin CORS ni token en el navegador); Server Components para leer y Server Actions para actuar, con los filtros en la URL; Tailwind CSS 4 con colores como variables y unos pocos componentes propios, íconos de lucide-react; azul `#0369A1`, fuente del sistema, solo tema claro; barra inferior de 5 pestañas en el celular y lateral en escritorio; agenda como lista de tarjetas; "olvidé mi contraseña" pide el enlace al dueño hasta que haya correo; el superadmin no tiene panel en la versión 1; Vitest para la lógica y Playwright de punta a punta contra `turnoo_test`; "Nueva cita" simple (cliente, servicio, barbero y hora) con las reglas del backend. El panel reenvía al backend la IP real del usuario (`X-Forwarded-For` calculado con `SALTOS_PROXY`, descartando lo que escribe el navegador): las pruebas comprueban que frenar a una IP no frena a otra y que una cabecera falsificada no salta el límite. Orden de los PR: 1 acceso → 2 agenda de hoy, acciones, próximos días y nueva cita → 3 bloqueos y clientes → 4 vista del dueño → 5 conversaciones y base de conocimiento → backend `GET /negocio/uso` → 6 plan y despliegue del panel. Mejoras opcionales del backend (imagen de un mensaje, devolver la conversación al asistente) quedan para después de la versión 1.
 
 **Recordatorio de la cita: hecho en código** (decisiones del 7 de noviembre de 2026: borde más cercano, sin envío si se agendó tarde, solo con consentimiento, plantilla completa). Falta crear y aprobar `turnoo_recordatorio_cita` en Meta (paso 6 de "Conectar una cuenta de WhatsApp") y la prueba con WhatsApp real, que cuesta una plantilla.
 
