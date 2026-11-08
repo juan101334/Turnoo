@@ -1,4 +1,4 @@
-# Producción: base de datos, API y Caddy (HTTPS). Guía completa en docs/DESPLIEGUE.md.
+# Producción: base de datos, API, panel web y Caddy (HTTPS). Guía completa en docs/DESPLIEGUE.md.
 #
 #   docker compose -f docker-compose.prod.yml --env-file .env.produccion up -d --build
 #
@@ -76,6 +76,22 @@ services:
         condition: service_completed_successfully
     <<: *registros
 
+  # Panel web. Habla con la API por la red interna (api:3000), nunca por internet.
+  panel:
+    build:
+      context: .
+      dockerfile: panel/Dockerfile
+      target: panel
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://api:3000
+      # Caddy es el único proxy delante del panel: la IP real del usuario es la que agrega Caddy.
+      SALTOS_PROXY: '1'
+    depends_on:
+      - api
+    <<: *registros
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -85,6 +101,7 @@ services:
       - '443:443/udp'
     environment:
       DOMINIO_API: ${DOMINIO_API:?falta en .env.produccion}
+      DOMINIO_PANEL: ${DOMINIO_PANEL:?falta en .env.produccion}
     volumes:
       - ./despliegue/Caddyfile:/etc/caddy/Caddyfile:ro
       # Certificados de HTTPS: si se pierden, Caddy los pide de nuevo (con límite de Let's Encrypt).
@@ -92,6 +109,7 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+      - panel
     <<: *registros
 
 volumes:
