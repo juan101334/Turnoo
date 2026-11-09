@@ -14,7 +14,8 @@ test('cambiar la contraseña: pide la actual, cierra las otras sesiones y esta s
 
   await entrarYEsperar(page, datos().cuenta);
   await page.goto('/cuenta');
-  const seccion = page.getByRole('region', { name: 'Cambiar contraseña' });
+  const seccion = page.getByRole('region', { name: 'Contraseña' });
+  await seccion.getByRole('button', { name: 'Cambiar contraseña' }).click();
 
   // "Mostrar" deja ver lo que se escribe.
   const actual = seccion.getByLabel('Contraseña actual', { exact: true });
@@ -37,7 +38,9 @@ test('cambiar la contraseña: pide la actual, cierra las otras sesiones y esta s
   await seccion.getByLabel('Repite la contraseña nueva').fill(nueva);
   await seccion.getByRole('button', { name: 'Cambiar contraseña' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Contraseña cambiada.' })).toBeVisible();
-  await expect(actual).toHaveValue('');
+  // Cambiada, el formulario se cierra y vuelve la fila con "Cambiar".
+  await expect(actual).toHaveCount(0);
+  await expect(seccion.getByRole('button', { name: 'Cambiar contraseña' })).toBeFocused();
 
   // Esta sesión sigue; la del otro celular se cerró.
   await page.goto('/hoy');

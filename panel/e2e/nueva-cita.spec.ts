@@ -30,7 +30,7 @@ test.describe('nueva cita: el cliente primero', () => {
     await expect(page).toHaveURL(destino6);
     // No pide teléfono: lo pone el servidor.
     await expect(page.getByLabel('Teléfono del cliente')).toHaveCount(0);
-    await page.locator('label').filter({ has: page.getByRole('radio') }).first().click();
+    await page.locator('main label').filter({ has: page.getByRole('radio') }).first().click();
     await page.getByRole('button', { name: 'Agendar cita' }).click();
 
     await expect(page.getByRole('status').filter({ hasText: 'Cita agendada.' })).toBeVisible();

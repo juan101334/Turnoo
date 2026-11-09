@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SECCIONES, SECCIONES_DE_MAS, textoDelContador, type ClaveSeccion, type Contadores, type Grupo } from '@/lib/navegacion';
+import type { Tema } from '@/lib/tema';
 import { ICONOS } from './iconos';
+import { BotonDeTema, SelectorDeTema } from './selector-de-tema';
 
 /** La sección está activa en su ruta y en las que cuelgan de ella; "Más" también en sus secciones. */
 function activa(clave: ClaveSeccion, ruta: string): boolean {
@@ -92,9 +94,19 @@ function EnlaceLateral({ clave, ruta, n }: { clave: ClaveSeccion; ruta: string; 
 
 /**
  * Menú lateral: en tablet (768 a 1023 px) solo íconos con su nombre corto debajo; desde 1024 px,
- * completo y agrupado. "Cuenta" queda al pie.
+ * completo y agrupado. Al pie, el tema y "Cuenta".
  */
-export function NavLateral({ grupos, conCuenta, contadores = {} }: { grupos: Grupo[]; conCuenta: boolean; contadores?: Contadores }) {
+export function NavLateral({
+  grupos,
+  conCuenta,
+  contadores = {},
+  tema,
+}: {
+  grupos: Grupo[];
+  conCuenta: boolean;
+  contadores?: Contadores;
+  tema: Tema;
+}) {
   const ruta = usePathname();
   return (
     <nav aria-label="Principal" className="flex min-h-0 flex-1 flex-col">
@@ -113,11 +125,13 @@ export function NavLateral({ grupos, conCuenta, contadores = {} }: { grupos: Gru
           </div>
         ))}
       </div>
-      {conCuenta && (
-        <div className="border-t border-borde p-2 lg:p-3">
-          <EnlaceLateral clave="cuenta" ruta={ruta} n={undefined} />
+      <div className="flex flex-col gap-1 border-t border-borde p-2 lg:gap-2 lg:p-3">
+        <BotonDeTema tema={tema} className="mx-auto lg:hidden" />
+        <div className="hidden lg:block">
+          <SelectorDeTema tema={tema} variante="iconos" />
         </div>
-      )}
+        {conCuenta && <EnlaceLateral clave="cuenta" ruta={ruta} n={undefined} />}
+      </div>
     </nav>
   );
 }

@@ -63,13 +63,49 @@
 }
 
 /*
- * Modo oscuro, según el sistema del celular o del PC (sin botón: menos decisiones). Se cambian
- * los mismos nombres, así ningún componente cambia. Contrastes medidos (AA): texto 14.3:1 y suave
- * 7.3:1 sobre la superficie; marca 7.4:1. "white" pasa a ser casi negro: es el texto que va sobre
- * la marca, el peligro y los avisos, que en oscuro son claros.
+ * Modo oscuro. La persona elige en Cuenta o en el menú: Sistema (sigue al celular o al PC), Claro
+ * u Oscuro. La elección va en la cookie turnoo_tema y el servidor la pone en <html data-tema>, así
+ * la primera pintada ya sale con el tema correcto, sin destello. Sin data-tema = Sistema.
+ *
+ * Se cambian los mismos nombres, así ningún componente cambia. Contrastes medidos (AA): texto
+ * 14.3:1 y suave 7.3:1 sobre la superficie; marca 7.4:1. "white" pasa a ser casi negro: es el
+ * texto que va sobre la marca, el peligro y los avisos, que en oscuro son claros.
+ *
+ * Los valores van dos veces (oscuro elegido y oscuro del sistema): CSS no deja compartir un
+ * bloque entre un selector y un @media. light-dark() lo evitaría, pero no existe en iOS 16 y ahí
+ * dejaría la página sin colores. Si cambias uno, cambia el otro (lo revisa e2e/tema.spec.ts).
  */
+:root[data-tema='oscuro'] {
+  --color-marca: #5cb2e6;
+  --color-marca-oscura: #9ad3f4;
+  --color-marca-suave: #12324a;
+  --color-acento: #38bdf8;
+  --color-acento-claro: #075985;
+  --color-fondo: #0b141d;
+  --color-superficie: #111c27;
+  --color-hundido: #182634;
+  --color-texto: #e4ebf1;
+  --color-suave: #9aabbb;
+  --color-borde: #283849;
+  --color-borde-fuerte: #3c4f62;
+  --color-peligro: #f2837a;
+  --color-peligro-suave: #3a1717;
+  --color-exito: #5fd08f;
+  --color-exito-suave: #10301e;
+  --color-aviso: #f2b64c;
+  --color-aviso-suave: #352610;
+  --color-estado-por-aprobar: #f2a33c;
+  --color-estado-pendiente: #7f91a3;
+  --color-estado-confirmada: #5cb2e6;
+  --color-estado-completada: #4cc483;
+  --color-estado-no-asistio: #f2837a;
+  --color-estado-cancelada: #3c4f62;
+  --color-white: #07121c;
+  --shadow-flotante: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-tema='claro']) {
     --color-marca: #5cb2e6;
     --color-marca-oscura: #9ad3f4;
     --color-marca-suave: #12324a;
@@ -99,11 +135,29 @@
   }
 }
 
+/* dark: de Tailwind sigue la misma regla que los colores: elegido, o del sistema si no se eligió Claro. */
+@custom-variant dark {
+  &:where([data-tema='oscuro'], [data-tema='oscuro'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-tema='claro']), :root:not([data-tema='claro']) *) {
+      @slot;
+    }
+  }
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    /* Los controles del sistema (fechas, horas, barras de desplazamiento) siguen el modo. */
+    /* Los controles del sistema (fechas, horas, barras de desplazamiento) siguen el tema. */
     color-scheme: light dark;
+  }
+  html[data-tema='claro'] {
+    color-scheme: light;
+  }
+  html[data-tema='oscuro'] {
+    color-scheme: dark;
   }
   body {
     @apply bg-fondo text-texto antialiased;
