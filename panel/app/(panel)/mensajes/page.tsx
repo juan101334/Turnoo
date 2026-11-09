@@ -19,7 +19,7 @@ export default async function PaginaMensajes({ searchParams }: { searchParams: P
   const lista = await leerConversaciones(todas ? undefined : 'humano');
 
   return (
-    <div className="mx-auto max-w-2xl lg:max-w-none">
+    <div className="ancho-completo">
       <RefrescoAutomatico />
       <h1 className="text-2xl font-semibold">Mensajes</h1>
       <p className="mb-4 text-sm text-suave">Clientes de WhatsApp que el asistente pasó a una persona del negocio. Respóndeles desde aquí.</p>

@@ -19,7 +19,7 @@ export default async function PaginaEditarServicio({ params }: { params: Promise
   if (!s) notFound();
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-formulario">
       <Link href={`/equipo/${b.id}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         {b.nombre}

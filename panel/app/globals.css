@@ -184,6 +184,26 @@
   }
 }
 
+/*
+ * Los tres anchos de las páginas del panel. Todas arrancan en el mismo borde izquierdo (no se
+ * centran): al pasar de una a otra, el título no salta de lugar. En el celular y la tablet las
+ * tres ocupan todo el ancho disponible.
+ * - formulario (672 px): un formulario o una sola cosa (Cuenta, Nueva cita, el detalle de una cita).
+ * - lista (1024 px): listas y pantallas con columnas (Clientes, Usuarios, Ajustes).
+ * - completo: el día y las conversaciones (Hoy, Agenda, Mensajes), que aprovechan todo el ancho.
+ */
+@utility ancho-formulario {
+  width: 100%;
+  max-width: var(--container-2xl);
+}
+@utility ancho-lista {
+  width: 100%;
+  max-width: var(--container-5xl);
+}
+@utility ancho-completo {
+  width: 100%;
+}
+
 /* Horas y precios: números de ancho fijo, para que las columnas no bailen. */
 @utility cifras {
   font-family: var(--font-num);

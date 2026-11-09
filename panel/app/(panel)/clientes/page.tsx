@@ -20,7 +20,7 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
   const enlace = (n: number) => `/clientes?${new URLSearchParams({ ...(buscar && { buscar }), pagina: String(n) })}`;
 
   return (
-    <div className="mx-auto max-w-2xl lg:max-w-5xl">
+    <div className="ancho-lista">
       <h1 className="text-2xl font-semibold">{usuario.rol === 'dueno' ? 'Clientes' : 'Mis clientes'}</h1>
       <p className="mb-4 text-sm text-suave">
         {usuario.rol === 'dueno' ? 'Todos los clientes del negocio.' : 'Los clientes que tienen o tuvieron cita contigo.'}

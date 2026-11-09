@@ -60,7 +60,7 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
   const asignables = usuarios.filter((u) => u.estado !== 'desactivado' && (u.profesionalId === null || u.profesionalId === b.id));
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-formulario">
       <Link href="/equipo" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Barberos y servicios

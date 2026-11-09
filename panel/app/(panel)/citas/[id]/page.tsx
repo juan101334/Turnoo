@@ -30,7 +30,7 @@ export default async function PaginaCita({ params, searchParams }: { params: Pro
   const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-formulario">
       <Link href={`/agenda?fecha=${fecha}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Agenda del día

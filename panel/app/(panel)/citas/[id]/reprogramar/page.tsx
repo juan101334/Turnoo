@@ -37,7 +37,7 @@ export default async function PaginaReprogramar({ params, searchParams }: { para
   const { semana, dia: numero } = partesDelDia(dia);
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-formulario">
       <Link href={`/citas/${cita.id}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Volver a la cita

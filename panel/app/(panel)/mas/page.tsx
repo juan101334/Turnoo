@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: 'Más' };
 export default async function PaginaMas() {
   const usuario = await exigirUsuario('mas');
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-formulario">
       <h1 className="mb-4 text-2xl font-semibold">Más</h1>
       <div className="flex flex-col gap-5">
         {gruposDeMas(usuario.rol).map((g) => (

@@ -28,7 +28,7 @@ export default async function PaginaUsuarios() {
   const ordenados = [...usuarios].sort((a, b) => orden[a.estado] - orden[b.estado] || a.nombre.localeCompare(b.nombre));
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-lista">
       <div className="mb-1 flex items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold">Usuarios</h1>
         <AccionPrincipal href="/usuarios/invitar" etiqueta="Invitar" Icono={UserPlus} />

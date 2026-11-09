@@ -220,7 +220,7 @@ export async function VistaDeAgenda({
   const conPanel = abierta !== undefined;
 
   return (
-    <div className="mx-auto max-w-4xl lg:max-w-none">
+    <div className="ancho-completo">
       <RefrescoAutomatico />
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">

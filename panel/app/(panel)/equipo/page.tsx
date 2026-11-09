@@ -18,7 +18,7 @@ export default async function PaginaEquipo() {
   const ordenados = [...barberos].sort((a, b) => Number(b.activo) - Number(a.activo) || a.nombre.localeCompare(b.nombre));
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-lista">
       <h1 className="text-2xl font-semibold">Barberos y servicios</h1>
       <p className="mb-4 text-sm text-suave">Toca un barbero para cambiar sus servicios, precios, horario y acceso al panel.</p>
 
