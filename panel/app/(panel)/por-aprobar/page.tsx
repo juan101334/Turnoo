@@ -9,6 +9,8 @@ import { diaRelativo, fechaDe, fechaLarga, horaLocal, hoyEn } from '@/lib/fechas
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
 import { AccionesCita } from '@/componentes/acciones-cita';
+import { ProveedorDeAprobacion } from '@/componentes/acciones-con-deshacer';
+import { BotonAprobar, TarjetaPorAprobar } from '@/componentes/por-aprobar-con-deshacer';
 
 export const metadata: Metadata = { title: SECCIONES.porAprobar.etiqueta };
 
@@ -40,37 +42,46 @@ export default async function PaginaPorAprobar() {
           <p>No hay citas esperando tu aprobación.</p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {citas.map((c) => {
-            const fecha = fechaDe(c.inicio, zona);
-            const dia = diaRelativo(fecha, hoy) ?? fechaLarga(fecha);
-            return (
-              <li key={c.id} className="rounded-xl border border-borde bg-superficie p-4">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold first-letter:uppercase">
-                      {dia} · <span className="tabular-nums">{horaLocal(c.inicio, zona)}</span>
-                    </p>
-                    <p className="truncate">{c.clienteNombre ?? 'Cliente sin nombre'}</p>
-                    <p className="truncate text-sm text-suave">
-                      {nombresDeServicios(c.servicios)} · {c.profesionalNombre} · <span className="tabular-nums">{pesos(c.precioTotalCop)}</span>
-                    </p>
+        <ProveedorDeAprobacion>
+          <ul className="flex flex-col gap-3">
+            {citas.map((c) => {
+              const fecha = fechaDe(c.inicio, zona);
+              const dia = diaRelativo(fecha, hoy) ?? fechaLarga(fecha);
+              const acciones = accionesPosibles(c, ahora);
+              const cliente = c.clienteNombre ?? 'Cliente sin nombre';
+              return (
+                <TarjetaPorAprobar key={c.id} citaId={c.id}>
+                  <div className="mb-3 flex flex-col-reverse items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold first-letter:uppercase">
+                        {dia} · <span className="whitespace-nowrap tabular-nums">{horaLocal(c.inicio, zona)}</span>
+                      </p>
+                      <p className="truncate">{cliente}</p>
+                      <p className="text-sm text-suave">
+                        {nombresDeServicios(c.servicios)} · {c.profesionalNombre} · <span className="tabular-nums">{pesos(c.precioTotalCop)}</span>
+                      </p>
+                    </div>
+                    {c.aprobacionExpiraEn && <CuentaRegresiva hasta={c.aprobacionExpiraEn} ahora={ahora.getTime()} />}
                   </div>
-                  {c.aprobacionExpiraEn && <CuentaRegresiva hasta={c.aprobacionExpiraEn} ahora={ahora.getTime()} />}
-                </div>
-                {accionesPosibles(c, ahora).length > 0 ? (
-                  <AccionesCita citaId={c.id} acciones={accionesPosibles(c, ahora)} />
-                ) : (
-                  <p className="text-sm text-suave">Ya no se puede aprobar: el sistema la cancelará en unos minutos.</p>
-                )}
-                <Link href={`/citas/${c.id}`} className="mt-2 flex min-h-11 items-center justify-center gap-1 text-sm font-medium text-marca">
-                  Ver detalle
-                  <ChevronRight aria-hidden className="size-4" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                  {acciones.includes('aprobar') ? (
+                    // Aprobar se puede deshacer unos segundos (aún no se le avisó al cliente); rechazar pide confirmación.
+                    <AccionesCita
+                      citaId={c.id}
+                      acciones={acciones.filter((a) => a !== 'aprobar')}
+                      antes={<BotonAprobar citaId={c.id} cliente={cliente} />}
+                    />
+                  ) : (
+                    <p className="text-sm text-suave">Ya no se puede aprobar: el sistema la cancelará en unos minutos.</p>
+                  )}
+                  <Link href={`/citas/${c.id}`} className="mt-2 flex min-h-11 items-center justify-center gap-1 text-sm font-medium text-marca">
+                    Ver detalle
+                    <ChevronRight aria-hidden className="size-4" />
+                  </Link>
+                </TarjetaPorAprobar>
+              );
+            })}
+          </ul>
+        </ProveedorDeAprobacion>
       )}
       <p className="mt-4 text-center text-xs text-suave">Se muestran las de los próximos {DIAS_POR_APROBAR} días.</p>
     </div>

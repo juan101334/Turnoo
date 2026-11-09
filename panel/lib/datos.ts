@@ -114,10 +114,15 @@ export const cita = cache(async (id: string): Promise<Cita> => {
  * Para el panel lateral de la agenda (?cita=): una cita que no existe o es de otro barbero no
  * convierte la agenda entera en "no existe"; el panel lo dice y la agenda se sigue viendo.
  */
-export const citaSiExiste = cache(async (id: unknown): Promise<Cita | null> => {
-  if (!esId(id)) return null;
+export const citaSiExiste = cache(async (id: unknown): Promise<Cita | null> => (esId(id) ? siExiste<Cita>(`/citas/${id}`) : null));
+
+/** Para Nueva cita (?cliente=id): un cliente que ya no existe se busca otra vez, sin pantalla de error. */
+export const clienteSiExiste = cache(async (id: unknown): Promise<Cliente | null> => (esId(id) ? siExiste<Cliente>(`/clientes/${id}`) : null));
+
+/** Como leer(), pero un 404 (no existe o no es de este barbero) devuelve null. */
+async function siExiste<T>(ruta: string): Promise<T | null> {
   try {
-    return await llamarAlBackend<Cita>(`/citas/${id}`);
+    return await llamarAlBackend<T>(ruta);
   } catch (error) {
     if (error instanceof ErrorDelBackend) {
       if (error.estado === 401) redirect('/sesion-vencida');
@@ -125,7 +130,7 @@ export const citaSiExiste = cache(async (id: unknown): Promise<Cita | null> => {
     }
     throw error;
   }
-});
+}
 
 export interface Barbero {
   id: string;

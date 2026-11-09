@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import type { Horario } from './administracion';
+import { horaDelDia, horaLocal } from './fechas';
 import type { Bloqueo } from './bloqueos';
 import type { Cita, EstadoCita } from './citas';
 
@@ -157,4 +158,29 @@ export function quienSigue<T extends Pick<Cita, 'inicio' | 'fin' | 'estado'>>(ci
 /** Instante ISO de un minuto del día (para enlazar una hora libre). */
 export function instanteDe(fecha: string, minutos: number, zona: string): string {
   return DateTime.fromISO(fecha, { zone: zona }).startOf('day').plus({ minutes: minutos }).toISO()!;
+}
+
+/** Una hora libre lista para mostrar: el instante que pide el backend y su texto en la zona del negocio. */
+export interface HoraLibre {
+  inicio: string;
+  etiqueta: string;
+  franja: 'Mañana' | 'Tarde' | 'Noche';
+}
+
+/** Mañana hasta las 12, tarde hasta las 18 y noche después: con 40 horas seguidas cuesta encontrar "las 4". */
+export function horasLibres(huecos: { inicio: string }[], zona: string): HoraLibre[] {
+  return huecos.map((h) => {
+    const hora = horaDelDia(h.inicio, zona);
+    return { inicio: h.inicio, etiqueta: horaLocal(h.inicio, zona), franja: hora < 12 ? 'Mañana' : hora < 18 ? 'Tarde' : 'Noche' };
+  });
+}
+
+/**
+ * La hora a dejar marcada cuando se llega desde un hueco de la agenda (?hora=): la misma si está
+ * libre, o la primera libre después. Nada si la hora pedida no es válida o ya no queda ninguna.
+ */
+export function horaElegida(horas: Pick<HoraLibre, 'inicio'>[], pedida: string | undefined): string | undefined {
+  const momento = pedida ? Date.parse(pedida) : Number.NaN;
+  if (Number.isNaN(momento)) return undefined;
+  return horas.find((h) => Date.parse(h.inicio) >= momento)?.inicio;
 }

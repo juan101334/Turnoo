@@ -61,6 +61,7 @@ test.describe('flujos principales', () => {
     await entrarYEsperar(page, datos().empleado);
     await page.getByRole('link', { name: 'Nueva cita' }).click();
     await expect(page.getByRole('heading', { name: 'Nueva cita' })).toBeVisible();
+    await page.getByRole('link', { name: 'Cliente nuevo' }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
     await page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(5).click();

@@ -2,7 +2,7 @@
 
 import { CalendarClock, Check, UserX, X } from 'lucide-react';
 import Link from 'next/link';
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, type ReactNode } from 'react';
 import { Aviso } from '@/componentes/aviso';
 import { useAvisar } from '@/componentes/avisos-flotantes';
 import { BotonEnviar } from '@/componentes/formulario';
@@ -34,7 +34,7 @@ const ESTILOS = {
   peligro: 'bg-peligro text-white hover:opacity-90',
 } as const;
 
-export function AccionesCita({ citaId, acciones }: { citaId: string; acciones: Accion[] }) {
+export function AccionesCita({ citaId, acciones, antes }: { citaId: string; acciones: Accion[]; /** Un botón propio de la pantalla, primero en la fila. */ antes?: ReactNode }) {
   const [estado, enviar] = useActionState<EstadoAccion, FormData>(accionSobreCita.bind(null, citaId), {});
   const [confirmando, setConfirmando] = useState<Accion | null>(null);
   const avisar = useAvisar();
@@ -42,7 +42,7 @@ export function AccionesCita({ citaId, acciones }: { citaId: string; acciones: A
     if (estado.listo) avisar(estado.listo);
   }, [estado, avisar]);
 
-  if (acciones.length === 0) {
+  if (acciones.length === 0 && !antes) {
     return null;
   }
 
@@ -77,6 +77,7 @@ export function AccionesCita({ citaId, acciones }: { citaId: string; acciones: A
         </form>
       ) : (
         <div className="grid grid-cols-2 gap-2">
+          {antes}
           {acciones.map((accion) => {
             if (accion === 'reprogramar') {
               return (

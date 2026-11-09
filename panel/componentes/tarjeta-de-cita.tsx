@@ -4,7 +4,7 @@ import { Check, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { ESTADOS, type EstadoCita } from '@/lib/citas';
 import { InsigniaEstado } from './estado-cita';
-import { useMarcado } from './marcado-rapido';
+import { useAccionDiferida } from './accion-diferida';
 
 /** Lo que muestra la tarjeta, ya en texto (las horas se calculan en el servidor, en la zona del negocio). */
 export interface VistaDeCita {
@@ -25,8 +25,8 @@ export interface VistaDeCita {
  * insignia escrita: nunca solo color). Toda la tarjeta abre el detalle; "Completada" va aparte.
  */
 export function TarjetaDeCita({ cita }: { cita: VistaDeCita }) {
-  const { marcadas, completar } = useMarcado();
-  const marcada = marcadas.has(cita.id);
+  const { hechas, hacer: completar } = useAccionDiferida();
+  const marcada = hechas.has(cita.id);
   const estado = marcada ? 'completada' : cita.estado;
   return (
     <li
