@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   accionesDeUsuario,
+  accionesDelSuperadmin,
   cambiosDeConfiguracion,
   GRUPOS_DE_CONFIGURACION,
   horaLegible,
@@ -127,5 +128,15 @@ describe('cambiosDeConfiguracion', () => {
     const soloRecordatorios = (clave: keyof Configuracion) =>
       recordatorios.some((c) => c.clave === clave) ? (clave === 'horasRecordatorio' ? '12' : String(actual[clave])) : '';
     expect(cambiosDeConfiguracion(soloRecordatorios, actual, recordatorios)).toEqual({ cambios: { horasRecordatorio: 12 } });
+  });
+});
+
+describe('acciones del superadmin sobre un usuario', () => {
+  it('a un activo (también dueño) le da enlace de contraseña nueva y desactivar', () => {
+    expect(accionesDelSuperadmin({ estado: 'activo' })).toEqual(['recuperacion', 'desactivar']);
+  });
+  it('a un pendiente, reenviar la invitación y desactivar; a un desactivado, solo reenviar', () => {
+    expect(accionesDelSuperadmin({ estado: 'pendiente' })).toEqual(['reenviarInvitacion', 'desactivar']);
+    expect(accionesDelSuperadmin({ estado: 'desactivado' })).toEqual(['reenviarInvitacion']);
   });
 });

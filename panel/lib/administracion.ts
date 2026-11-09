@@ -73,6 +73,16 @@ export function accionesDeUsuario(u: Pick<UsuarioDelNegocio, 'id' | 'rol' | 'est
   return acciones;
 }
 
+/**
+ * Lo que el superadmin puede hacer con un usuario de un negocio: como el dueño, pero también con
+ * dueños (es quien les da un enlace nuevo cuando olvidan su contraseña).
+ */
+export function accionesDelSuperadmin(u: Pick<UsuarioDelNegocio, 'estado'>): AccionDeUsuario[] {
+  const acciones: AccionDeUsuario[] = [u.estado === 'activo' ? 'recuperacion' : 'reenviarInvitacion'];
+  if (u.estado !== 'desactivado') acciones.push('desactivar');
+  return acciones;
+}
+
 /** Mensaje para enviar el enlace por WhatsApp, ya listo para wa.me/?text=. */
 export function mensajeConEnlace(tipo: 'invitacion' | 'recuperacion', nombreNegocio: string, enlace: string): string {
   const inicio = tipo === 'invitacion' ? `Te invito al panel de ${nombreNegocio} en Turnoo. Entra aquí y crea tu contraseña:` : `Para poner una contraseña nueva en el panel de ${nombreNegocio}, entra aquí:`;
