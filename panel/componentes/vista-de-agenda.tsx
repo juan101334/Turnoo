@@ -1,5 +1,6 @@
 import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import {
   bloqueosDe,
   desdeAhora,
@@ -51,6 +52,7 @@ export async function VistaDeAgenda({
   ruta,
   barbero,
   citaAbierta,
+  arriba,
 }: {
   usuario: UsuarioDelNegocio;
   fecha: string;
@@ -60,6 +62,8 @@ export async function VistaDeAgenda({
   barbero?: string | undefined;
   /** ?cita= tal como llegó: abre el panel lateral en el escritorio. */
   citaAbierta?: string | undefined;
+  /** Algo propio de la pantalla bajo el encabezado (en Hoy, los primeros pasos del dueño). */
+  arriba?: ReactNode;
 }) {
   const zona = usuario.negocio.zonaHoraria;
   const ahora = new Date();
@@ -248,6 +252,7 @@ export async function VistaDeAgenda({
         </div>
       </div>
 
+      {arriba}
       {conFiltro && (
         <div className="mb-3">
           <FiltroDeBarberos barberos={equipo} elegido={elegido?.id} enlace={(b) => enlace({ barbero: b })} />

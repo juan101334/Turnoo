@@ -13,6 +13,7 @@
   --color-marca-oscura: #0c4a6e;
   --color-marca-suave: #e3eff7;
   --color-acento: #0284c7; /* solo gráficos (logo): 4.1:1 sobre blanco, NO sirve para texto */
+  --color-acento-claro: #7dd3fc; /* el arco del logo sobre el azul de la marca */
   --color-fondo: #f5f7f9;
   --color-superficie: #ffffff;
   --color-hundido: #eef2f5; /* zonas de apoyo: esqueletos, filas alternas */

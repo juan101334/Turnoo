@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { Aviso } from '@/componentes/aviso';
-import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, Campo, CampoContrasena, EnvioSinReinicio } from '@/componentes/formulario';
 import { iniciarSesion } from '../acciones';
 
 export function FormularioLogin() {
@@ -22,7 +22,7 @@ export function FormularioLogin() {
         spellCheck={false}
         required
       />
-      <Campo id="password" name="password" type="password" etiqueta="Contraseña" autoComplete="current-password" required />
+      <CampoContrasena id="password" name="password" etiqueta="Contraseña" autoComplete="current-password" required />
       <BotonEnviar enviando="Entrando…">Entrar</BotonEnviar>
     </form>
     </EnvioSinReinicio>

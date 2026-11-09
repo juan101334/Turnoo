@@ -95,18 +95,38 @@ export async function cambiarServicioActivo(barberoId: string, servicioId: strin
   return {};
 }
 
+/**
+ * Agrega el mismo rango a uno o varios días (por ejemplo, de lunes a viernes de 8:00 a 12:00).
+ * El backend recibe un rango por día; si uno falla, se avisa cuáles quedaron guardados.
+ */
 export async function crearHorario(barberoId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
   if (!esId(barberoId)) return NO_VALIDO;
-  const diaSemana = leerEntero(texto(datos, 'dia'));
+  const dias = [...new Set(datos.getAll('dias').map((d) => leerEntero(typeof d === 'string' ? d : '')))].sort((a, b) => (a ?? 0) - (b ?? 0));
   const horaInicio = texto(datos, 'desde');
   const horaFin = texto(datos, 'hasta');
-  if (diaSemana === null || diaSemana < 1 || diaSemana > 7) return { error: 'Elige el día.' };
+  if (dias.length === 0) return { error: 'Elige al menos un día.' };
+  if (dias.some((d) => d === null || d < 1 || d > 7)) return { error: 'Elige días de la semana.' };
   if (!HORA.test(horaInicio) || !HORA.test(horaFin)) return { error: 'Escribe la hora de inicio y la de fin.' };
   if (horaInicio >= horaFin) return { error: 'El horario debe empezar antes de terminar.' };
-  const r = await pedir(`/profesionales/${barberoId}/horarios`, 'POST', { diaSemana, horaInicio, horaFin });
-  if ('error' in r) return r;
+  const rango = `${horaLegible(horaInicio)} a ${horaLegible(horaFin)}`;
+  const guardados: number[] = [];
+  for (const diaSemana of dias as number[]) {
+    const r = await pedir(`/profesionales/${barberoId}/horarios`, 'POST', { diaSemana, horaInicio, horaFin });
+    if ('error' in r) {
+      if (guardados.length > 0) refrescar();
+      const antes = guardados.length > 0 ? ` Sí quedó en ${listaDeDias(guardados)}.` : '';
+      return { error: `${nombreDelDia(diaSemana)}: ${r.error}${antes}` };
+    }
+    guardados.push(diaSemana);
+  }
   refrescar();
-  return { listo: `${nombreDelDia(diaSemana)}: ${horaLegible(horaInicio)} a ${horaLegible(horaFin)} agregado.` };
+  return { listo: `${listaDeDias(guardados)}: ${rango} agregado.` };
+}
+
+/** 'Lunes', 'Lunes y Martes' o 'Lunes, Martes y Miércoles'. */
+function listaDeDias(dias: number[]): string {
+  const nombres = dias.map(nombreDelDia);
+  return nombres.length <= 1 ? (nombres[0] ?? '') : `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`;
 }
 
 export interface ResultadoQuitarHorario {

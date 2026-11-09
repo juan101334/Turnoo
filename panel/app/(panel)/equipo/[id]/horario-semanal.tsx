@@ -48,7 +48,7 @@ export function HorarioSemanal({ barberoId, dias }: { barberoId: string; dias: {
       <ul className="divide-y divide-borde rounded-xl border border-borde">
         {dias.map(({ dia, nombre, rangos }) => (
           <li key={dia} className="flex items-start gap-3 px-3 py-2">
-            <span className="w-24 shrink-0 pt-2.5 text-sm font-medium">{nombre}</span>
+            <span className="w-20 shrink-0 pt-2.5 text-sm font-medium sm:w-24">{nombre}</span>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               {rangos.length === 0 && <span className="pt-2.5 text-sm text-suave">No atiende</span>}
               {rangos.map((r) =>
@@ -73,7 +73,7 @@ export function HorarioSemanal({ barberoId, dias }: { barberoId: string; dias: {
                   </div>
                 ) : (
                   <div key={r.id} className="flex items-center justify-between gap-2">
-                    <span className="text-sm tabular-nums">
+                    <span className="text-sm whitespace-nowrap tabular-nums">
                       {horaLegible(r.horaInicio)} a {horaLegible(r.horaFin)}
                     </span>
                     <button

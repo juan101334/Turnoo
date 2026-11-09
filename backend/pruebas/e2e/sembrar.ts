@@ -47,6 +47,8 @@ async function usuario(rol: 'dueno' | 'empleado', nombre: string, profesionalId?
 }
 
 const dueno = await usuario('dueno', 'Dueño E2E');
+// Solo para cambiar su contraseña (e2e/cuenta.spec.ts): así no cambia la de los demás.
+const cuentaPropia = await usuario('dueno', 'Dueña Cuenta');
 const barberoE2E = await crearProfesional(negocio, 'Barbero E2E');
 const empleado = await usuario('empleado', 'Barbero E2E', barberoE2E);
 const barberoDos = await crearProfesional(negocio, 'Barbero Dos');
@@ -266,6 +268,7 @@ console.log(
     recuperacion: { email: recuperable.email, token: recuperacion.token },
     agenda: { fecha: pasadoManana.toISODate(), citaAjena },
     vista: { fecha: diaDeVista.toISODate() },
+    cuenta: cuentaPropia.email,
     clientes: { editable: clienteEditable, borrable: clienteBorrable },
     conversaciones,
   }),

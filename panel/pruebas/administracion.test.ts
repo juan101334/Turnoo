@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   accionesDeUsuario,
   cambiosDeConfiguracion,
+  GRUPOS_DE_CONFIGURACION,
   horaLegible,
   horariosPorDia,
   leerEntero,
@@ -118,5 +119,13 @@ describe('cambiosDeConfiguracion', () => {
     expect(cambiosDeConfiguracion(formulario({ anticipacionMaxDias: '400' }), actual)).toEqual({ error: 'Agendar como máximo con: escribe un número entre 1 y 365.' });
     expect(cambiosDeConfiguracion(formulario({ intervaloMinutos: '7' }), actual)).toEqual({ error: 'Horas que se ofrecen cada: elige una de las opciones.' });
     expect(cambiosDeConfiguracion(formulario({ recordatorioNoDespuesDe: '25:00' }), actual)).toEqual({ error: 'Ni después de las: escribe una hora.' });
+  });
+
+  it('una sección mira solo sus campos: los de otras no se leen ni se envían', () => {
+    const recordatorios = GRUPOS_DE_CONFIGURACION.find((g) => g.id === 'recordatorios')!.campos;
+    // En el formulario de Recordatorios no vienen los demás campos: leerlos daría vacío.
+    const soloRecordatorios = (clave: keyof Configuracion) =>
+      recordatorios.some((c) => c.clave === clave) ? (clave === 'horasRecordatorio' ? '12' : String(actual[clave])) : '';
+    expect(cambiosDeConfiguracion(soloRecordatorios, actual, recordatorios)).toEqual({ cambios: { horasRecordatorio: 12 } });
   });
 });

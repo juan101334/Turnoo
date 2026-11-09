@@ -15,6 +15,8 @@ test.describe('agenda en el celular', () => {
   test.beforeEach(({}, info) => test.skip(!esCelular(info.project.name), 'Lista del celular'));
 
   test('"Completada" en la tarjeta: Deshacer la deja como estaba y no se guarda', async ({ page }) => {
+    // Reloj quieto: los 7 s para deshacer no se acaban aunque la máquina vaya lenta.
+    await page.clock.install();
     await entrarYEsperar(page, datos().empleado);
     const cita = tarjeta(page, 'Cliente Deshacer');
     await cita.getByRole('button', { name: 'Completada, Cliente Deshacer' }).click();

@@ -13,6 +13,8 @@ export interface Datos {
   agenda: { fecha: string; citaAjena: string };
   /** Día solo para mirar la agenda: 9:00 una cita por barbero; 13:00 a 14:00, almuerzo del Barbero E2E. */
   vista: { fecha: string };
+  /** Dueña solo para cambiar su contraseña (cuenta.spec.ts). */
+  cuenta: string;
   /** Clientes sin citas (ver sembrar.ts). */
   clientes: { editable: string; borrable: string };
   /** Conversaciones de WhatsApp: derivada hace 11 min, vieja (cliente escribió hace 30 h) y otra con el asistente. */

@@ -18,24 +18,32 @@ const ISOTIPO = {
 };
 
 /** Logo completo. Se le da la altura (h-*) y el ancho sale solo. */
-export function LogoTurnoo({ className = '' }: { className?: string }) {
+/** `claro`: sobre el azul de la marca (texto y primera o en blanco, arco en celeste claro). */
+const TONOS = {
+  normal: { texto: 'fill-marca-oscura', o1: 'fill-marca', o2: 'stroke-acento' },
+  claro: { texto: 'fill-white', o1: 'fill-white', o2: 'stroke-acento-claro' },
+} as const;
+
+export function LogoTurnoo({ className = '', tono = 'normal' }: { className?: string; tono?: keyof typeof TONOS }) {
+  const t = TONOS[tono];
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={WORDMARK.viewBox} role="img" className={`w-auto ${className}`}>
       <title>Turnoo</title>
-      <path d={WORDMARK.turn} className="fill-marca-oscura" />
-      <path d={WORDMARK.o1} className="fill-marca" />
-      <path d={WORDMARK.o2} fill="none" className="stroke-acento" strokeWidth={104} strokeLinecap="round" />
+      <path d={WORDMARK.turn} className={t.texto} />
+      <path d={WORDMARK.o1} className={t.o1} />
+      <path d={WORDMARK.o2} fill="none" className={t.o2} strokeWidth={104} strokeLinecap="round" />
     </svg>
   );
 }
 
 /** Solo las dos «o»: para espacios angostos (menú de tablet). */
-export function IsotipoTurnoo({ className = '' }: { className?: string }) {
+export function IsotipoTurnoo({ className = '', tono = 'normal', decorativo = false }: { className?: string; tono?: keyof typeof TONOS; /** Adorno: el lector de pantalla lo ignora. */ decorativo?: boolean }) {
+  const t = TONOS[tono];
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox={ISOTIPO.viewBox} role="img" className={className}>
-      <title>Turnoo</title>
-      <path d={ISOTIPO.o1} className="fill-marca" />
-      <path d={ISOTIPO.o2} fill="none" className="stroke-acento" strokeWidth={112} strokeLinecap="round" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox={ISOTIPO.viewBox} {...(decorativo ? { 'aria-hidden': true } : { role: 'img' })} className={className}>
+      {!decorativo && <title>Turnoo</title>}
+      <path d={ISOTIPO.o1} className={t.o1} />
+      <path d={ISOTIPO.o2} fill="none" className={t.o2} strokeWidth={112} strokeLinecap="round" />
     </svg>
   );
 }

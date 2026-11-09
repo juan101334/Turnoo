@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { alerta, datos, entrar, entrarYEsperar } from './datos';
 
 /**
@@ -14,10 +14,28 @@ const aviso = (page: Page, texto: string) => page.getByRole('status').filter({ h
 const diaIso = (fecha: string) => new Date(`${fecha}T12:00:00Z`).getUTCDay() || 7;
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-async function abrirBarbero(page: Page, nombre: string) {
+/** Abre la ficha del barbero y, si se pide, una de sus pestañas (Servicios es la primera). */
+async function abrirBarbero(page: Page, nombre: string, pestana?: 'Horario' | 'Acceso' | 'Datos') {
   await page.goto('/equipo');
   await page.getByRole('link', { name: new RegExp(`^${nombre}`) }).click();
   await expect(page.getByRole('heading', { level: 1, name: nombre })).toBeVisible();
+  if (pestana) {
+    await page.getByRole('navigation', { name: 'Secciones del barbero' }).getByRole('link', { name: pestana }).click();
+    await expect(page).toHaveURL(new RegExp(`pestana=${pestana.toLowerCase()}`));
+  }
+}
+
+/** Marca un día del horario tocando su botón (la casilla va oculta dentro); si ya estaba, lo deja. */
+async function marcarDia(horario: Locator, dia: string) {
+  const casilla = horario.getByRole('checkbox', { name: dia, exact: true });
+  if (!(await casilla.isChecked())) await horario.locator('label').filter({ has: horario.page().getByRole('checkbox', { name: dia, exact: true }) }).click();
+  await expect(casilla).toBeChecked();
+}
+
+/** Abre el menú "Acciones" de un usuario (si ya está abierto, lo deja así). */
+async function abrirAcciones(fila: Locator) {
+  const menu = fila.locator('details');
+  if (!(await menu.evaluate((d) => (d as HTMLDetailsElement).open))) await fila.getByText('Acciones', { exact: true }).click();
 }
 
 test.describe.serial('barberos, servicios y horarios', () => {
@@ -65,16 +83,16 @@ test.describe.serial('barberos, servicios y horarios', () => {
 
   test('horario: agregar un rango, rechazar uno al revés y quitarlo con confirmación', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
-    await abrirBarbero(page, 'Barbero Admin');
+    await abrirBarbero(page, 'Barbero Admin', 'Horario');
     const horario = seccion(page, 'Horario semanal');
 
-    await horario.getByLabel('Día').selectOption('Lunes');
+    await marcarDia(horario, 'Lunes');
     await horario.getByLabel('Desde').fill('12:00');
     await horario.getByLabel('Hasta').fill('08:00');
     await horario.getByRole('button', { name: 'Agregar horario' }).click();
     await expect(alerta(page)).toContainText('El horario debe empezar antes de terminar.');
 
-    await horario.getByLabel('Día').selectOption('Lunes');
+    await marcarDia(horario, 'Lunes');
     await horario.getByLabel('Desde').fill('08:00');
     await horario.getByLabel('Hasta').fill('12:00');
     await horario.getByRole('button', { name: 'Agregar horario' }).click();
@@ -90,10 +108,25 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await expect(quitar).toHaveCount(0);
   });
 
+  test('horario: el mismo rango a varios días de una vez', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await abrirBarbero(page, 'Barbero Admin', 'Horario');
+    const horario = seccion(page, 'Horario semanal');
+    await horario.getByRole('button', { name: 'De lunes a viernes' }).click();
+    for (const dia of DIAS.slice(0, 5)) await expect(horario.getByRole('checkbox', { name: dia })).toBeChecked();
+    await expect(horario.getByRole('checkbox', { name: 'Sábado' })).not.toBeChecked();
+    await horario.getByLabel('Desde').fill('14:00');
+    await horario.getByLabel('Hasta').fill('18:00');
+    await horario.getByRole('button', { name: 'Agregar horario' }).click();
+    await expect(aviso(page, 'Lunes, Martes, Miércoles, Jueves y Viernes: 2:00 p. m. a 6:00 p. m. agregado.')).toBeVisible();
+    for (const dia of DIAS.slice(0, 5)) await expect(horario.getByRole('button', { name: `Quitar ${dia} de 2:00 p. m. a 6:00 p. m.` })).toBeVisible();
+    await expect(horario.getByRole('button', { name: 'Quitar Sábado de 2:00 p. m. a 6:00 p. m.' })).toHaveCount(0);
+  });
+
   test('quitar un horario con citas avisa cuáles quedaron fuera, sin cancelarlas', async ({ page }) => {
     const dia = DIAS[diaIso(datos().agenda.fecha) - 1]!;
     await entrarYEsperar(page, datos().dueno);
-    await abrirBarbero(page, 'Barbero Dos');
+    await abrirBarbero(page, 'Barbero Dos', 'Horario');
     const horario = seccion(page, 'Horario semanal');
 
     await horario.getByRole('button', { name: `Quitar ${dia} de 8:00 a. m. a 8:00 p. m.` }).click();
@@ -102,7 +135,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await expect(horario.getByRole('link', { name: /10:00 a\. m\. · Cliente De Otro/ })).toBeVisible();
 
     // Se devuelve el horario para no cambiar la agenda que usan las otras pruebas.
-    await horario.getByLabel('Día').selectOption(dia);
+    await marcarDia(horario, dia);
     await horario.getByLabel('Desde').fill('08:00');
     await horario.getByLabel('Hasta').fill('20:00');
     await horario.getByRole('button', { name: 'Agregar horario' }).click();
@@ -111,12 +144,12 @@ test.describe.serial('barberos, servicios y horarios', () => {
 
   test('un barbero con citas futuras no se desactiva; uno sin citas sí, y se reactiva', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
-    await abrirBarbero(page, 'Barbero Dos');
+    await abrirBarbero(page, 'Barbero Dos', 'Datos');
     await page.getByRole('button', { name: 'Desactivar barbero' }).click();
     await page.getByRole('button', { name: 'Sí, desactivar' }).click();
     await expect(alerta(page)).toContainText(/citas? futuras?/);
 
-    await abrirBarbero(page, 'Barbero Admin');
+    await abrirBarbero(page, 'Barbero Admin', 'Datos');
     await page.getByRole('button', { name: 'Desactivar barbero' }).click();
     await expect(page.getByText('¿Desactivar a Barbero Admin?')).toBeVisible();
     await page.getByRole('button', { name: 'Sí, desactivar' }).click();
@@ -127,7 +160,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
 
   test('acceso al panel: asignar y quitar el usuario del barbero', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
-    await abrirBarbero(page, 'Barbero Admin');
+    await abrirBarbero(page, 'Barbero Admin', 'Acceso');
     const acceso = seccion(page, 'Acceso al panel');
     await acceso.getByLabel('Usuario').selectOption({ label: 'Dueño E2E (dueño)' });
     await acceso.getByRole('button', { name: 'Guardar acceso' }).click();
@@ -135,7 +168,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await page.goto('/equipo');
     await expect(page.getByRole('link', { name: /Barbero Admin/ })).toContainText('Entra al panel: Dueño E2E');
 
-    await abrirBarbero(page, 'Barbero Admin');
+    await abrirBarbero(page, 'Barbero Admin', 'Acceso');
     await acceso.getByLabel('Usuario').selectOption('');
     await acceso.getByRole('button', { name: 'Guardar acceso' }).click();
     await expect(aviso(page, 'El barbero quedó sin usuario.')).toBeVisible();
@@ -150,10 +183,15 @@ test.describe.serial('usuarios e invitaciones', () => {
     await page.goto('/usuarios');
     const yo = page.getByRole('listitem').filter({ hasText: '(tú)' });
     await expect(yo).toContainText('Dueño');
-    await expect(yo.getByRole('button', { name: 'Desactivar' })).toHaveCount(0);
+    // A uno mismo no hay nada que hacerle: sin menú de acciones.
+    await expect(yo.getByText('Acciones', { exact: true })).toHaveCount(0);
     const barbero = page.getByRole('listitem').filter({ hasText: datos().empleado });
     await expect(barbero).toContainText('Activo');
     await expect(barbero).toContainText('atiende como Barbero E2E');
+    // Las acciones van plegadas hasta abrir el menú.
+    await expect(barbero.getByRole('button', { name: 'Desactivar' })).toBeHidden();
+    await abrirAcciones(barbero);
+    await expect(barbero.getByRole('button', { name: 'Desactivar' })).toBeVisible();
   });
 
   test('invitar a un barbero da un enlace para compartir que sí sirve para entrar', async ({ page, browser }) => {
@@ -187,6 +225,7 @@ test.describe.serial('usuarios e invitaciones', () => {
     await page.goto('/usuarios');
     const invitado = page.getByRole('listitem').filter({ hasText: correo });
     await expect(invitado).toContainText('Activo');
+    await abrirAcciones(invitado);
     await invitado.getByRole('button', { name: 'Enlace para nueva contraseña' }).click();
     await expect(invitado.getByLabel('Enlace listo. Envíaselo solo a esa persona.')).toHaveValue(/\/restablecer-contrasena#token=/);
   });
@@ -195,10 +234,12 @@ test.describe.serial('usuarios e invitaciones', () => {
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/usuarios');
     const invitado = page.getByRole('listitem').filter({ hasText: correo });
+    await abrirAcciones(invitado);
     await invitado.getByRole('button', { name: 'Desactivar' }).click();
     await expect(invitado.getByText('¿Desactivar a Barbero Invitado?')).toBeVisible();
     await invitado.getByRole('button', { name: 'Sí, desactivar' }).click();
     await expect(invitado).toContainText('Desactivado');
+    await abrirAcciones(invitado);
     await invitado.getByRole('button', { name: 'Reenviar invitación' }).click();
     await expect(invitado.getByLabel('Enlace listo. Envíaselo solo a esa persona.')).toHaveValue(/\/aceptar-invitacion#token=/);
   });
@@ -219,17 +260,21 @@ test.describe.serial('ajustes del negocio', () => {
   test('reglas: sin cambios no envía nada; un cambio se guarda; una regla incoherente muestra el error', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/negocio');
-    await page.getByRole('button', { name: 'Guardar reglas' }).click();
+    await expect(page.getByRole('navigation', { name: 'Secciones de ajustes' }).getByRole('link', { name: 'Recordatorios' })).toHaveAttribute('href', '#recordatorios');
+    // Cada sección se guarda sola.
+    const recordatorios = seccion(page, 'Recordatorios');
+    const guardar = recordatorios.getByRole('button', { name: 'Guardar cambios' });
+    await guardar.click();
     await expect(page.getByText('No había cambios para guardar.')).toBeVisible();
 
-    await page.getByLabel('Recordar la cita (horas antes)').fill('12');
-    await page.getByRole('button', { name: 'Guardar reglas' }).click();
-    await expect(page.getByText('Reglas guardadas.')).toBeVisible();
+    await recordatorios.getByLabel('Recordar la cita (horas antes)').fill('12');
+    await guardar.click();
+    await expect(page.getByText('Recordatorios: cambios guardados.')).toBeVisible();
     await page.reload();
     await expect(page.getByLabel('Recordar la cita (horas antes)')).toHaveValue('12');
 
-    await page.getByLabel('No enviar antes de las').fill('21:00');
-    await page.getByRole('button', { name: 'Guardar reglas' }).click();
+    await recordatorios.getByLabel('No enviar antes de las').fill('21:00');
+    await guardar.click();
     await expect(alerta(page)).toContainText('El horario de recordatorios debe empezar antes de terminar');
   });
 });

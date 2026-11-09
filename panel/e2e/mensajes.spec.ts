@@ -31,7 +31,7 @@ test.describe.serial('mensajes', () => {
     await page.goto(`/mensajes/${datos().conversaciones.derivada}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Cliente Derivado' })).toBeVisible();
     await expect(historial(page)).toContainText('¿Tienen parqueadero?');
-    await expect(page.getByText(/^Hasta hoy a las .+ el asistente no le responde;/)).toBeVisible();
+    await expect(page.getByText(/^Hasta (hoy|mañana) a las .+ el asistente no le responde;/)).toBeVisible();
 
     await page.getByLabel('Mensaje', { exact: true }).fill('Sí, hay parqueadero frente al local.');
     await page.getByRole('button', { name: 'Enviar por WhatsApp' }).click();
