@@ -24,6 +24,8 @@ if (!rows[0]?.base.endsWith('_test')) throw new Error(`Solo se siembra una base 
 
 await conSistema(async (tx) => {
   await tx.consultar('DELETE FROM negocios WHERE nombre = $1', [NEGOCIO]);
+  // Los que crea el superadmin en e2e/superadmin.spec.ts.
+  await tx.consultar("DELETE FROM negocios WHERE nombre LIKE 'Barbería Superadmin %'");
   await tx.consultar('DELETE FROM usuarios WHERE email LIKE $1', [`%@${DOMINIO}`]);
   await tx.consultar('DELETE FROM intentos_login');
 });

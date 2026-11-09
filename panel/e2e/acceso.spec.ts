@@ -87,11 +87,16 @@ test.describe('acceso', () => {
     expect((await context.cookies()).some((c) => c.name === COOKIE)).toBe(false);
   });
 
-  test('el superadmin ve el aviso de que su panel aún no existe', async ({ page }) => {
+  test('el superadmin entra a su panel y no al de un negocio; el dueño no entra al del superadmin', async ({ page }) => {
     await entrarYEsperar(page, datos().superadmin, '/superadmin');
-    await expect(page.getByText('El panel del superadmin todavía no existe.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Negocios' })).toBeVisible();
     await page.goto('/hoy');
     await expect(page).toHaveURL('/superadmin');
+
+    await page.context().clearCookies();
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/superadmin');
+    await expect(page).toHaveURL('/hoy');
   });
 });
 
