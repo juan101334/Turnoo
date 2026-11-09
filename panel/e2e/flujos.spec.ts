@@ -64,7 +64,11 @@ test.describe('flujos principales', () => {
     await page.getByRole('link', { name: 'Cliente nuevo' }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
-    await page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(5).click();
+    // Esperar a que el día elegido quede en la URL: si no, se marcaría una hora del día anterior.
+    const dia5 = page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(5);
+    const destino5 = (await dia5.getAttribute('href'))!;
+    await dia5.click();
+    await expect(page).toHaveURL(destino5);
     // La primera hora libre de ese día: otras pruebas pueden haber ocupado o bloqueado alguna.
     const primera = page.locator('label').filter({ has: page.getByRole('radio') }).first();
     const hora = ((await primera.textContent()) ?? '').trim();

@@ -15,9 +15,11 @@ test.describe('agenda en el celular', () => {
   test.beforeEach(({}, info) => test.skip(!esCelular(info.project.name), 'Lista del celular'));
 
   test('"Completada" en la tarjeta: Deshacer la deja como estaba y no se guarda', async ({ page }) => {
-    // Reloj quieto: los 7 s para deshacer no se acaban aunque la máquina vaya lenta.
     await page.clock.install();
     await entrarYEsperar(page, datos().empleado);
+    // install() deja correr el tiempo: se pausa para que los 7 s de deshacer no se acaben solos.
+    await page.waitForLoadState('networkidle');
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     const cita = tarjeta(page, 'Cliente Deshacer');
     await cita.getByRole('button', { name: 'Completada, Cliente Deshacer' }).click();
     await expect(cita.getByText('Completada', { exact: true })).toBeVisible();
@@ -28,6 +30,8 @@ test.describe('agenda en el celular', () => {
     await expect(cita.getByRole('button', { name: 'Completada, Cliente Deshacer' })).toBeVisible();
 
     // Al recargar sigue sin marcar: nunca se mandó al backend.
+    // Con el reloj quieto la página no termina de cargar: se reanuda antes de recargar.
+    await page.clock.resume();
     await page.reload();
     await expect(tarjeta(page, 'Cliente Deshacer').getByText('Pendiente', { exact: true })).toBeVisible();
   });
