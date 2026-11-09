@@ -2,11 +2,13 @@ import { CircleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ProveedorDeAvisos } from '@/componentes/avisos-flotantes';
 import { SaltarAlContenido } from '@/componentes/saltar-al-contenido';
+import { TituloConPendientes } from '@/componentes/titulo-con-pendientes';
 import { IsotipoTurnoo, LogoTurnoo } from '@/componentes/marca';
 import { NavInferior, NavLateral } from '@/componentes/navegacion';
 import { citasPorAprobar, conversaciones, miNegocio, siSePuede } from '@/lib/datos';
 import { gruposDe, pestanasDe, puedeVer, type Contadores } from '@/lib/navegacion';
 import { exigirUsuario, type UsuarioDelNegocio } from '@/lib/sesion';
+import { temaElegido } from '@/lib/tema-servidor';
 
 /** Lo que falla aquí no tumba el panel: se muestra sin ese dato. */
 /**
@@ -29,7 +31,7 @@ async function datosDelMarco(usuario: UsuarioDelNegocio): Promise<{ contadores: 
  */
 export default async function LayoutPanel({ children }: { children: ReactNode }) {
   const usuario = await exigirUsuario();
-  const { contadores, suspendido } = await datosDelMarco(usuario);
+  const [{ contadores, suspendido }, tema] = await Promise.all([datosDelMarco(usuario), temaElegido()]);
   return (
     <ProveedorDeAvisos>
       <SaltarAlContenido />
@@ -39,7 +41,7 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
             <IsotipoTurnoo className="mx-auto block size-10 lg:hidden" />
             <LogoTurnoo className="hidden h-8 lg:block" />
           </div>
-          <NavLateral grupos={gruposDe(usuario.rol)} conCuenta={puedeVer(usuario.rol, 'cuenta')} contadores={contadores} />
+          <NavLateral grupos={gruposDe(usuario.rol)} conCuenta={puedeVer(usuario.rol, 'cuenta')} contadores={contadores} tema={tema} />
         </aside>
         <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 outline-none px-4 pt-5 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-6 md:pb-10 lg:px-10 lg:pt-8">
           <div className="mx-auto w-full max-w-[1440px]">
@@ -55,6 +57,7 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
           </div>
         </main>
         <NavInferior pestanas={pestanasDe(usuario.rol)} contadores={contadores} />
+        {usuario.rol === 'dueno' && <TituloConPendientes n={contadores.mensajes} />}
       </div>
     </ProveedorDeAvisos>
   );

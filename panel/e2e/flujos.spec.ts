@@ -70,7 +70,8 @@ test.describe('flujos principales', () => {
     await dia5.click();
     await expect(page).toHaveURL(destino5);
     // La primera hora libre de ese día: otras pruebas pueden haber ocupado o bloqueado alguna.
-    const primera = page.locator('label').filter({ has: page.getByRole('radio') }).first();
+    // Dentro de main: el selector de tema del menú lateral también tiene radios.
+    const primera = page.locator('main label').filter({ has: page.getByRole('radio') }).first();
     const hora = ((await primera.textContent()) ?? '').trim();
     await primera.click();
     await page.getByLabel('Teléfono del cliente').fill(esEscritorio(info.project.name) ? '300 555 0202' : '300 555 0303');

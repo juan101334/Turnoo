@@ -2,8 +2,10 @@ import { ChevronRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ICONOS } from '@/componentes/iconos';
+import { SelectorDeTema } from '@/componentes/selector-de-tema';
 import { gruposDeMas, SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
+import { temaElegido } from '@/lib/tema-servidor';
 
 export const metadata: Metadata = { title: 'Más' };
 
@@ -35,6 +37,9 @@ export default async function PaginaMas() {
             </ul>
           </section>
         ))}
+        <section aria-label="Apariencia" className="rounded-xl border border-borde bg-superficie p-4">
+          <SelectorDeTema tema={await temaElegido()} />
+        </section>
       </div>
     </div>
   );

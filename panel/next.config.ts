@@ -6,6 +6,8 @@ const configuracion: NextConfig = {
   // Las pruebas de punta a punta usan su propia carpeta: así corren aunque tengas `npm run dev` abierto.
   distDir: process.env.PANEL_DIST_DIR ?? '.next',
   poweredByHeader: false,
+  // Sin el botón "N" de Next en desarrollo: tapaba "Cuenta" en el PC y "Hoy" en el celular.
+  devIndicators: false,
   async headers() {
     return [
       {

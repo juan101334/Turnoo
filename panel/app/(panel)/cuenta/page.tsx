@@ -1,17 +1,16 @@
-import { KeyRound } from 'lucide-react';
 import type { Metadata } from 'next';
 import { BotonCerrarSesion } from '@/componentes/cerrar-sesion';
-import { CampoContrasena } from '@/componentes/formulario';
-import { FormularioConEstado } from '@/componentes/formulario-con-estado';
-import { CLAVE_MIN } from '@/lib/claves';
+import { SeccionContrasena } from '@/componentes/seccion-contrasena';
+import { SelectorDeTema } from '@/componentes/selector-de-tema';
 import { exigirUsuario } from '@/lib/sesion';
+import { temaElegido } from '@/lib/tema-servidor';
 import { cambiarContrasena } from './acciones';
 
 export const metadata: Metadata = { title: 'Cuenta' };
 
 const ROLES = { dueno: 'Dueño del negocio', empleado: 'Barbero', superadmin: 'Superadmin' } as const;
 
-/** Quién eres, cambiar tu contraseña y cerrar sesión. */
+/** Quién eres, tu contraseña, el tema y cerrar sesión. */
 export default async function PaginaCuenta() {
   const usuario = await exigirUsuario('cuenta');
   return (
@@ -24,18 +23,16 @@ export default async function PaginaCuenta() {
         </p>
       </div>
 
-      <section aria-labelledby="cambiar-contrasena" className="mb-4 rounded-xl border border-borde bg-superficie p-4">
-        <h2 id="cambiar-contrasena" className="mb-1 flex items-center gap-2 font-semibold">
-          <KeyRound aria-hidden className="size-5 text-marca" />
-          Cambiar contraseña
+      <SeccionContrasena accion={cambiarContrasena} ayuda="Al cambiarla se cierra tu sesión en los demás celulares y computadores. Aquí sigues dentro." />
+
+      <section aria-labelledby="apariencia" className="mb-4 rounded-xl border border-borde bg-superficie p-4">
+        <h2 id="apariencia" className="mb-1 font-semibold">
+          Apariencia
         </h2>
-        <p className="mb-3 text-sm text-suave">Al cambiarla se cierra tu sesión en los demás celulares y computadores. Aquí sigues dentro.</p>
-        <FormularioConEstado limpiar accion={cambiarContrasena} boton="Cambiar contraseña" enviando="Cambiando…">
-          <CampoContrasena id="actual" name="actual" etiqueta="Contraseña actual" autoComplete="current-password" required />
-          <CampoContrasena id="nueva" name="nueva" etiqueta="Contraseña nueva" ayuda={`Mínimo ${CLAVE_MIN} caracteres.`} autoComplete="new-password" minLength={CLAVE_MIN} required />
-          <CampoContrasena id="confirmacion" name="confirmacion" etiqueta="Repite la contraseña nueva" autoComplete="new-password" required />
-        </FormularioConEstado>
+        <p className="mb-3 text-sm text-suave">Sistema sigue el modo claro u oscuro de tu celular o computador.</p>
+        <SelectorDeTema tema={await temaElegido()} />
       </section>
+
 
       <div className="max-w-xs">
         <BotonCerrarSesion />
