@@ -7,7 +7,7 @@ import { Aviso } from '@/componentes/aviso';
 import { useAvisar } from '@/componentes/avisos-flotantes';
 import { BotonEnviar } from '@/componentes/formulario';
 import type { Accion } from '@/lib/citas';
-import { accionSobreCita, type EstadoAccion } from '../acciones';
+import { accionSobreCita, type EstadoAccion } from '@/app/(panel)/citas/acciones';
 
 const BOTONES: Record<Exclude<Accion, 'reprogramar'>, { etiqueta: string; Icono: typeof Check; variante: 'primario' | 'secundario' | 'peligro' }> = {
   completar: { etiqueta: 'Completada', Icono: Check, variante: 'primario' },

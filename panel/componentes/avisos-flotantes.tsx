@@ -28,6 +28,8 @@ export function useAvisar(): Avisar {
 const ICONOS = { exito: CircleCheck, error: CircleAlert, info: Info } as const;
 /** Con un botón dura más: hay que alcanzar a tocarlo. */
 const DURACION = { simple: 4000, conAccion: 7000 };
+/** Lo que dura un aviso con "Deshacer": hasta entonces se puede arrepentir. */
+export const TIEMPO_PARA_DESHACER = DURACION.conAccion;
 const MAXIMO = 3;
 
 /**

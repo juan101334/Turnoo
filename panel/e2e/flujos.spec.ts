@@ -52,7 +52,7 @@ test.describe('flujos principales', () => {
     await entrarYEsperar(page, datos().dueno);
     await tarjeta(page, cliente).click();
     await expect(page).toHaveTitle(new RegExp(`${cliente} · Turnoo`));
-    await page.getByRole('button', { name: 'Completada' }).click();
+    await page.getByRole('button', { name: 'Completada', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Cita marcada como completada.' })).toBeVisible();
     await expect(page.locator('section').getByText('Completada', { exact: true })).toBeVisible();
   });

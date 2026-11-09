@@ -32,10 +32,10 @@ function Encabezado({ conAccion = false }: { conAccion?: boolean }) {
   );
 }
 
-/** Hoy y Agenda: encabezado, fila de días y tarjetas de citas. */
+/** Hoy y Agenda: encabezado, fila de días y tarjetas de citas (desde 1024 px, la grilla). */
 export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
   return (
-    <Cargando ancho="max-w-4xl">
+    <Cargando ancho="max-w-4xl lg:max-w-none">
       <Encabezado conAccion />
       {conTira && (
         <div className="mb-5 flex gap-2 overflow-hidden">
@@ -44,7 +44,16 @@ export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
           ))}
         </div>
       )}
-      <div className="flex flex-col gap-2">
+      <div className="hidden h-[36rem] grid-cols-[4.5rem_repeat(3,1fr)] overflow-hidden rounded-xl border border-borde bg-superficie lg:grid">
+        <div />
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="flex flex-col gap-3 border-l border-borde p-3">
+            <Bloque className="h-4 w-28" />
+            <Bloque className={`h-16 w-full ${i === 1 ? 'mt-24' : 'mt-8'}`} />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2 lg:hidden">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="flex min-h-20 items-start gap-4 rounded-xl border border-borde bg-superficie p-3">
             <Bloque className="h-6 w-20" />

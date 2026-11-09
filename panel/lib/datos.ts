@@ -27,6 +27,16 @@ export async function leer<T>(ruta: string): Promise<T> {
   }
 }
 
+/** Para lo que acompaña una pantalla: si el backend falla, la pantalla se muestra sin eso. */
+export async function siSePuede<T>(leer: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await leer();
+  } catch (error) {
+    if (error instanceof ErrorDelBackend) return undefined;
+    throw error;
+  }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Los ids van dentro de rutas del backend: solo se aceptan UUID, nunca texto libre como "../". */
@@ -98,6 +108,23 @@ export const cliente = cache(async (id: string): Promise<Cliente> => {
 export const cita = cache(async (id: string): Promise<Cita> => {
   if (!esId(id)) notFound();
   return leer<Cita>(`/citas/${id}`);
+});
+
+/**
+ * Para el panel lateral de la agenda (?cita=): una cita que no existe o es de otro barbero no
+ * convierte la agenda entera en "no existe"; el panel lo dice y la agenda se sigue viendo.
+ */
+export const citaSiExiste = cache(async (id: unknown): Promise<Cita | null> => {
+  if (!esId(id)) return null;
+  try {
+    return await llamarAlBackend<Cita>(`/citas/${id}`);
+  } catch (error) {
+    if (error instanceof ErrorDelBackend) {
+      if (error.estado === 401) redirect('/sesion-vencida');
+      if (error.estado === 404) return null;
+    }
+    throw error;
+  }
 });
 
 export interface Barbero {
