@@ -113,7 +113,7 @@ test.describe.serial('agenda y acciones sobre citas', () => {
     await entrarYEsperar(page, datos().empleado);
     await page.getByRole('link', { name: 'Nueva cita' }).click();
     // Primero el cliente: este es nuevo, su teléfono se escribe al final.
-    await page.getByRole('link', { name: 'Cliente nuevo' }).click();
+    await page.getByRole('link', { name: 'Cliente nuevo', exact: true }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('checkbox', { name: /Barba/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();

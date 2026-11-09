@@ -12,6 +12,11 @@ export interface Negocio {
   createdAt: Date;
 }
 
+/** En la lista del superadmin: además, si el negocio tiene al menos un número de WhatsApp activo. */
+export interface NegocioDeLaLista extends Negocio {
+  whatsappConectado: boolean;
+}
+
 export interface ConfiguracionNegocio {
   intervaloMinutos: number;
   anticipacionMinMinutos: number;

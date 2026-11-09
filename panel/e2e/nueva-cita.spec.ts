@@ -16,7 +16,6 @@ test.describe('nueva cita: el cliente primero', () => {
     await expect(page.getByRole('checkbox', { name: /Corte/ })).toHaveCount(0);
 
     await page.getByLabel('Buscar cliente por nombre o teléfono').fill('Cliente Futuro');
-    await page.getByRole('button', { name: 'Buscar' }).click();
     await page.getByRole('list', { name: 'Clientes encontrados' }).getByRole('link', { name: /Cliente Futuro/ }).click();
     await expect(page).toHaveURL(new RegExp(`/citas/nueva\\?cliente=${UUID}`));
     expect(page.url()).not.toMatch(/telefono|57\d{8}/);
@@ -41,9 +40,8 @@ test.describe('nueva cita: el cliente primero', () => {
     await entrarYEsperar(page, datos().empleado);
     await page.goto('/citas/nueva');
     await page.getByLabel('Buscar cliente por nombre o teléfono').fill('Nadie Con Este Nombre');
-    await page.getByRole('button', { name: 'Buscar' }).click();
     await expect(page.getByText('Ningún cliente coincide con "Nadie Con Este Nombre".')).toBeVisible();
-    await page.getByRole('link', { name: 'Cliente nuevo' }).click();
+    await page.getByRole('link', { name: 'Cliente nuevo', exact: true }).click();
     await expect(page.getByText('Escribe su teléfono al final.')).toBeVisible();
     await page.getByRole('link', { name: 'Cambiar' }).click();
     await expect(page.getByLabel('Buscar cliente por nombre o teléfono')).toBeVisible();
@@ -70,7 +68,7 @@ test.describe('nueva cita: el cliente primero', () => {
     await entrarYEsperar(page, datos().empleado);
     await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
     await page.getByRole('link', { name: /^Agendar, libre de 9:30/ }).click();
-    await page.getByRole('link', { name: 'Cliente nuevo' }).click();
+    await page.getByRole('link', { name: 'Cliente nuevo', exact: true }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
 

@@ -27,7 +27,6 @@ test.describe.serial('superadmin', () => {
     const lista = page.getByRole('list', { name: 'Negocios' });
     await expect(lista.getByRole('link', { name: /Barbería E2E/ })).toBeVisible();
     await page.getByLabel('Buscar negocio por nombre').fill('barberia e2e');
-    await page.getByRole('button', { name: 'Buscar' }).click();
     await expect(page).toHaveURL(/buscar=barberia/);
     await expect(lista.getByRole('link')).toHaveCount(1);
   });

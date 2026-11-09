@@ -128,6 +128,31 @@ describe('rutas de negocios', () => {
       expect((await uno.json()).nombre).toBe('Negocio A');
     });
 
+    it('la lista dice si el negocio tiene un número de WhatsApp activo', async () => {
+      const conectado = (lista: { negocios: { id: string; whatsappConectado: boolean }[] }, id: string) =>
+        lista.negocios.find((n) => n.id === id)!.whatsappConectado;
+      const leer = async () => (await pedir('/negocios', tokens.superadmin)).json();
+      expect(conectado(await leer(), a.negocioId)).toBe(false);
+
+      const telefono = `1${Date.now()}`;
+      const [cuenta] = await conSistema(async (tx) =>
+        (
+          await tx.consultar<{ id: string }>(
+            `INSERT INTO whatsapp_cuentas (negocio_id, phone_number_id, waba_id, numero_visible, token_acceso_cifrado)
+             VALUES ($1, $2, 'waba', '+57 300', 'x') RETURNING id`,
+            [a.negocioId, telefono],
+          )
+        ).rows,
+      );
+      expect(conectado(await leer(), a.negocioId)).toBe(true);
+      expect(conectado(await leer(), b.negocioId)).toBe(false);
+
+      // Un número desactivado no cuenta como conectado.
+      await conSistema((tx) => tx.consultar('UPDATE whatsapp_cuentas SET activa = false WHERE id = $1', [cuenta!.id]));
+      expect(conectado(await leer(), a.negocioId)).toBe(false);
+      await conSistema((tx) => tx.consultar('DELETE FROM whatsapp_cuentas WHERE id = $1', [cuenta!.id]));
+    });
+
     it('un id inexistente responde 404 y uno mal escrito 400', async () => {
       expect((await pedir(`/negocios/${randomUUID()}`, tokens.superadmin)).status).toBe(404);
       expect((await pedir('/negocios/no-es-uuid', tokens.superadmin)).status).toBe(400);

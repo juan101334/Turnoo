@@ -1,7 +1,9 @@
-import { Building2, ChevronRight, Plus, Search } from 'lucide-react';
+import { Building2, ChevronRight, MessageCircle, Plus } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BuscadorEnVivo } from '@/componentes/buscador-en-vivo';
 import { fechaCorta, fechaDe } from '@/lib/fechas';
+import type { EstadoNegocio } from '@/lib/plan';
 import { negocios as leerNegocios } from '@/lib/superadmin';
 import { EstadoDeNegocio } from './estado-de-negocio';
 
@@ -9,13 +11,51 @@ export const metadata: Metadata = { title: 'Negocios · Superadmin' };
 
 const ZONA = 'America/Bogota';
 
-/** Todos los negocios, el más nuevo primero, con búsqueda por nombre (?buscar=). */
-export default async function PaginaSuperadmin({ searchParams }: { searchParams: Promise<{ buscar?: string }> }) {
-  const buscar = ((await searchParams).buscar ?? '').trim().slice(0, 100);
+type Parametros = { buscar?: string; estado?: string; whatsapp?: string };
+
+const ESTADOS: { valor: EstadoNegocio; etiqueta: string }[] = [
+  { valor: 'activo', etiqueta: 'Activo' },
+  { valor: 'prueba', etiqueta: 'En prueba' },
+  { valor: 'suspendido', etiqueta: 'Suspendido' },
+];
+const WHATSAPP = [
+  { valor: 'si', etiqueta: 'Con WhatsApp' },
+  { valor: 'no', etiqueta: 'Sin WhatsApp' },
+] as const;
+
+/** Sin tildes ni mayúsculas: "barberia rapida" encuentra "Barbería Rápida". */
+const normal = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+/**
+ * Todos los negocios, el más nuevo primero. Búsqueda por nombre mientras se escribe (?buscar=) y
+ * filtros por estado (?estado=) y por WhatsApp conectado (?whatsapp=si|no). Se filtra aquí: el
+ * backend devuelve la lista completa, que es corta (uno por barbería cliente).
+ */
+export default async function PaginaSuperadmin({ searchParams }: { searchParams: Promise<Parametros> }) {
+  const p = await searchParams;
+  const buscar = (p.buscar ?? '').trim().slice(0, 100);
+  const estado = ESTADOS.find((e) => e.valor === p.estado)?.valor;
+  const whatsapp = WHATSAPP.find((w) => w.valor === p.whatsapp)?.valor;
   const todos = await leerNegocios();
-  const normal = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-  const lista = buscar ? todos.filter((n) => normal(n.nombre).includes(normal(buscar))) : todos;
-  const cuenta = (estado: string) => todos.filter((n) => n.estado === estado).length;
+  const lista = todos.filter(
+    (n) =>
+      (!buscar || normal(n.nombre).includes(normal(buscar))) &&
+      (!estado || n.estado === estado) &&
+      (!whatsapp || n.whatsappConectado === (whatsapp === 'si')),
+  );
+  const cuenta = (e: string) => todos.filter((n) => n.estado === e).length;
+  const filtrando = Boolean(buscar || estado || whatsapp);
+
+  /** La URL con un filtro cambiado (o quitado con undefined), conservando lo demás. */
+  const enlace = (cambio: Partial<Record<'estado' | 'whatsapp', string | undefined>>) => {
+    const q = new URLSearchParams();
+    if (buscar) q.set('buscar', buscar);
+    const e = 'estado' in cambio ? cambio.estado : estado;
+    const w = 'whatsapp' in cambio ? cambio.whatsapp : whatsapp;
+    if (e) q.set('estado', e);
+    if (w) q.set('whatsapp', w);
+    return q.size > 0 ? `/superadmin?${q}` : '/superadmin';
+  };
 
   return (
     <div>
@@ -31,23 +71,26 @@ export default async function PaginaSuperadmin({ searchParams }: { searchParams:
         {cuenta('suspendido') === 1 ? 'suspendido' : 'suspendidos'}
       </p>
 
-      <form action="/superadmin" role="search" className="mb-4 flex gap-2 sm:max-w-md">
-        <label htmlFor="buscar" className="sr-only">
-          Buscar negocio por nombre
-        </label>
-        <div className="relative flex-1">
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-suave" />
-          <input id="buscar" name="buscar" type="search" defaultValue={buscar} placeholder="Nombre del negocio" maxLength={100} autoComplete="off" className="min-h-11 w-full rounded-lg border border-borde bg-superficie pr-3 pl-10 text-base" />
+      <div className="mb-4 flex flex-col gap-3">
+        <BuscadorEnVivo id="buscar" etiqueta="Buscar negocio por nombre" placeholder="Nombre del negocio" inicial={buscar} className="sm:max-w-md">
+          {estado && <input type="hidden" name="estado" value={estado} />}
+          {whatsapp && <input type="hidden" name="whatsapp" value={whatsapp} />}
+        </BuscadorEnVivo>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+          <Filtro titulo="Estado" opciones={ESTADOS} actual={estado} enlace={(v) => enlace({ estado: v })} />
+          <Filtro titulo="WhatsApp" opciones={WHATSAPP} actual={whatsapp} enlace={(v) => enlace({ whatsapp: v })} />
         </div>
-        <button type="submit" className="min-h-11 cursor-pointer rounded-lg border border-borde bg-superficie px-4 font-semibold hover:bg-fondo">
-          Buscar
-        </button>
-      </form>
+      </div>
 
       {lista.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <Building2 aria-hidden className="size-8" />
-          <p>{buscar ? `Ningún negocio se llama así ("${buscar}").` : 'Todavía no hay negocios.'}</p>
+          <p>{filtrando ? 'Ningún negocio coincide con la búsqueda y los filtros.' : 'Todavía no hay negocios.'}</p>
+          {filtrando && (
+            <Link href="/superadmin" className="flex min-h-11 items-center rounded-lg px-3 font-semibold text-marca hover:bg-marca-suave">
+              Ver todos
+            </Link>
+          )}
         </div>
       ) : (
         <ul aria-label="Negocios" className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
@@ -58,6 +101,12 @@ export default async function PaginaSuperadmin({ searchParams }: { searchParams:
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="truncate font-medium">{n.nombre}</span>
                     <EstadoDeNegocio estado={n.estado} />
+                    {!n.whatsappConectado && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-hundido px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-suave">
+                        <MessageCircle aria-hidden className="size-3.5" />
+                        Sin WhatsApp
+                      </span>
+                    )}
                   </span>
                   <span className="block text-sm text-suave">
                     Desde el {fechaCorta(fechaDe(n.createdAt, ZONA))}
@@ -71,5 +120,39 @@ export default async function PaginaSuperadmin({ searchParams }: { searchParams:
         </ul>
       )}
     </div>
+  );
+}
+
+/** Un grupo de filtros como pastillas: "Todos" y una por opción. La activa lleva aria-current. */
+function Filtro<V extends string>({
+  titulo,
+  opciones,
+  actual,
+  enlace,
+}: {
+  titulo: string;
+  opciones: readonly { valor: V; etiqueta: string }[];
+  actual: V | undefined;
+  enlace: (valor: V | undefined) => string;
+}) {
+  const clase = (activa: boolean) =>
+    `flex min-h-11 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+      activa ? 'border-marca bg-marca text-white' : 'border-borde bg-superficie hover:bg-hundido'
+    }`;
+  return (
+    <nav aria-label={`Filtrar por ${titulo.toLowerCase()}`} className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
+      <span className="text-sm text-suave sm:mr-1">{titulo}</span>
+      {/* En el celular, una sola fila que se desliza: así ninguna pastilla queda sola abajo. */}
+      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+      <Link href={enlace(undefined)} aria-current={actual === undefined ? 'true' : undefined} className={clase(actual === undefined)}>
+        Todos
+      </Link>
+      {opciones.map((o) => (
+        <Link key={o.valor} href={enlace(o.valor)} aria-current={actual === o.valor ? 'true' : undefined} className={clase(actual === o.valor)}>
+          {o.etiqueta}
+        </Link>
+      ))}
+      </div>
+    </nav>
   );
 }

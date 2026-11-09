@@ -89,12 +89,31 @@ export interface Cliente {
   createdAt: string;
 }
 
+/** En la lista, con el resumen de sus citas (al barbero, solo las suyas). */
+export interface ClienteDeLista extends Cliente {
+  ultimaVisita: string | null;
+  proximaCita: string | null;
+  totalCitas: number;
+}
+
+export type OrdenClientes = 'nombre' | 'ultima_visita' | 'proxima_cita' | 'total_citas' | 'reciente';
+
 export const CLIENTES_POR_PAGINA = 30;
 
-/** Al dueño, todo el negocio; al barbero, solo los clientes con citas suyas (lo decide el backend). */
-export async function clientes(buscar: string, pagina: number): Promise<{ clientes: Cliente[]; hayMas: boolean }> {
-  const consulta = new URLSearchParams({ limite: String(CLIENTES_POR_PAGINA), desplazamiento: String(pagina * CLIENTES_POR_PAGINA) });
+/**
+ * Al dueño, todo el negocio; al barbero, solo los clientes con citas suyas (lo decide el backend).
+ * El backend busca sin tildes ni mayúsculas. `reciente`: el último creado o agendado primero.
+ */
+export async function clientes(
+  buscar: string,
+  pagina: number,
+  opciones: { orden?: OrdenClientes; direccion?: 'asc' | 'desc'; limite?: number } = {},
+): Promise<{ clientes: ClienteDeLista[]; hayMas: boolean }> {
+  const limite = opciones.limite ?? CLIENTES_POR_PAGINA;
+  const consulta = new URLSearchParams({ limite: String(limite), desplazamiento: String(pagina * limite) });
   if (buscar) consulta.set('buscar', buscar);
+  if (opciones.orden) consulta.set('orden', opciones.orden);
+  if (opciones.direccion) consulta.set('direccion', opciones.direccion);
   return leer(`/clientes?${consulta}`);
 }
 

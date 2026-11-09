@@ -12,6 +12,7 @@ import type {
   ConfiguracionNegocio,
   EntradaNegocio,
   Negocio,
+  NegocioDeLaLista,
 } from './negocios.tipos.js';
 
 const DIAS_DE_PRUEBA = 15;
@@ -67,7 +68,7 @@ export async function crearNegocio(entrada: EntradaNegocio, ahora: Date = new Da
   });
 }
 
-export function listarNegocios(): Promise<Negocio[]> {
+export function listarNegocios(): Promise<NegocioDeLaLista[]> {
   return conSistema((tx) => repositorio.listarNegocios(tx));
 }
 

@@ -1,6 +1,7 @@
-import { CalendarPlus, ChevronRight, Search, Users } from 'lucide-react';
+import { CalendarPlus, ChevronRight, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BuscadorEnVivo } from '@/componentes/buscador-en-vivo';
 import { telefonoLegible } from '@/lib/citas';
 import { clientes as leerClientes } from '@/lib/datos';
 import { fechaCorta, fechaDe } from '@/lib/fechas';
@@ -8,7 +9,7 @@ import { exigirUsuario } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Clientes' };
 
-/** Búsqueda por nombre o teléfono, de 30 en 30. El barbero ve solo los clientes con citas suyas. */
+/** Búsqueda por nombre o teléfono mientras se escribe (sin tildes ni mayúsculas), de 30 en 30. El barbero ve solo los clientes con citas suyas. */
 export default async function PaginaClientes({ searchParams }: { searchParams: Promise<{ buscar?: string; pagina?: string }> }) {
   const usuario = await exigirUsuario('clientes');
   const zona = usuario.negocio.zonaHoraria;
@@ -25,27 +26,7 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
         {usuario.rol === 'dueno' ? 'Todos los clientes del negocio.' : 'Los clientes que tienen o tuvieron cita contigo.'}
       </p>
 
-      <form action="/clientes" role="search" className="mb-4 flex gap-2 lg:max-w-xl">
-        <label htmlFor="buscar" className="sr-only">
-          Buscar por nombre o teléfono
-        </label>
-        <div className="relative flex-1">
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-suave" />
-          <input
-            id="buscar"
-            name="buscar"
-            type="search"
-            defaultValue={buscar}
-            placeholder="Nombre o teléfono"
-            maxLength={100}
-            autoComplete="off"
-            className="min-h-11 w-full rounded-lg border border-borde bg-superficie pr-3 pl-10 text-base"
-          />
-        </div>
-        <button type="submit" className="min-h-11 cursor-pointer rounded-lg bg-marca px-4 font-semibold text-white hover:bg-marca-oscura">
-          Buscar
-        </button>
-      </form>
+      <BuscadorEnVivo id="buscar" etiqueta="Buscar por nombre o teléfono" placeholder="Nombre o teléfono" inicial={buscar} className="mb-4 lg:max-w-xl" />
 
       {clientes.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">

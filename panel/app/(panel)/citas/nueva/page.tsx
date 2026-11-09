@@ -1,6 +1,7 @@
-import { ChevronLeft, Search, UserPlus, UserRound } from 'lucide-react';
+import { ChevronLeft, UserPlus, UserRound } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BuscadorEnVivo } from '@/componentes/buscador-en-vivo';
 import { Campo } from '@/componentes/formulario';
 import { FormularioDeHora } from '@/componentes/formulario-de-hora';
 import { HorasLibres } from '@/componentes/horas-libres';
@@ -24,11 +25,12 @@ type Parametros = {
   hora?: string;
 };
 
-/** Resultados de la búsqueda de clientes que se muestran: los primeros. */
+/** Clientes que se ofrecen para elegir (encontrados o recientes): los primeros. */
 const RESULTADOS = 8;
 
 /**
- * Nueva cita, primero el cliente: se busca por nombre o teléfono, o se elige "Cliente nuevo".
+ * Nueva cita, primero el cliente: se ofrecen los recientes, se busca por nombre o teléfono
+ * mientras se escribe, o se elige "Cliente nuevo".
  * Después barbero, servicios, día y hora, con un resumen fijo abajo. Todo lo elegido va en la URL
  * (sin JavaScript obligatorio), salvo el teléfono: de un cliente existente solo viaja su id y el
  * servidor busca el número. Las reglas (horario, anticipación, choques, plan) las pone el backend.
@@ -44,8 +46,10 @@ export default async function PaginaNuevaCita({ searchParams }: { searchParams: 
   const esNuevo = p.cliente === 'nuevo';
   const conCliente = esNuevo || clienteUsable !== null;
   const buscar = (p.buscar ?? '').trim().slice(0, 100);
-  const encontrados =
-    !conCliente && buscar ? (await buscarClientes(buscar, 0)).clientes.filter((c) => !c.anonimizadoEn).slice(0, RESULTADOS) : [];
+  // Lo que se ofrece para elegir: lo que coincide con la búsqueda o, sin buscar, los recientes.
+  const candidatos = conCliente
+    ? []
+    : (await buscarClientes(buscar, 0, { limite: RESULTADOS, ...(!buscar && { orden: 'reciente' as const }) })).clientes.filter((c) => !c.anonimizadoEn);
 
   const activos = (await leerBarberos()).filter((b) => b.activo);
   const barbero = activos.find((b) => b.id === p.barbero) ?? (activos.length === 1 ? activos[0] : undefined);
@@ -115,57 +119,39 @@ export default async function PaginaNuevaCita({ searchParams }: { searchParams: 
             {p.cliente && p.cliente !== 'nuevo' && (
               <p className="text-sm text-aviso">Ese cliente ya no está disponible o no tiene teléfono. Búscalo otra vez o agéndalo como nuevo.</p>
             )}
-            <form action="/citas/nueva" role="search" className="flex gap-2">
+            <BuscadorEnVivo id="buscar-cliente" etiqueta="Buscar cliente por nombre o teléfono" placeholder="Nombre o teléfono" inicial={buscar}>
               {ocultos(['cliente'])}
-              <label htmlFor="buscar-cliente" className="sr-only">
-                Buscar cliente por nombre o teléfono
-              </label>
-              <div className="relative flex-1">
-                <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-suave" />
-                <input
-                  id="buscar-cliente"
-                  name="buscar"
-                  type="search"
-                  defaultValue={buscar}
-                  placeholder="Nombre o teléfono"
-                  maxLength={100}
-                  autoComplete="off"
-                  className="min-h-11 w-full rounded-lg border border-borde bg-superficie pr-3 pl-10 text-base"
-                />
-              </div>
-              <button type="submit" className="min-h-11 cursor-pointer rounded-lg bg-marca px-4 font-semibold text-white hover:bg-marca-oscura">
-                Buscar
-              </button>
-            </form>
+            </BuscadorEnVivo>
 
-            {buscar && (
-              <div aria-live="polite">
-                {encontrados.length === 0 ? (
-                  <p className="text-sm text-suave">Ningún cliente coincide con &quot;{buscar}&quot;.</p>
-                ) : (
-                  <ul aria-label="Clientes encontrados" className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
-                    {encontrados.map((c) => (
-                      <li key={c.id}>
-                        {c.telefono ? (
-                          <Link href={enlace({ cliente: c.id })} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate font-medium">{c.nombre ?? 'Sin nombre'}</span>
-                              <span className="block text-sm text-suave tabular-nums">{telefonoLegible(c.telefono)}</span>
-                            </span>
-                            <span className="text-sm font-semibold text-marca">Elegir</span>
-                          </Link>
-                        ) : (
-                          <p className="flex min-h-14 flex-col justify-center px-4 py-2 text-suave">
-                            <span className="truncate font-medium">{c.nombre ?? 'Sin nombre'}</span>
-                            <span className="text-sm">Sin teléfono guardado: agéndalo como cliente nuevo.</span>
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            {/* Sin buscar, los últimos clientes creados o agendados: casi siempre está ahí. */}
+            <div>
+              {!buscar && candidatos.length > 0 && <h3 className="mb-1.5 px-1 text-xs font-semibold tracking-wide text-suave uppercase">Recientes</h3>}
+              <p role="status" className={buscar && candidatos.length === 0 ? 'text-sm text-suave' : 'sr-only'}>
+                {buscar ? (candidatos.length === 0 ? `Ningún cliente coincide con "${buscar}".` : candidatos.length === 1 ? '1 cliente encontrado.' : `${candidatos.length} clientes encontrados.`) : ''}
+              </p>
+              {candidatos.length > 0 && (
+                <ul aria-label={buscar ? 'Clientes encontrados' : 'Clientes recientes'} className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
+                  {candidatos.map((c) => (
+                    <li key={c.id}>
+                      {c.telefono ? (
+                        <Link href={enlace({ cliente: c.id })} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{c.nombre ?? telefonoLegible(c.telefono)}</span>
+                            <span className="block text-sm text-suave tabular-nums">{c.nombre ? telefonoLegible(c.telefono) : 'Sin nombre'}</span>
+                          </span>
+                          <span className="text-sm font-semibold text-marca">Elegir</span>
+                        </Link>
+                      ) : (
+                        <p className="flex min-h-14 flex-col justify-center px-4 py-2 text-suave">
+                          <span className="truncate font-medium">{c.nombre ?? 'Sin nombre'}</span>
+                          <span className="text-sm">Sin teléfono guardado: agéndalo como cliente nuevo.</span>
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             <Link
               href={enlace({ cliente: 'nuevo' })}

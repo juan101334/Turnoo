@@ -61,7 +61,7 @@ test.describe('flujos principales', () => {
     await entrarYEsperar(page, datos().empleado);
     await page.getByRole('link', { name: 'Nueva cita' }).click();
     await expect(page.getByRole('heading', { name: 'Nueva cita' })).toBeVisible();
-    await page.getByRole('link', { name: 'Cliente nuevo' }).click();
+    await page.getByRole('link', { name: 'Cliente nuevo', exact: true }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
     // Esperar a que el día elegido quede en la URL: si no, se marcaría una hora del día anterior.
