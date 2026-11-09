@@ -1,6 +1,7 @@
 import { ChevronRight, MessageSquare } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { RefrescoAutomatico } from '@/componentes/refresco-automatico';
 import { telefonoLegible } from '@/lib/citas';
 import { MOTIVOS, nombreDelCliente } from '@/lib/conversaciones';
 import { conversaciones as leerConversaciones, MAX_CONVERSACIONES } from '@/lib/datos';
@@ -29,7 +30,8 @@ export default async function PaginaMensajes({ searchParams }: { searchParams: P
     `flex min-h-11 flex-1 items-center justify-center rounded-lg text-sm font-semibold transition-colors duration-150 ${activa ? 'bg-superficie text-texto shadow-sm' : 'text-suave hover:text-texto'}`;
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
+      <RefrescoAutomatico />
       <h1 className="text-2xl font-semibold">Mensajes</h1>
       <p className="mb-4 text-sm text-suave">Clientes de WhatsApp que el asistente pasó a una persona del negocio. Respóndeles desde aquí.</p>
 
@@ -43,12 +45,12 @@ export default async function PaginaMensajes({ searchParams }: { searchParams: P
       </nav>
 
       {lista.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <MessageSquare aria-hidden className="size-8" />
           <p>{todas ? 'Todavía no hay conversaciones.' : 'Ningún cliente está esperando a una persona.'}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-borde overflow-hidden rounded-2xl border border-borde bg-superficie">
+        <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
           {lista.map((c) => (
             <li key={c.id}>
               <Link href={`/mensajes/${c.id}`} className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-fondo">

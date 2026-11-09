@@ -1,6 +1,6 @@
 import { UserPlus } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AccionPrincipal } from '@/componentes/accion-principal';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { accionesDeUsuario, type EstadoUsuario } from '@/lib/administracion';
 import { barberos as leerBarberos, usuarios as leerUsuarios } from '@/lib/datos';
@@ -28,16 +28,10 @@ export default async function PaginaUsuarios() {
   const ordenados = [...usuarios].sort((a, b) => orden[a.estado] - orden[b.estado] || a.nombre.localeCompare(b.nombre));
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <div className="mb-1 flex items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold">Usuarios</h1>
-        <Link
-          href="/usuarios/invitar"
-          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-marca px-4 font-semibold text-white transition-colors duration-150 hover:bg-marca-oscura"
-        >
-          <UserPlus aria-hidden className="size-5" />
-          Invitar
-        </Link>
+        <AccionPrincipal href="/usuarios/invitar" etiqueta="Invitar" Icono={UserPlus} />
       </div>
       <p className="mb-4 text-sm text-suave">Quién entra al panel. Un barbero ve solo su agenda y sus clientes; un dueño ve y cambia todo.</p>
 
@@ -47,7 +41,7 @@ export default async function PaginaUsuarios() {
           const acciones = accionesDeUsuario(u, yo.usuarioId);
           const enlace = acciones.find((a) => a !== 'desactivar');
           return (
-            <li key={u.id} className="rounded-2xl border border-borde bg-superficie p-3">
+            <li key={u.id} className="rounded-xl border border-borde bg-superficie p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-medium break-words">

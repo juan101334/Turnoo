@@ -5,7 +5,7 @@ import { CircleAlert } from 'lucide-react';
 /** Error al cargar una sección (el backend falló o no respondió). Se puede reintentar. */
 export default function ErrorDelPanel({ retry }: { error: Error; retry: () => void }) {
   return (
-    <div role="alert" className="flex flex-col items-center gap-3 rounded-2xl border border-borde bg-superficie px-6 py-12 text-center">
+    <div role="alert" className="flex flex-col items-center gap-3 rounded-xl border border-borde bg-superficie px-6 py-12 text-center">
       <CircleAlert aria-hidden className="size-8 text-peligro" />
       <p className="font-medium">No pudimos cargar esta sección</p>
       <p className="text-sm text-suave">Revisa tu conexión e intenta de nuevo.</p>

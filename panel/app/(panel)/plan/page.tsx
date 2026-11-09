@@ -12,7 +12,7 @@ const COLORES: Record<Medidor['nivel'], string> = { normal: 'bg-marca', alto: 'b
 
 function Uso({ titulo, explicacion, alLlenarse, m }: { titulo: string; explicacion: string; alLlenarse: string; m: Medidor }) {
   return (
-    <section aria-label={titulo} className="rounded-2xl border border-borde bg-superficie p-4">
+    <section aria-label={titulo} className="rounded-xl border border-borde bg-superficie p-4">
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
         <h2 className="font-semibold">{titulo}</h2>
         <p className="shrink-0 text-sm tabular-nums">
@@ -56,7 +56,7 @@ export default async function PaginaPlan() {
         : { tipo: 'exito' as const, texto: negocio.pagadoHasta ? `Cuenta activa, pagada hasta el ${fecha(negocio.pagadoHasta)}.` : 'Cuenta activa.' };
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-semibold">{plan ? `Plan ${plan.nombre}` : 'Plan'}</h1>
       <p className="mb-4 text-sm text-suave first-letter:uppercase">
         Uso de {nombreDelMes(periodo)}. Los contadores vuelven a cero el {reinicioDelMes(periodo)}.

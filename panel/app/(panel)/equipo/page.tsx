@@ -18,17 +18,17 @@ export default async function PaginaEquipo() {
   const ordenados = [...barberos].sort((a, b) => Number(b.activo) - Number(a.activo) || a.nombre.localeCompare(b.nombre));
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-semibold">Barberos y servicios</h1>
       <p className="mb-4 text-sm text-suave">Toca un barbero para cambiar sus servicios, precios, horario y acceso al panel.</p>
 
       {ordenados.length === 0 ? (
-        <div className="mb-6 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+        <div className="mb-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <Scissors aria-hidden className="size-8" />
           <p>Todavía no hay barberos. Agrega el primero abajo.</p>
         </div>
       ) : (
-        <ul className="mb-6 divide-y divide-borde overflow-hidden rounded-2xl border border-borde bg-superficie">
+        <ul className="mb-6 divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
           {ordenados.map((b) => (
             <li key={b.id}>
               <Link href={`/equipo/${b.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
@@ -45,7 +45,7 @@ export default async function PaginaEquipo() {
         </ul>
       )}
 
-      <section aria-labelledby="nuevo-barbero" className="rounded-2xl border border-borde bg-superficie p-4">
+      <section aria-labelledby="nuevo-barbero" className="rounded-xl border border-borde bg-superficie p-4">
         <h2 id="nuevo-barbero" className="mb-3 font-semibold">
           Agregar barbero
         </h2>

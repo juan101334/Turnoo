@@ -17,7 +17,7 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
   const enlace = (n: number) => `/clientes?${new URLSearchParams({ ...(buscar && { buscar }), pagina: String(n) })}`;
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-semibold">{usuario.rol === 'dueno' ? 'Clientes' : 'Mis clientes'}</h1>
       <p className="mb-4 text-sm text-suave">
         {usuario.rol === 'dueno' ? 'Todos los clientes del negocio.' : 'Los clientes que tienen o tuvieron cita contigo.'}
@@ -46,12 +46,12 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
       </form>
 
       {clientes.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <Users aria-hidden className="size-8" />
           <p>{buscar ? `Ningún cliente coincide con "${buscar}".` : 'Todavía no hay clientes.'}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-borde overflow-hidden rounded-2xl border border-borde bg-superficie">
+        <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
           {clientes.map((c) => (
             <li key={c.id}>
               <Link href={`/clientes/${c.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">

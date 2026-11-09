@@ -1,7 +1,7 @@
 import { BookOpen, Pencil } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Aviso } from '@/componentes/aviso';
+import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
 import { porcentajeUsado } from '@/lib/conocimiento';
@@ -27,18 +27,14 @@ export default async function PaginaConocimiento({ searchParams }: { searchParam
   const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-semibold">Base de conocimiento</h1>
       <p className="mb-4 text-sm text-suave">
         Lo que el asistente responde cuando un cliente pregunta algo del negocio. Si no encuentra la respuesta aquí, te pasa la conversación.
       </p>
-      {mensaje && (
-        <div className="mb-4">
-          <Aviso tipo="exito">{mensaje}</Aviso>
-        </div>
-      )}
+      <AvisoDeLaUrl mensaje={mensaje} />
 
-      <div className="mb-4 rounded-2xl border border-borde bg-superficie p-4">
+      <div className="mb-4 rounded-xl border border-borde bg-superficie p-4">
         <div className="mb-1.5 flex justify-between gap-2 text-sm">
           <span className="font-medium">Espacio usado</span>
           <span className="text-suave tabular-nums">
@@ -59,14 +55,14 @@ export default async function PaginaConocimiento({ searchParams }: { searchParam
       </div>
 
       {base.entradas.length === 0 ? (
-        <div className="mb-6 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+        <div className="mb-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <BookOpen aria-hidden className="size-8" />
           <p>Todavía no hay preguntas. Empieza por lo que más te preguntan.</p>
         </div>
       ) : (
         <ul className="mb-6 flex flex-col gap-2">
           {base.entradas.map((e) => (
-            <li key={e.id} className={`rounded-2xl border border-borde bg-superficie p-3 ${e.activo ? '' : 'opacity-75'}`}>
+            <li key={e.id} className={`rounded-xl border border-borde bg-superficie p-3 ${e.activo ? '' : 'opacity-75'}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-medium break-words">{e.pregunta}</p>
@@ -97,11 +93,11 @@ export default async function PaginaConocimiento({ searchParams }: { searchParam
         </ul>
       )}
 
-      <section aria-labelledby="nueva-entrada" className="rounded-2xl border border-borde bg-superficie p-4">
+      <section aria-labelledby="nueva-entrada" className="rounded-xl border border-borde bg-superficie p-4">
         <h2 id="nueva-entrada" className="mb-3 font-semibold">
           Agregar pregunta
         </h2>
-        <FormularioConEstado accion={crearEntrada} boton="Agregar pregunta" enviando="Agregando…">
+        <FormularioConEstado limpiar accion={crearEntrada} boton="Agregar pregunta" enviando="Agregando…">
           <CamposDeEntrada prefijo="nueva" />
         </FormularioConEstado>
       </section>

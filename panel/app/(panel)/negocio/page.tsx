@@ -57,10 +57,10 @@ export default async function PaginaNegocio() {
   const { negocio, configuracion } = await miNegocio();
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="mb-4 text-2xl font-semibold">Ajustes del negocio</h1>
 
-      <section aria-labelledby="datos" className="mb-4 rounded-2xl border border-borde bg-superficie p-4">
+      <section aria-labelledby="datos" className="mb-4 rounded-xl border border-borde bg-superficie p-4">
         <h2 id="datos" className="mb-3 font-semibold">
           Datos del negocio
         </h2>
@@ -93,7 +93,7 @@ export default async function PaginaNegocio() {
         </FormularioConEstado>
       </section>
 
-      <section aria-labelledby="reglas" className="rounded-2xl border border-borde bg-superficie p-4">
+      <section aria-labelledby="reglas" className="rounded-xl border border-borde bg-superficie p-4">
         <h2 id="reglas" className="font-semibold">
           Reglas de la agenda
         </h2>

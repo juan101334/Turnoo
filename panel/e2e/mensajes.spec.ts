@@ -67,8 +67,8 @@ test.describe.serial('mensajes', () => {
   test('el barbero no entra a mensajes ni a la base de conocimiento', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
     for (const ruta of [`/mensajes/${datos().conversaciones.derivada}`, '/conocimiento']) {
-      const respuesta = await page.goto(ruta);
-      expect(respuesta?.status()).toBe(404);
+      await page.goto(ruta);
+      await expect(page.getByRole('heading', { name: 'Esta página no existe' }), ruta).toBeVisible();
     }
   });
 });
@@ -109,7 +109,7 @@ test.describe.serial('base de conocimiento', () => {
     await page.getByLabel('Respuesta', { exact: true }).fill('Sí: Nequi, Daviplata y efectivo.');
     await page.getByLabel('El asistente la usa').check();
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page).toHaveURL('/conocimiento?listo=editada');
+    await expect(page).toHaveURL('/conocimiento');
     await expect(entrada).toContainText('Sí: Nequi, Daviplata y efectivo.');
     await expect(entrada).not.toContainText('Pausada');
 

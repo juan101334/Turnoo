@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { plex, plexCondensada } from './fuentes';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -13,12 +14,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Deja que el contenido llegue al borde y respete la muesca con env(safe-area-inset-*).
   viewportFit: 'cover',
-  themeColor: '#0369a1',
+  themeColor: '#075985',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" className={`${plex.variable} ${plexCondensada.variable}`}>
       <body className="min-h-dvh">{children}</body>
     </html>
   );

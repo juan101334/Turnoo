@@ -1,6 +1,7 @@
 import { CalendarOff, CalendarPlus, TriangleAlert } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { AccionPrincipal } from '@/componentes/accion-principal';
 import { citasQueSeCruzan, describirBloqueo } from '@/lib/bloqueos';
 import { barberos, bloqueosEntre, citasEntre } from '@/lib/datos';
 import { horaLocal, hoyEn, limitesDelDia, sumarDias } from '@/lib/fechas';
@@ -24,21 +25,15 @@ export default async function PaginaBloqueos() {
   const nombreDe = new Map(equipo.map((b) => [b.id, b.nombre]));
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <div className="mb-1 flex items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold">{esDueno ? 'Bloqueos' : 'Mis bloqueos'}</h1>
-        <Link
-          href="/bloqueos/nuevo"
-          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-marca px-4 font-semibold text-white transition-colors duration-150 hover:bg-marca-oscura"
-        >
-          <CalendarPlus aria-hidden className="size-5" />
-          Bloquear horas
-        </Link>
+        <AccionPrincipal href="/bloqueos/nuevo" etiqueta="Bloquear horas" Icono={CalendarPlus} />
       </div>
       <p className="mb-4 text-sm text-suave">Almuerzos, permisos y cierres de los próximos {DIAS} días. En esas horas no se pueden agendar citas.</p>
 
       {bloqueos.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <CalendarOff aria-hidden className="size-8" />
           <p>No hay bloqueos próximos.</p>
         </div>
@@ -50,7 +45,7 @@ export default async function PaginaBloqueos() {
             // Un cierre del negocio lo ve el barbero, pero solo el dueño lo quita.
             const puedeQuitar = esDueno || b.profesionalId !== null;
             return (
-              <li key={b.id} className="rounded-2xl border border-borde bg-superficie p-3">
+              <li key={b.id} className="rounded-xl border border-borde bg-superficie p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium first-letter:uppercase">{describirBloqueo(b, zona)}</p>

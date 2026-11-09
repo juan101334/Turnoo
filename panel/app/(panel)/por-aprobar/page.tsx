@@ -2,6 +2,7 @@ import { ChevronRight, Inbox } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CuentaRegresiva } from '@/componentes/cuenta-regresiva';
+import { RefrescoAutomatico } from '@/componentes/refresco-automatico';
 import { accionesPosibles, nombresDeServicios, pesos } from '@/lib/citas';
 import { citasPorAprobar, DIAS_POR_APROBAR } from '@/lib/datos';
 import { diaRelativo, fechaDe, fechaLarga, horaLocal, hoyEn } from '@/lib/fechas';
@@ -23,7 +24,8 @@ export default async function PaginaPorAprobar() {
   const citas = await citasPorAprobar(ahora);
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
+      <RefrescoAutomatico />
       <h1 className="text-2xl font-semibold">Por aprobar</h1>
       <p className="mb-4 text-sm text-suave">
         Si no las apruebas antes de que venza el plazo, se cancelan solas y el horario queda libre.
@@ -33,7 +35,7 @@ export default async function PaginaPorAprobar() {
       </p>
 
       {citas.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">
           <Inbox aria-hidden className="size-8" />
           <p>No hay citas esperando tu aprobación.</p>
         </div>
@@ -43,7 +45,7 @@ export default async function PaginaPorAprobar() {
             const fecha = fechaDe(c.inicio, zona);
             const dia = diaRelativo(fecha, hoy) ?? fechaLarga(fecha);
             return (
-              <li key={c.id} className="rounded-2xl border border-borde bg-superficie p-4">
+              <li key={c.id} className="rounded-xl border border-borde bg-superficie p-4">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold first-letter:uppercase">

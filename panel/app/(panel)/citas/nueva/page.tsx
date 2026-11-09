@@ -44,7 +44,7 @@ export default async function PaginaNuevaCita({ searchParams }: { searchParams: 
   };
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href={`/agenda?fecha=${fecha}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Agenda

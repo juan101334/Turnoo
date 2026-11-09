@@ -2,8 +2,9 @@
 
 import { CalendarClock, Check, UserX, X } from 'lucide-react';
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
+import { useAvisar } from '@/componentes/avisos-flotantes';
 import { BotonEnviar } from '@/componentes/formulario';
 import type { Accion } from '@/lib/citas';
 import { accionSobreCita, type EstadoAccion } from '../acciones';
@@ -36,16 +37,19 @@ const ESTILOS = {
 export function AccionesCita({ citaId, acciones }: { citaId: string; acciones: Accion[] }) {
   const [estado, enviar] = useActionState<EstadoAccion, FormData>(accionSobreCita.bind(null, citaId), {});
   const [confirmando, setConfirmando] = useState<Accion | null>(null);
+  const avisar = useAvisar();
+  useEffect(() => {
+    if (estado.listo) avisar(estado.listo);
+  }, [estado, avisar]);
 
   if (acciones.length === 0) {
-    return estado.listo ? <Aviso tipo="exito">{estado.listo}</Aviso> : null;
+    return null;
   }
 
   const pregunta = confirmando ? CONFIRMAR[confirmando] : undefined;
   return (
     <div className="flex flex-col gap-3">
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
-      {estado.listo && <Aviso tipo="exito">{estado.listo}</Aviso>}
 
       {confirmando && pregunta ? (
         <form
@@ -53,7 +57,7 @@ export function AccionesCita({ citaId, acciones }: { citaId: string; acciones: A
             setConfirmando(null);
             enviar(datos);
           }}
-          className="flex flex-col gap-3 rounded-2xl border border-peligro bg-peligro-suave p-4"
+          className="flex flex-col gap-3 rounded-xl border border-peligro bg-peligro-suave p-4"
         >
           <p className="font-semibold text-peligro">{pregunta.pregunta}</p>
           {pregunta.detalle && <p className="text-sm">{pregunta.detalle}</p>}

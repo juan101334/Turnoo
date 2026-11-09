@@ -1,5 +1,6 @@
 import 'server-only';
 import { notFound, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { ErrorDelBackend, llamarAlBackend } from './backend';
 import type { Configuracion, Horario, UsuarioDelNegocio } from './administracion';
 import type { Bloqueo } from './bloqueos';
@@ -85,15 +86,19 @@ export async function clientes(buscar: string, pagina: number): Promise<{ client
   return leer(`/clientes?${consulta}`);
 }
 
-export async function cliente(id: string): Promise<Cliente> {
+/**
+ * Las fichas se leen dos veces por página (el título de la pestaña y el contenido): cache() hace
+ * que en una misma petición sea una sola llamada al backend.
+ */
+export const cliente = cache(async (id: string): Promise<Cliente> => {
   if (!esId(id)) notFound();
   return leer<Cliente>(`/clientes/${id}`);
-}
+});
 
-export async function cita(id: string): Promise<Cita> {
+export const cita = cache(async (id: string): Promise<Cita> => {
   if (!esId(id)) notFound();
   return leer<Cita>(`/citas/${id}`);
-}
+});
 
 export interface Barbero {
   id: string;
@@ -134,10 +139,10 @@ export async function huecosDelDia(profesionalId: string, servicioIds: string[],
   return dias.find((d) => d.fecha === fecha)?.huecos ?? [];
 }
 
-export async function barbero(id: string): Promise<Barbero> {
+export const barbero = cache(async (id: string): Promise<Barbero> => {
   if (!esId(id)) notFound();
   return leer<Barbero>(`/profesionales/${id}`);
-}
+});
 
 export async function horariosDe(profesionalId: string): Promise<Horario[]> {
   if (!esId(profesionalId)) notFound();
@@ -175,6 +180,12 @@ export async function conversaciones(estado?: 'humano' | 'bot'): Promise<Convers
   const consulta = new URLSearchParams({ limite: String(MAX_CONVERSACIONES), ...(estado && { estado }) });
   return (await leer<{ conversaciones: Conversacion[] }>(`/conversaciones?${consulta}`)).conversaciones;
 }
+
+/** Una conversación con su cliente y su última derivación (solo el dueño). */
+export const conversacion = cache(async (id: string): Promise<Conversacion> => {
+  if (!esId(id)) notFound();
+  return leer<Conversacion>(`/conversaciones/${id}`);
+});
 
 /** Los últimos 200 mensajes, del más viejo al más nuevo. */
 export async function mensajesDe(conversacionId: string): Promise<Mensaje[]> {

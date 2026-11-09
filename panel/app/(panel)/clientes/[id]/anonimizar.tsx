@@ -15,7 +15,7 @@ export function AnonimizarCliente({ clienteId }: { clienteId: string }) {
   const [pendiente, iniciar] = useTransition();
 
   return (
-    <section aria-labelledby="borrar-datos" className="mt-6 rounded-2xl border border-borde bg-superficie p-4">
+    <section aria-labelledby="borrar-datos" className="mt-6 rounded-xl border border-borde bg-superficie p-4">
       <h2 id="borrar-datos" className="font-semibold">
         Borrar sus datos
       </h2>

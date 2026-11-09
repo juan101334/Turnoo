@@ -19,7 +19,7 @@ export default async function PaginaEditarCliente({ params }: { params: Promise<
   if (c.anonimizadoEn) notFound();
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href={`/clientes/${c.id}`} className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Cliente

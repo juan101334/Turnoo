@@ -2,13 +2,14 @@
 
 import { useActionState } from 'react';
 import { Aviso } from '@/componentes/aviso';
-import { BotonEnviar, Campo } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio } from '@/componentes/formulario';
 import { iniciarSesion } from '../acciones';
 
 export function FormularioLogin() {
-  const [estado, accion] = useActionState(iniciarSesion, {});
+  const [estado, accion, pendiente] = useActionState(iniciarSesion, {});
   return (
-    <form action={accion} className="flex flex-col gap-4" noValidate>
+    <EnvioSinReinicio pendiente={pendiente}>
+    <form action={accion} onSubmit={alEnviarSinReinicio(accion)} className="flex flex-col gap-4" noValidate>
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <Campo
         id="email"
@@ -20,11 +21,10 @@ export function FormularioLogin() {
         autoCapitalize="none"
         spellCheck={false}
         required
-        defaultValue={estado.email}
-        key={estado.email}
       />
       <Campo id="password" name="password" type="password" etiqueta="Contraseña" autoComplete="current-password" required />
       <BotonEnviar enviando="Entrando…">Entrar</BotonEnviar>
     </form>
+    </EnvioSinReinicio>
   );
 }

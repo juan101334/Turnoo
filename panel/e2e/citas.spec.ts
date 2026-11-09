@@ -53,8 +53,7 @@ test.describe.serial('agenda y acciones sobre citas', () => {
 
   test('el barbero no puede abrir la cita de otro barbero', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
-    const respuesta = await page.goto(`/citas/${datos().agenda.citaAjena}`);
-    expect(respuesta?.status()).toBe(404);
+    await page.goto(`/citas/${datos().agenda.citaAjena}`);
     await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();
   });
 
@@ -114,10 +113,11 @@ test.describe.serial('agenda y acciones sobre citas', () => {
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('checkbox', { name: /Barba/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
-    await expect(page.getByText('50 min · $40.000')).toBeVisible();
 
+    // El resumen se mira en un día futuro: de noche, hoy ya no tiene horas libres y no lo muestra.
     await page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(4).click();
     await expect(page).toHaveURL(new RegExp(`fecha=${dia}`));
+    await expect(page.getByText('50 min · $40.000')).toBeVisible();
 
     // Sin teléfono no se agenda: el navegador frena el envío (y el servidor lo revisa igual).
     await elegirHora(page, '10:00');

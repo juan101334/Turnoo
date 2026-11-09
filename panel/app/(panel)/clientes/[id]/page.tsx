@@ -1,6 +1,7 @@
 import { ChevronLeft, MessageCircle, Pencil, Phone } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { Aviso } from '@/componentes/aviso';
 import { telefonoLegible } from '@/lib/citas';
 import { cliente as leerCliente } from '@/lib/datos';
@@ -8,7 +9,11 @@ import { fechaDe, fechaLarga } from '@/lib/fechas';
 import { exigirUsuario } from '@/lib/sesion';
 import { AnonimizarCliente } from './anonimizar';
 
-export const metadata: Metadata = { title: 'Cliente' };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  await exigirUsuario('clientes');
+  const c = await leerCliente((await params).id);
+  return { title: c.anonimizadoEn ? 'Cliente anonimizado' : (c.nombre ?? 'Cliente sin nombre') };
+}
 
 const LISTO: Record<string, string> = {
   editado: 'Cambios guardados.',
@@ -25,17 +30,13 @@ export default async function PaginaCliente({ params, searchParams }: { params: 
   const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href="/clientes" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Clientes
       </Link>
 
-      {mensaje && (
-        <div className="mb-3">
-          <Aviso tipo="exito">{mensaje}</Aviso>
-        </div>
-      )}
+      <AvisoDeLaUrl mensaje={mensaje} />
 
       {c.anonimizadoEn ? (
         <>
@@ -44,7 +45,7 @@ export default async function PaginaCliente({ params, searchParams }: { params: 
         </>
       ) : (
         <>
-        <section className="rounded-2xl border border-borde bg-superficie p-4">
+        <section className="rounded-xl border border-borde bg-superficie p-4">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 text-2xl font-semibold break-words">{c.nombre ?? 'Sin nombre'}</h1>
             {esDueno && (

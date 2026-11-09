@@ -2,6 +2,7 @@ import { ChevronLeft, Pencil, UserPlus } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Aviso } from '@/componentes/aviso';
+import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { Campo, CampoSeleccion } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
@@ -12,7 +13,10 @@ import { exigirUsuario } from '@/lib/sesion';
 import { asignarUsuario, cambiarBarberoActivo, cambiarServicioActivo, crearHorario, crearServicio, renombrarBarbero } from '../acciones';
 import { HorarioSemanal } from './horario-semanal';
 
-export const metadata: Metadata = { title: 'Barbero' };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  await exigirUsuario('equipo');
+  return { title: (await leerBarbero((await params).id)).nombre };
+}
 
 const LISTO: Record<string, string> = {
   creado: 'Barbero agregado. Ahora agrégale servicios y su horario para que pueda recibir citas.',
@@ -21,7 +25,7 @@ const LISTO: Record<string, string> = {
 
 function Seccion({ id, titulo, ayuda, children }: { id: string; titulo: string; ayuda?: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={id} className="mb-4 rounded-2xl border border-borde bg-superficie p-4">
+    <section aria-labelledby={id} className="mb-4 rounded-xl border border-borde bg-superficie p-4">
       <h2 id={id} className="font-semibold">
         {titulo}
       </h2>
@@ -43,7 +47,7 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
   const asignables = usuarios.filter((u) => u.estado !== 'desactivado' && (u.profesionalId === null || u.profesionalId === b.id));
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <Link href="/equipo" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Barberos y servicios
@@ -52,10 +56,12 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
         <h1 className="text-2xl font-semibold break-words">{b.nombre}</h1>
         {!b.activo && <p className="text-sm text-suave">Inactivo: no aparece para agendar.</p>}
       </div>
-      {mensaje && (
+      {listo === 'creado' ? (
         <div className="mb-4">
           <Aviso tipo="exito">{mensaje}</Aviso>
         </div>
+      ) : (
+        <AvisoDeLaUrl mensaje={mensaje} />
       )}
 
       <Seccion id="servicios" titulo="Servicios y precios" ayuda="Lo que el asistente y el panel ofrecen con este barbero.">
@@ -92,7 +98,7 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
           </ul>
         )}
         <h3 className="mb-2 text-sm font-semibold">Agregar servicio</h3>
-        <FormularioConEstado accion={crearServicio.bind(null, b.id)} boton="Agregar servicio" enviando="Agregando…" variante="secundario">
+        <FormularioConEstado limpiar accion={crearServicio.bind(null, b.id)} boton="Agregar servicio" enviando="Agregando…" variante="secundario">
           <Campo id="servicio-nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" placeholder="Corte" />
           <div className="grid grid-cols-2 gap-3">
             <Campo id="servicio-duracion" name="duracion" etiqueta="Duración (min)" required inputMode="numeric" pattern="[0-9]*" maxLength={3} placeholder="30" />
@@ -104,7 +110,7 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
       <Seccion id="horario" titulo="Horario semanal" ayuda="Para el almuerzo, usa dos rangos el mismo día: de 8:00 a. m. a 12:00 p. m. y de 2:00 p. m. a 8:00 p. m. Los días sueltos se cierran con un bloqueo.">
         <HorarioSemanal barberoId={b.id} dias={horariosPorDia(horarios)} />
         <h3 className="mt-4 mb-2 text-sm font-semibold">Agregar horario</h3>
-        <FormularioConEstado accion={crearHorario.bind(null, b.id)} boton="Agregar horario" enviando="Agregando…" variante="secundario">
+        <FormularioConEstado limpiar accion={crearHorario.bind(null, b.id)} boton="Agregar horario" enviando="Agregando…" variante="secundario">
           <CampoSeleccion id="horario-dia" name="dia" etiqueta="Día" defaultValue="1">
             {DIAS_SEMANA.map((nombre, i) => (
               <option key={nombre} value={i + 1}>

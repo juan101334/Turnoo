@@ -3,25 +3,62 @@
 /*
  * Colores y medidas del panel. Los componentes usan estos nombres (bg-marca, text-suave…),
  * nunca un color suelto: así un cambio de marca se hace aquí y en ningún otro lado.
- * Contraste mínimo 4.5:1 para texto (WCAG AA).
+ * Contraste mínimo 4.5:1 para texto (WCAG AA); los valores están medidos sobre su fondo.
+ *
+ * Neutros con un leve tono azul (el de la marca), no gris puro. Los estados de la cita tienen
+ * colores propios, distintos de la marca, y siempre van con texto o ícono.
  */
 @theme {
-  --color-marca: #0369a1; /* blanco encima: 5.9:1 */
-  --color-marca-oscura: #075985;
-  --color-marca-suave: #e0f2fe;
-  --color-fondo: #f8fafc;
+  --color-marca: #075985; /* blanco encima: 7.5:1 */
+  --color-marca-oscura: #0c4a6e;
+  --color-marca-suave: #e3eff7;
+  --color-acento: #0284c7; /* solo gráficos (logo): 4.1:1 sobre blanco, NO sirve para texto */
+  --color-fondo: #f5f7f9;
   --color-superficie: #ffffff;
-  --color-texto: #0f172a;
-  --color-suave: #475569; /* sobre blanco: 7.6:1 */
-  --color-borde: #cbd5e1;
-  --color-peligro: #b91c1c;
-  --color-peligro-suave: #fee2e2;
-  --color-exito: #15803d;
-  --color-exito-suave: #dcfce7;
-  --color-aviso: #b45309;
-  --color-aviso-suave: #fef3c7;
+  --color-hundido: #eef2f5; /* zonas de apoyo: esqueletos, filas alternas */
+  --color-texto: #0f1d2a;
+  --color-suave: #4f5f6f; /* sobre blanco: 6.6:1; sobre fondo: 6.2:1 */
+  --color-borde: #d5dde4;
+  --color-borde-fuerte: #b3c0cb;
+  --color-peligro: #b42318; /* sobre blanco: 6.5:1 */
+  --color-peligro-suave: #fdecea;
+  --color-exito: #1a6e3f; /* sobre blanco: 6.4:1 */
+  --color-exito-suave: #e3f3e9;
+  --color-aviso: #a14306; /* sobre blanco: 6.0:1 */
+  --color-aviso-suave: #fdf0e1;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Estados de la cita (franja y etiqueta). */
+  --color-estado-por-aprobar: #c2640a;
+  --color-estado-pendiente: #7a8896;
+  --color-estado-confirmada: #075985;
+  --color-estado-completada: #1f8a4c;
+  --color-estado-no-asistio: #b42318;
+  --color-estado-cancelada: #b3c0cb;
+
+  --font-sans: var(--fuente-plex), system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-num: var(--fuente-plex-condensada), var(--fuente-plex), system-ui, sans-serif;
+
+  /* Una sola sombra, solo para lo que flota sobre el resto (avisos, botón fijo, paneles). */
+  --shadow-flotante: 0 1px 2px rgb(15 29 42 / 0.06), 0 8px 24px rgb(15 29 42 / 0.12);
+
+  --animate-entrar: entrar 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-latido: latido 1.4s ease-in-out infinite;
+
+  @keyframes entrar {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes latido {
+    50% {
+      opacity: 0.55;
+    }
+  }
 }
 
 @layer base {
@@ -30,8 +67,14 @@
   }
   body {
     @apply bg-fondo text-texto antialiased;
+    font-feature-settings: 'kern';
     /* Sin el destello gris al tocar en el celular: cada control tiene su propio estado activo. */
     -webkit-tap-highlight-color: transparent;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-marca;
@@ -42,6 +85,13 @@
     *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
     }
   }
+}
+
+/* Horas y precios: números de ancho fijo, para que las columnas no bailen. */
+@utility cifras {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }

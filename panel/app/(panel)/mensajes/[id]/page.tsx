@@ -4,14 +4,19 @@ import Link from 'next/link';
 import { Fragment } from 'react';
 import { Aviso } from '@/componentes/aviso';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
+import { RefrescoAutomatico } from '@/componentes/refresco-automatico';
 import { telefonoLegible } from '@/lib/citas';
 import { asistenteCallaHasta, EMISORES, MOTIVOS, nombreDelCliente, textoDelMensaje, ventanaHasta } from '@/lib/conversaciones';
-import { conversaciones as leerConversaciones, mensajesDe, miNegocio } from '@/lib/datos';
+import { conversacion as leerConversacion, mensajesDe, miNegocio } from '@/lib/datos';
 import { diaRelativo, fechaDe, fechaLarga, horaLocal, hoyEn } from '@/lib/fechas';
 import { exigirUsuario } from '@/lib/sesion';
 import { responder } from '../acciones';
 
-export const metadata: Metadata = { title: 'Conversación' };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  await exigirUsuario('mensajes');
+  const c = await leerConversacion((await params).id);
+  return { title: `${nombreDelCliente(c.cliente, telefonoLegible)} · Mensajes` };
+}
 
 /**
  * Una conversación de WhatsApp: el historial (el más viejo arriba) y la respuesta del negocio.
@@ -21,9 +26,7 @@ export default async function PaginaConversacion({ params }: { params: Promise<{
   const usuario = await exigirUsuario('mensajes');
   const zona = usuario.negocio.zonaHoraria;
   const { id } = await params;
-  const [mensajes, lista, { configuracion }] = await Promise.all([mensajesDe(id), leerConversaciones(), miNegocio()]);
-  // El backend no tiene GET /conversaciones/:id: los datos del cliente salen de la lista (las 100 más recientes).
-  const c = lista.find((x) => x.id === id);
+  const [c, mensajes, { configuracion }] = await Promise.all([leerConversacion(id), mensajesDe(id), miNegocio()]);
   const ahora = new Date();
   const hoy = hoyEn(zona, ahora);
   const cuandoDia = (iso: string) => {
@@ -37,7 +40,8 @@ export default async function PaginaConversacion({ params }: { params: Promise<{
   const calla = c ? asistenteCallaHasta(c, configuracion.horasModoHumano, ahora) : null;
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
+      <RefrescoAutomatico segundos={20} />
       <Link href="/mensajes" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Mensajes
@@ -87,7 +91,7 @@ export default async function PaginaConversacion({ params }: { params: Promise<{
               {nuevoDia && <li className="py-1 text-center text-xs font-medium text-suave first-letter:uppercase">{dia}</li>}
               <li className={`flex flex-col ${delCliente ? 'items-start' : 'items-end'}`}>
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                  className={`max-w-[85%] rounded-xl px-3 py-2 ${
                     delCliente ? 'rounded-bl-sm border border-borde bg-superficie' : m.emisor === 'humano' ? 'rounded-br-sm bg-marca-suave' : 'rounded-br-sm bg-fondo ring-1 ring-borde'
                   } ${fallido ? 'ring-1 ring-peligro' : ''}`}
                 >
@@ -108,12 +112,12 @@ export default async function PaginaConversacion({ params }: { params: Promise<{
         })}
       </ol>
 
-      <section aria-labelledby="responder" className="rounded-2xl border border-borde bg-superficie p-4">
+      <section aria-labelledby="responder" className="rounded-xl border border-borde bg-superficie p-4">
         <h2 id="responder" className="mb-2 font-semibold">
           Responder
         </h2>
         {puedeEscribir ? (
-          <FormularioConEstado accion={responder.bind(null, id)} boton="Enviar por WhatsApp" enviando="Enviando…">
+          <FormularioConEstado limpiar accion={responder.bind(null, id)} boton="Enviar por WhatsApp" enviando="Enviando…">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="texto" className="text-sm font-medium">
                 Mensaje
