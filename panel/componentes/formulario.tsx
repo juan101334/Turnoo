@@ -1,5 +1,6 @@
 'use client';
 
+import { Eye, EyeOff } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import {
   createContext,
@@ -8,6 +9,7 @@ import {
   useContext,
   useEffect,
   useRef,
+  useState,
   type FormEvent,
   type InputHTMLAttributes,
   type ReactNode,
@@ -106,6 +108,53 @@ export function Campo({
       {error && (
         <p id={idError} className="text-sm text-peligro">
           {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Contraseña con "Mostrar": en el celular cuesta escribirla sin ver qué se tecleó. El botón dice
+ * "Mostrar" u "Ocultar" (aria-pressed) y no se envía con el formulario.
+ */
+export function CampoContrasena({
+  etiqueta,
+  ayuda,
+  id,
+  ...input
+}: { etiqueta: string; ayuda?: string; id: string } & Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [visible, setVisible] = useState(false);
+  const idAyuda = ayuda ? `${id}-ayuda` : undefined;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium">
+        {etiqueta}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? 'text' : 'password'}
+          aria-describedby={idAyuda}
+          autoCapitalize="none"
+          spellCheck={false}
+          className="min-h-11 w-full rounded-lg border border-borde bg-superficie pr-24 pl-3 text-base"
+          {...input}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-pressed={visible}
+          aria-controls={id}
+          className="absolute inset-y-0 right-0 flex min-w-11 cursor-pointer items-center gap-1.5 rounded-r-lg px-3 text-sm font-semibold text-marca hover:bg-marca-suave"
+        >
+          {visible ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
+          {visible ? 'Ocultar' : 'Mostrar'}
+        </button>
+      </div>
+      {ayuda && (
+        <p id={idAyuda} className="text-sm text-suave">
+          {ayuda}
         </p>
       )}
     </div>

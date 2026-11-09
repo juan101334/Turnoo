@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
-import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, CampoContrasena, EnvioSinReinicio } from '@/componentes/formulario';
 import { CLAVE_MIN } from '@/lib/claves';
 import type { EstadoFormulario } from './acciones';
 
@@ -38,17 +38,16 @@ export function FormularioClaveNueva({ accion, boton }: { accion: Accion; boton:
     <form action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4" noValidate>
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <input type="hidden" name="token" value={token} />
-      <Campo
+      <CampoContrasena
         id="password"
         name="password"
-        type="password"
         etiqueta="Contraseña nueva"
         ayuda={`Mínimo ${CLAVE_MIN} caracteres.`}
         autoComplete="new-password"
         minLength={CLAVE_MIN}
         required
       />
-      <Campo id="confirmacion" name="confirmacion" type="password" etiqueta="Repite la contraseña" autoComplete="new-password" required />
+      <CampoContrasena id="confirmacion" name="confirmacion" etiqueta="Repite la contraseña" autoComplete="new-password" required />
       <BotonEnviar enviando="Guardando…">{boton}</BotonEnviar>
     </form>
     </EnvioSinReinicio>

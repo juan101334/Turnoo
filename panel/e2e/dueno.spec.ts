@@ -64,6 +64,8 @@ test.describe.serial('citas por aprobar', () => {
   });
 
   test('aprobar se puede deshacer: la cita vuelve y el backend no la aprueba', async ({ page }) => {
+    // Reloj quieto: los 7 s para deshacer no se acaban aunque la máquina vaya lenta.
+    await page.clock.install();
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/por-aprobar');
     const tarjeta = page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' });

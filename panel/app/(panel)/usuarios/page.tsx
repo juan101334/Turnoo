@@ -1,4 +1,4 @@
-import { UserPlus } from 'lucide-react';
+import { ChevronDown, Ellipsis, UserPlus } from 'lucide-react';
 import type { Metadata } from 'next';
 import { AccionPrincipal } from '@/componentes/accion-principal';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
@@ -58,23 +58,31 @@ export default async function PaginaUsuarios() {
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${estado.clases}`}>{estado.etiqueta}</span>
               </div>
               {acciones.length > 0 && (
-                <div className="mt-3 flex flex-col gap-2">
-                  {enlace && <GenerarEnlace usuarioId={u.id} tipo={enlace} negocio={yo.negocio.nombre} />}
-                  {acciones.includes('desactivar') && (
-                    <BotonDeAccion
-                      etiqueta="Desactivar"
-                      enviando="Desactivando…"
-                      icono="quitarUsuario"
-                      variante="peligro"
-                      accion={desactivarUsuario.bind(null, u.id)}
-                      confirmar={{
-                        pregunta: `¿Desactivar a ${u.nombre}?`,
-                        detalle: 'Se cierra su sesión de inmediato y no podrá entrar. Para que vuelva, envíale una invitación nueva.',
-                        boton: 'Sí, desactivar',
-                      }}
-                    />
-                  )}
-                </div>
+                // Las acciones van plegadas: la lista se lee de un vistazo y nada se toca sin querer.
+                <details className="group mt-2">
+                  <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-marca hover:bg-marca-suave [&::-webkit-details-marker]:hidden">
+                    <Ellipsis aria-hidden className="size-4" />
+                    Acciones
+                    <ChevronDown aria-hidden className="size-4 transition-transform duration-150 group-open:rotate-180" />
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-2 border-t border-borde pt-3">
+                    {enlace && <GenerarEnlace usuarioId={u.id} tipo={enlace} negocio={yo.negocio.nombre} />}
+                    {acciones.includes('desactivar') && (
+                      <BotonDeAccion
+                        etiqueta="Desactivar"
+                        enviando="Desactivando…"
+                        icono="quitarUsuario"
+                        variante="peligro"
+                        accion={desactivarUsuario.bind(null, u.id)}
+                        confirmar={{
+                          pregunta: `¿Desactivar a ${u.nombre}?`,
+                          detalle: 'Se cierra su sesión de inmediato y no podrá entrar. Para que vuelva, envíale una invitación nueva.',
+                          boton: 'Sí, desactivar',
+                        }}
+                      />
+                    )}
+                  </div>
+                </details>
               )}
             </li>
           );

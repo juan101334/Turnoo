@@ -6,11 +6,12 @@ import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { Campo, CampoSeleccion } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
-import { DIAS_SEMANA, horariosPorDia } from '@/lib/administracion';
+import { horariosPorDia } from '@/lib/administracion';
 import { pesos } from '@/lib/citas';
 import { barbero as leerBarbero, horariosDe, serviciosDe, usuarios as leerUsuarios } from '@/lib/datos';
 import { exigirUsuario } from '@/lib/sesion';
 import { asignarUsuario, cambiarBarberoActivo, cambiarServicioActivo, crearHorario, crearServicio, renombrarBarbero } from '../acciones';
+import { DiasDelHorario } from './dias-del-horario';
 import { HorarioSemanal } from './horario-semanal';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -35,11 +36,23 @@ function Seccion({ id, titulo, ayuda, children }: { id: string; titulo: string; 
   );
 }
 
-/** Todo lo de un barbero: servicios y precios, horario semanal, acceso al panel, nombre y estado. */
-export default async function PaginaBarbero({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ listo?: string }> }) {
+const PESTANAS = [
+  { clave: 'servicios', nombre: 'Servicios' },
+  { clave: 'horario', nombre: 'Horario' },
+  { clave: 'acceso', nombre: 'Acceso' },
+  { clave: 'datos', nombre: 'Datos' },
+] as const;
+type Pestana = (typeof PESTANAS)[number]['clave'];
+
+/**
+ * Todo lo de un barbero, en pestañas (?pestana=): servicios y precios, horario semanal, acceso al
+ * panel, y nombre y estado. Cada pestaña es un enlace: "atrás" y recargar la mantienen.
+ */
+export default async function PaginaBarbero({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ listo?: string; pestana?: string }> }) {
   await exigirUsuario('equipo');
   const { id } = await params;
-  const { listo } = await searchParams;
+  const { listo, pestana: pedida } = await searchParams;
+  const pestana: Pestana = PESTANAS.some((p) => p.clave === pedida) ? (pedida as Pestana) : 'servicios';
   const b = await leerBarbero(id);
   const [servicios, horarios, usuarios] = await Promise.all([serviciosDe(b.id), horariosDe(b.id), leerUsuarios()]);
   const mensaje = listo ? LISTO[listo] : undefined;
@@ -64,114 +77,134 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
         <AvisoDeLaUrl mensaje={mensaje} />
       )}
 
-      <Seccion id="servicios" titulo="Servicios y precios" ayuda="Lo que el asistente y el panel ofrecen con este barbero.">
-        {servicios.length === 0 ? (
-          <p className="mb-4 text-sm text-suave">Sin servicios todavía.</p>
-        ) : (
-          <ul className="mb-4 divide-y divide-borde rounded-xl border border-borde">
-            {servicios.map((s) => (
-              <li key={s.id} className="flex flex-col gap-2 px-3 py-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className={`font-medium break-words ${s.activo ? '' : 'text-suave line-through'}`}>{s.nombre}</p>
-                    <p className="text-sm text-suave tabular-nums">
-                      {s.duracionMinutos} min · {pesos(s.precioCop)}
-                      {!s.activo && ' · no se ofrece'}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/equipo/${b.id}/servicios/${s.id}`}
-                    aria-label={`Editar ${s.nombre}`}
-                    className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
-                  >
-                    <Pencil aria-hidden className="size-4" />
-                    Editar
-                  </Link>
-                </div>
-                <BotonDeAccion
-                  etiqueta={s.activo ? 'Dejar de ofrecer' : 'Volver a ofrecer'}
-                  enviando="Guardando…"
-                  accion={cambiarServicioActivo.bind(null, b.id, s.id, !s.activo)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-        <h3 className="mb-2 text-sm font-semibold">Agregar servicio</h3>
-        <FormularioConEstado limpiar accion={crearServicio.bind(null, b.id)} boton="Agregar servicio" enviando="Agregando…" variante="secundario">
-          <Campo id="servicio-nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" placeholder="Corte" />
-          <div className="grid grid-cols-2 gap-3">
-            <Campo id="servicio-duracion" name="duracion" etiqueta="Duración (min)" required inputMode="numeric" pattern="[0-9]*" maxLength={3} placeholder="30" />
-            <Campo id="servicio-precio" name="precio" etiqueta="Precio ($)" required inputMode="numeric" maxLength={13} placeholder="25.000" />
-          </div>
-        </FormularioConEstado>
-      </Seccion>
-
-      <Seccion id="horario" titulo="Horario semanal" ayuda="Para el almuerzo, usa dos rangos el mismo día: de 8:00 a. m. a 12:00 p. m. y de 2:00 p. m. a 8:00 p. m. Los días sueltos se cierran con un bloqueo.">
-        <HorarioSemanal barberoId={b.id} dias={horariosPorDia(horarios)} />
-        <h3 className="mt-4 mb-2 text-sm font-semibold">Agregar horario</h3>
-        <FormularioConEstado limpiar accion={crearHorario.bind(null, b.id)} boton="Agregar horario" enviando="Agregando…" variante="secundario">
-          <CampoSeleccion id="horario-dia" name="dia" etiqueta="Día" defaultValue="1">
-            {DIAS_SEMANA.map((nombre, i) => (
-              <option key={nombre} value={i + 1}>
-                {nombre}
-              </option>
-            ))}
-          </CampoSeleccion>
-          <div className="grid grid-cols-2 gap-3">
-            <Campo id="horario-desde" name="desde" etiqueta="Desde" type="time" required step={300} />
-            <Campo id="horario-hasta" name="hasta" etiqueta="Hasta" type="time" required step={300} />
-          </div>
-        </FormularioConEstado>
-      </Seccion>
-
-      <Seccion id="acceso" titulo="Acceso al panel" ayuda="Quién entra al panel como este barbero: ve su agenda y sus clientes.">
-        <FormularioConEstado accion={asignarUsuario.bind(null, b.id)} boton="Guardar acceso" enviando="Guardando…" variante="secundario">
-          <CampoSeleccion id="usuario" name="usuarioId" etiqueta="Usuario" defaultValue={b.usuarioId ?? ''}>
-            <option value="">Nadie (sin acceso)</option>
-            {asignables.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombre} ({u.rol === 'dueno' ? 'dueño' : 'barbero'}
-                {u.estado === 'pendiente' ? ', invitación pendiente' : ''})
-              </option>
-            ))}
-          </CampoSeleccion>
-        </FormularioConEstado>
-        {!b.usuarioId && b.activo && (
+      <nav aria-label="Secciones del barbero" className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-fondo p-1 ring-1 ring-borde [scrollbar-width:none]">
+        {PESTANAS.map((p) => (
           <Link
-            href={`/usuarios/invitar?barbero=${b.id}`}
-            className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-lg border border-borde text-sm font-semibold hover:bg-fondo"
+            key={p.clave}
+            href={`/equipo/${b.id}?pestana=${p.clave}`}
+            aria-current={p.clave === pestana ? 'page' : undefined}
+            className={`flex min-h-11 flex-1 items-center justify-center rounded-lg px-3 text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
+              p.clave === pestana ? 'bg-superficie text-texto shadow-sm' : 'text-suave hover:text-texto'
+            }`}
           >
-            <UserPlus aria-hidden className="size-4" />
-            Invitar a alguien como este barbero
+            {p.nombre}
           </Link>
-        )}
-      </Seccion>
+        ))}
+      </nav>
 
-      <Seccion id="nombre" titulo="Nombre">
-        <FormularioConEstado accion={renombrarBarbero.bind(null, b.id)} boton="Guardar nombre" enviando="Guardando…" variante="secundario">
-          <Campo id="barbero-nombre" name="nombre" etiqueta="Nombre del barbero" required maxLength={100} defaultValue={b.nombre} autoComplete="off" />
-        </FormularioConEstado>
-      </Seccion>
+      {pestana === 'servicios' && (
+        <Seccion id="servicios" titulo="Servicios y precios" ayuda="Lo que el asistente y el panel ofrecen con este barbero.">
+          {servicios.length === 0 ? (
+            <p className="mb-4 text-sm text-suave">Sin servicios todavía.</p>
+          ) : (
+            <ul className="mb-4 divide-y divide-borde rounded-xl border border-borde">
+              {servicios.map((s) => (
+                <li key={s.id} className="flex flex-col gap-2 px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className={`font-medium break-words ${s.activo ? '' : 'text-suave line-through'}`}>{s.nombre}</p>
+                      <p className="text-sm text-suave tabular-nums">
+                        {s.duracionMinutos} min · {pesos(s.precioCop)}
+                        {!s.activo && ' · no se ofrece'}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/equipo/${b.id}/servicios/${s.id}`}
+                      aria-label={`Editar ${s.nombre}`}
+                      className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
+                    >
+                      <Pencil aria-hidden className="size-4" />
+                      Editar
+                    </Link>
+                  </div>
+                  <BotonDeAccion
+                    etiqueta={s.activo ? 'Dejar de ofrecer' : 'Volver a ofrecer'}
+                    enviando="Guardando…"
+                    accion={cambiarServicioActivo.bind(null, b.id, s.id, !s.activo)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          <h3 className="mb-2 text-sm font-semibold">Agregar servicio</h3>
+          <FormularioConEstado limpiar accion={crearServicio.bind(null, b.id)} boton="Agregar servicio" enviando="Agregando…" variante="secundario">
+            <Campo id="servicio-nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" placeholder="Corte" />
+            <div className="grid grid-cols-2 gap-3">
+              <Campo id="servicio-duracion" name="duracion" etiqueta="Duración (min)" required inputMode="numeric" pattern="[0-9]*" maxLength={3} placeholder="30" />
+              <Campo id="servicio-precio" name="precio" etiqueta="Precio ($)" required inputMode="numeric" maxLength={13} placeholder="25.000" />
+            </div>
+          </FormularioConEstado>
+        </Seccion>
+      )}
 
-      <Seccion
-        id="estado"
-        titulo={b.activo ? 'Desactivar' : 'Activar'}
-        ayuda={b.activo ? 'Deja de aparecer para agendar; su historial se conserva. Si tiene citas futuras, primero cancélalas o pásalas a otro barbero.' : 'Vuelve a aparecer para agendar con su horario y servicios.'}
-      >
-        {b.activo ? (
-          <BotonDeAccion
-            etiqueta="Desactivar barbero"
-            enviando="Desactivando…"
-            icono="apagar"
-            variante="peligro"
-            accion={cambiarBarberoActivo.bind(null, b.id, false)}
-            confirmar={{ pregunta: `¿Desactivar a ${b.nombre}?`, detalle: 'No podrá recibir citas nuevas hasta que lo actives otra vez.', boton: 'Sí, desactivar' }}
-          />
-        ) : (
-          <BotonDeAccion etiqueta="Activar barbero" enviando="Activando…" icono="encender" variante="primario" accion={cambiarBarberoActivo.bind(null, b.id, true)} />
-        )}
-      </Seccion>
+      {pestana === 'horario' && (
+        <Seccion id="horario" titulo="Horario semanal" ayuda="Para el almuerzo, usa dos rangos el mismo día: de 8:00 a. m. a 12:00 p. m. y de 2:00 p. m. a 8:00 p. m. Los días sueltos se cierran con un bloqueo.">
+          <HorarioSemanal barberoId={b.id} dias={horariosPorDia(horarios)} />
+          <h3 className="mt-4 mb-2 text-sm font-semibold">Agregar horario</h3>
+          <p className="mb-2 text-sm text-suave">Elige uno o varios días: el mismo rango se agrega a todos.</p>
+          <FormularioConEstado limpiar accion={crearHorario.bind(null, b.id)} boton="Agregar horario" enviando="Agregando…" variante="secundario">
+            <DiasDelHorario />
+            <div className="grid grid-cols-2 gap-3">
+              <Campo id="horario-desde" name="desde" etiqueta="Desde" type="time" required step={300} />
+              <Campo id="horario-hasta" name="hasta" etiqueta="Hasta" type="time" required step={300} />
+            </div>
+          </FormularioConEstado>
+        </Seccion>
+      )}
+
+      {pestana === 'acceso' && (
+        <Seccion id="acceso" titulo="Acceso al panel" ayuda="Quién entra al panel como este barbero: ve su agenda y sus clientes.">
+          <FormularioConEstado accion={asignarUsuario.bind(null, b.id)} boton="Guardar acceso" enviando="Guardando…" variante="secundario">
+            <CampoSeleccion id="usuario" name="usuarioId" etiqueta="Usuario" defaultValue={b.usuarioId ?? ''}>
+              <option value="">Nadie (sin acceso)</option>
+              {asignables.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombre} ({u.rol === 'dueno' ? 'dueño' : 'barbero'}
+                  {u.estado === 'pendiente' ? ', invitación pendiente' : ''})
+                </option>
+              ))}
+            </CampoSeleccion>
+          </FormularioConEstado>
+          {!b.usuarioId && b.activo && (
+            <Link
+              href={`/usuarios/invitar?barbero=${b.id}`}
+              className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-lg border border-borde text-sm font-semibold hover:bg-fondo"
+            >
+              <UserPlus aria-hidden className="size-4" />
+              Invitar a alguien como este barbero
+            </Link>
+          )}
+        </Seccion>
+      )}
+
+      {pestana === 'datos' && (
+        <>
+          <Seccion id="nombre" titulo="Nombre">
+            <FormularioConEstado accion={renombrarBarbero.bind(null, b.id)} boton="Guardar nombre" enviando="Guardando…" variante="secundario">
+              <Campo id="barbero-nombre" name="nombre" etiqueta="Nombre del barbero" required maxLength={100} defaultValue={b.nombre} autoComplete="off" />
+            </FormularioConEstado>
+          </Seccion>
+
+          <Seccion
+            id="estado"
+            titulo={b.activo ? 'Desactivar' : 'Activar'}
+            ayuda={b.activo ? 'Deja de aparecer para agendar; su historial se conserva. Si tiene citas futuras, primero cancélalas o pásalas a otro barbero.' : 'Vuelve a aparecer para agendar con su horario y servicios.'}
+          >
+            {b.activo ? (
+              <BotonDeAccion
+                etiqueta="Desactivar barbero"
+                enviando="Desactivando…"
+                icono="apagar"
+                variante="peligro"
+                accion={cambiarBarberoActivo.bind(null, b.id, false)}
+                confirmar={{ pregunta: `¿Desactivar a ${b.nombre}?`, detalle: 'No podrá recibir citas nuevas hasta que lo actives otra vez.', boton: 'Sí, desactivar' }}
+              />
+            ) : (
+              <BotonDeAccion etiqueta="Activar barbero" enviando="Activando…" icono="encender" variante="primario" accion={cambiarBarberoActivo.bind(null, b.id, true)} />
+            )}
+          </Seccion>
+        </>
+      )}
     </div>
   );
 }

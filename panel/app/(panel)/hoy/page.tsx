@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PrimerosPasos } from '@/componentes/primeros-pasos';
 import { VistaDeAgenda } from '@/componentes/vista-de-agenda';
 import { tituloConCita } from '@/lib/titulo-con-cita';
 import { hoyEn } from '@/lib/fechas';
@@ -17,5 +18,15 @@ export async function generateMetadata({ searchParams }: { searchParams: Busqued
 export default async function PaginaHoy({ searchParams }: { searchParams: Busqueda }) {
   const usuario = await exigirUsuario('hoy');
   const { barbero, cita } = await searchParams;
-  return <VistaDeAgenda usuario={usuario} fecha={hoyEn(usuario.negocio.zonaHoraria)} conTira={false} ruta="/hoy" barbero={barbero} citaAbierta={cita} />;
+  return (
+    <VistaDeAgenda
+      usuario={usuario}
+      fecha={hoyEn(usuario.negocio.zonaHoraria)}
+      conTira={false}
+      ruta="/hoy"
+      barbero={barbero}
+      citaAbierta={cita}
+      arriba={usuario.rol === 'dueno' ? <PrimerosPasos /> : undefined}
+    />
+  );
 }

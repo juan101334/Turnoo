@@ -129,8 +129,10 @@ interface CampoIntervalo {
 export type CampoDeConfiguracion = CampoNumero | CampoHora | CampoIntervalo;
 
 /** Mismos rangos que el backend (negocios.rutas.ts), para avisar antes de enviar. */
-export const GRUPOS_DE_CONFIGURACION: { titulo: string; campos: CampoDeConfiguracion[] }[] = [
+/** `id`: el ancla de la sección en Ajustes (/negocio#recordatorios). */
+export const GRUPOS_DE_CONFIGURACION: { id: string; titulo: string; campos: CampoDeConfiguracion[] }[] = [
   {
+    id: 'agenda',
     titulo: 'Agenda',
     campos: [
       { clave: 'intervaloMinutos', tipo: 'intervalo', etiqueta: 'Horas que se ofrecen cada', ayuda: 'Cada cuánto empieza una hora libre: 8:00, 8:15, 8:30…', opciones: [5, 10, 15, 20, 30, 60] },
@@ -140,6 +142,7 @@ export const GRUPOS_DE_CONFIGURACION: { titulo: string; campos: CampoDeConfigura
     ],
   },
   {
+    id: 'cancelaciones',
     titulo: 'Cancelaciones e inasistencias',
     campos: [
       { clave: 'horasLimiteCancelacion', tipo: 'numero', etiqueta: 'El cliente cancela hasta', ayuda: 'Horas antes de la cita en que el asistente aún acepta cancelar o cambiar.', unidad: 'horas antes', min: 0, max: 720 },
@@ -148,6 +151,7 @@ export const GRUPOS_DE_CONFIGURACION: { titulo: string; campos: CampoDeConfigura
     ],
   },
   {
+    id: 'recordatorios',
     titulo: 'Recordatorios',
     campos: [
       { clave: 'horasRecordatorio', tipo: 'numero', etiqueta: 'Recordar la cita', ayuda: 'Cuánto antes se le escribe al cliente por WhatsApp.', unidad: 'horas antes', min: 1, max: 168 },
@@ -156,6 +160,7 @@ export const GRUPOS_DE_CONFIGURACION: { titulo: string; campos: CampoDeConfigura
     ],
   },
   {
+    id: 'por-aprobar',
     titulo: 'Citas por aprobar',
     campos: [
       { clave: 'horasEsperaAprobacion', tipo: 'numero', etiqueta: 'Plazo para aprobar', ayuda: 'Si no la apruebas en este tiempo, se cancela sola.', unidad: 'horas', min: 1, max: 168 },
@@ -163,6 +168,7 @@ export const GRUPOS_DE_CONFIGURACION: { titulo: string; campos: CampoDeConfigura
     ],
   },
   {
+    id: 'asistente',
     titulo: 'Asistente y cierre de citas',
     campos: [
       { clave: 'horasModoHumano', tipo: 'numero', etiqueta: 'Cuando pasa a una persona, el asistente calla', ayuda: 'Tiempo en que el asistente no responde a ese cliente.', unidad: 'horas', min: 1, max: 168 },
@@ -180,9 +186,11 @@ const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function cambiosDeConfiguracion(
   leer: (clave: ClaveConfiguracion) => string,
   actual: Configuracion,
+  /** Solo estos campos (una sección de Ajustes); sin indicar, todos. */
+  campos: CampoDeConfiguracion[] = GRUPOS_DE_CONFIGURACION.flatMap((g) => g.campos),
 ): { cambios: Partial<Configuracion> } | { error: string } {
   const cambios: Partial<Configuracion> = {};
-  for (const campo of GRUPOS_DE_CONFIGURACION.flatMap((g) => g.campos)) {
+  for (const campo of campos) {
     const valor = leer(campo.clave).trim();
     let nuevo: number | string | null;
     if (campo.tipo === 'hora') {
