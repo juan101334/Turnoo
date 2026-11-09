@@ -40,6 +40,11 @@ export function fechaLarga(fecha: string): string {
   return DateTime.fromISO(fecha).setLocale(LOCALE).toFormat("cccc d 'de' LLLL");
 }
 
+/** '8 nov 2026'. */
+export function fechaCorta(fecha: string): string {
+  return DateTime.fromISO(fecha).setLocale(LOCALE).toFormat('d LLL yyyy').replace('.', '');
+}
+
 /** Para la tira de días: { semana: 'sáb', dia: '8' }. */
 export function partesDelDia(fecha: string): { semana: string; dia: string } {
   const d = DateTime.fromISO(fecha).setLocale(LOCALE);

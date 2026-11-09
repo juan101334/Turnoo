@@ -118,4 +118,32 @@ test.describe.serial('base de conocimiento', () => {
     await entrada.getByRole('button', { name: 'Sí, borrar' }).click();
     await expect(page.getByText('Todavía no hay preguntas.')).toBeVisible();
   });
+
+  test('una pregunta que el asistente no supo responder se agrega a la base y deja de aparecer', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/conocimiento');
+    const sinRespuesta = page.getByRole('region', { name: 'Preguntas sin respuesta' });
+    const item = sinRespuesta.getByRole('listitem').filter({ hasText: 'Pregunta si hay parqueadero' });
+    await expect(item.getByRole('link', { name: 'Ver conversación' })).toHaveAttribute('href', `/mensajes/${datos().conversaciones.derivada}?ver=todas`);
+
+    await item.getByRole('button', { name: 'Responder' }).click();
+    await expect(page.getByLabel('Pregunta', { exact: true })).toHaveValue('Pregunta si hay parqueadero');
+    await expect(page.getByLabel('Respuesta', { exact: true })).toBeFocused();
+    await page.getByLabel('Respuesta', { exact: true }).fill('Sí, hay parqueadero gratis frente al local.');
+    await page.getByRole('button', { name: 'Agregar pregunta' }).click();
+
+    await expect(page.getByText('Pregunta agregada. El asistente ya la usa.')).toBeVisible();
+    await expect(sinRespuesta).toHaveCount(0);
+  });
+});
+
+test('en el celular, la respuesta queda a la vista sin bajar hasta el final', async ({ page }) => {
+  await entrarYEsperar(page, datos().dueno);
+  // Pantalla baja: la conversación no cabe y hay que poder responder sin bajar.
+  await page.setViewportSize({ width: 412, height: 520 });
+  await page.goto(`/mensajes/${datos().conversaciones.derivada}`);
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(520);
+  await expect(page.getByRole('button', { name: 'Enviar por WhatsApp' })).toBeInViewport({ ratio: 1 });
 });

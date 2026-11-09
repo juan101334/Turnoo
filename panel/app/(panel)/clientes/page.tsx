@@ -1,8 +1,9 @@
-import { ChevronRight, Search, Users } from 'lucide-react';
+import { CalendarPlus, ChevronRight, Search, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { telefonoLegible } from '@/lib/citas';
 import { clientes as leerClientes } from '@/lib/datos';
+import { fechaCorta, fechaDe } from '@/lib/fechas';
 import { exigirUsuario } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Clientes' };
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: 'Clientes' };
 /** Búsqueda por nombre o teléfono, de 30 en 30. El barbero ve solo los clientes con citas suyas. */
 export default async function PaginaClientes({ searchParams }: { searchParams: Promise<{ buscar?: string; pagina?: string }> }) {
   const usuario = await exigirUsuario('clientes');
+  const zona = usuario.negocio.zonaHoraria;
   const p = await searchParams;
   const buscar = (p.buscar ?? '').trim().slice(0, 100);
   const pagina = Math.max(0, Math.min(1000, Number.parseInt(p.pagina ?? '0', 10) || 0));
@@ -17,13 +19,13 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
   const enlace = (n: number) => `/clientes?${new URLSearchParams({ ...(buscar && { buscar }), pagina: String(n) })}`;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl lg:max-w-5xl">
       <h1 className="text-2xl font-semibold">{usuario.rol === 'dueno' ? 'Clientes' : 'Mis clientes'}</h1>
       <p className="mb-4 text-sm text-suave">
         {usuario.rol === 'dueno' ? 'Todos los clientes del negocio.' : 'Los clientes que tienen o tuvieron cita contigo.'}
       </p>
 
-      <form action="/clientes" role="search" className="mb-4 flex gap-2">
+      <form action="/clientes" role="search" className="mb-4 flex gap-2 lg:max-w-xl">
         <label htmlFor="buscar" className="sr-only">
           Buscar por nombre o teléfono
         </label>
@@ -51,7 +53,40 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
           <p>{buscar ? `Ningún cliente coincide con "${buscar}".` : 'Todavía no hay clientes.'}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
+        <>
+        {/* En el escritorio, tabla: se compara de un vistazo. */}
+        <table className="hidden w-full overflow-hidden rounded-xl border border-borde bg-superficie text-left lg:table">
+          <thead className="border-b border-borde bg-hundido text-sm text-suave">
+            <tr>
+              <th scope="col" className="px-4 py-2.5 font-medium">Nombre</th>
+              <th scope="col" className="px-4 py-2.5 font-medium">Teléfono</th>
+              <th scope="col" className="px-4 py-2.5 font-medium">Cliente desde</th>
+              <th scope="col" className="px-4 py-2.5"><span className="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-borde">
+            {clientes.map((c) => (
+              <tr key={c.id} className="transition-colors duration-150 hover:bg-fondo">
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/clientes/${c.id}`} className="hover:text-marca hover:underline">
+                    {c.anonimizadoEn ? 'Cliente anonimizado' : (c.nombre ?? 'Sin nombre')}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-suave tabular-nums">{c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}</td>
+                <td className="px-4 py-3 text-suave first-letter:uppercase">{fechaCorta(fechaDe(c.createdAt, zona))}</td>
+                <td className="px-4 py-3 text-right">
+                  {!c.anonimizadoEn && c.telefono && (
+                    <Link href={`/citas/nueva?cliente=${c.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-marca hover:bg-marca-suave">
+                      <CalendarPlus aria-hidden className="size-4" />
+                      Agendar
+                    </Link>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie lg:hidden">
           {clientes.map((c) => (
             <li key={c.id}>
               <Link href={`/clientes/${c.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
@@ -64,6 +99,7 @@ export default async function PaginaClientes({ searchParams }: { searchParams: P
             </li>
           ))}
         </ul>
+        </>
       )}
 
       {(pagina > 0 || hayMas) && (
