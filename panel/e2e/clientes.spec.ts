@@ -18,6 +18,11 @@ test.describe('clientes', () => {
     await page.getByRole('link', { name: /Cliente Futuro/ }).click();
     await expect(page.getByRole('heading', { name: 'Cliente Futuro' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', /^https:\/\/wa\.me\/57\d{10}$/);
+
+    // Su historial: cada cita abre su detalle.
+    const historial = page.getByRole('region', { name: 'Historial de citas' });
+    await expect(historial.getByRole('link').first()).toHaveAttribute('href', /^\/citas\/[0-9a-f-]{36}$/);
+    await expect(historial).toContainText('Corte');
   });
 
   test('una búsqueda sin resultados lo dice', async ({ page }) => {

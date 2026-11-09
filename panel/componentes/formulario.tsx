@@ -148,11 +148,16 @@ const ESTILOS = {
   peligro: 'bg-peligro text-white hover:opacity-90',
 } as const;
 
-/** Botón de envío: se desactiva y avisa mientras el formulario se procesa. */
-export function BotonEnviar({ children, enviando, variante = 'primario' }: { children: ReactNode; enviando: string; variante?: keyof typeof ESTILOS }) {
+/** Si el formulario que contiene al componente se está enviando (para botones propios). */
+export function useEnvioPendiente(): boolean {
   const deFormulario = useContext(ContextoEnvio);
   const { pending: nativo } = useFormStatus();
-  const pending = deFormulario ?? nativo;
+  return deFormulario ?? nativo;
+}
+
+/** Botón de envío: se desactiva y avisa mientras el formulario se procesa. */
+export function BotonEnviar({ children, enviando, variante = 'primario' }: { children: ReactNode; enviando: string; variante?: keyof typeof ESTILOS }) {
+  const pending = useEnvioPendiente();
   return (
     <button
       type="submit"

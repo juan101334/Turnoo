@@ -105,6 +105,18 @@ export const cliente = cache(async (id: string): Promise<Cliente> => {
   return leer<Cliente>(`/clientes/${id}`);
 });
 
+export const CITAS_POR_PAGINA_DEL_HISTORIAL = 10;
+
+/** Citas del cliente, la más reciente primero (al barbero, solo las suyas: lo decide el backend). */
+export async function historialDe(clienteId: string, pagina: number): Promise<{ citas: Cita[]; hayMas: boolean }> {
+  if (!esId(clienteId)) notFound();
+  const consulta = new URLSearchParams({
+    limite: String(CITAS_POR_PAGINA_DEL_HISTORIAL),
+    desplazamiento: String(pagina * CITAS_POR_PAGINA_DEL_HISTORIAL),
+  });
+  return leer(`/clientes/${clienteId}/citas?${consulta}`);
+}
+
 export const cita = cache(async (id: string): Promise<Cita> => {
   if (!esId(id)) notFound();
   return leer<Cita>(`/citas/${id}`);

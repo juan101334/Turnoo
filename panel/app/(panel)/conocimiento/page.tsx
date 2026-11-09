@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
-import { porcentajeUsado } from '@/lib/conocimiento';
-import { conocimiento } from '@/lib/datos';
+import { UsarPregunta } from '@/componentes/usar-pregunta';
+import { porcentajeUsado, preguntasSinRespuesta } from '@/lib/conocimiento';
+import { conocimiento, conversaciones, siSePuede } from '@/lib/datos';
+import { diaRelativo, fechaDe, fechaLarga, hoyEn } from '@/lib/fechas';
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
 import { borrarEntrada, cambiarEntradaActiva, crearEntrada } from './acciones';
@@ -20,9 +22,13 @@ const LISTO: Record<string, string> = { editada: 'Cambios guardados.' };
  * servicios, parqueadero, medios de pago…). Las pausadas se guardan pero el asistente no las usa.
  */
 export default async function PaginaConocimiento({ searchParams }: { searchParams: Promise<{ listo?: string }> }) {
-  await exigirUsuario('conocimiento');
   const { listo } = await searchParams;
-  const base = await conocimiento();
+  // Primero el permiso: al barbero no se le pide nada al backend.
+  const usuario = await exigirUsuario('conocimiento');
+  const [base, conversacionesDerivadas] = await Promise.all([conocimiento(), siSePuede(() => conversaciones())]);
+  const pendientes = preguntasSinRespuesta(conversacionesDerivadas ?? [], base.entradas);
+  const zona = usuario.negocio.zonaHoraria;
+  const hoy = hoyEn(zona);
   const uso = porcentajeUsado(base.caracteresActivos, base.maxCaracteresActivos);
   const mensaje = listo ? LISTO[listo] : undefined;
 
@@ -53,6 +59,36 @@ export default async function PaginaConocimiento({ searchParams }: { searchParam
         </div>
         <p className="mt-1.5 text-xs text-suave">El asistente lee todas las respuestas activas en cada mensaje; por eso hay un tope de texto.</p>
       </div>
+
+      {pendientes.length > 0 && (
+        <section aria-labelledby="sin-respuesta" className="mb-6 rounded-xl border border-aviso/30 bg-aviso-suave p-4">
+          <h2 id="sin-respuesta" className="font-semibold">
+            Preguntas sin respuesta
+          </h2>
+          <p className="mb-3 text-sm text-suave">
+            Lo que te preguntaron por WhatsApp y el asistente no supo contestar. Agrégalo a la base y la próxima vez responde solo.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {pendientes.map((p) => {
+              const fecha = fechaDe(p.cuando, zona);
+              return (
+                <li key={p.conversacionId} className="flex flex-col gap-2 rounded-lg bg-superficie p-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium break-words">{p.texto}</p>
+                    <p className="text-xs text-suave first-letter:uppercase">
+                      {diaRelativo(fecha, hoy) ?? fechaLarga(fecha)} ·{' '}
+                      <Link href={`/mensajes/${p.conversacionId}?ver=todas`} className="font-medium text-marca hover:underline">
+                        Ver conversación
+                      </Link>
+                    </p>
+                  </div>
+                  <UsarPregunta texto={p.texto} pregunta="nueva-pregunta" respuesta="nueva-respuesta" />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {base.entradas.length === 0 ? (
         <div className="mb-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">

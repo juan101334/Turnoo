@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { porcentajeUsado } from '@/lib/conocimiento';
+import { porcentajeUsado, preguntasSinRespuesta } from '@/lib/conocimiento';
 import { asistenteCallaHasta, nombreDelCliente, textoDelMensaje, ventanaHasta } from '@/lib/conversaciones';
 
 describe('ventanaHasta', () => {
@@ -58,4 +58,28 @@ it('porcentajeUsado queda entre 0 y 100', () => {
   expect(porcentajeUsado(0, 20_000)).toBe(0);
   expect(porcentajeUsado(25_000, 20_000)).toBe(100);
   expect(porcentajeUsado(0, 0)).toBe(100);
+});
+
+describe('preguntas sin respuesta', () => {
+  const derivada = (id: string, motivo: string, detalle: string | null, creadaEn: string) => ({ id, ultimaDerivacion: { motivo, detalle, creadaEn } });
+  const conversaciones = [
+    derivada('a', 'sin_informacion', 'Pregunta si hay parqueadero', '2026-11-08T10:00:00Z'),
+    derivada('b', 'sin_informacion', '¿Aceptan tarjeta?', '2026-11-08T12:00:00Z'),
+    derivada('c', 'cliente_pidio_humano', 'Quiere hablar con el dueño', '2026-11-08T13:00:00Z'),
+    derivada('d', 'sin_informacion', 'pregunta si hay PARQUEADERO.', '2026-11-08T09:00:00Z'),
+    derivada('e', 'sin_informacion', '   ', '2026-11-08T14:00:00Z'),
+    { id: 'f', ultimaDerivacion: null },
+  ];
+
+  it('solo las que el asistente no sabía, la más reciente primero y sin repetidas', () => {
+    expect(preguntasSinRespuesta(conversaciones, []).map((p) => p.conversacionId)).toEqual(['b', 'a']);
+  });
+
+  it('quita las que ya están en la base (sin importar tildes, mayúsculas ni signos)', () => {
+    expect(preguntasSinRespuesta(conversaciones, [{ pregunta: 'Aceptan tarjeta' }]).map((p) => p.texto)).toEqual(['Pregunta si hay parqueadero']);
+  });
+
+  it('respeta el máximo', () => {
+    expect(preguntasSinRespuesta(conversaciones, [], 1)).toHaveLength(1);
+  });
 });
