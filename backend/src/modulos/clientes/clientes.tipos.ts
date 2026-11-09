@@ -33,11 +33,30 @@ export interface Cliente {
   createdAt: Date;
 }
 
+/**
+ * Un cliente en la lista, con un resumen de sus citas. Para el empleado, el resumen cuenta solo
+ * las citas con su barbero, igual que el historial que puede ver.
+ */
+export interface ClienteDeLista extends Cliente {
+  /** Inicio de la última cita completada. */
+  ultimaVisita: Date | null;
+  /** Inicio de la próxima cita activa (por aprobar, pendiente o confirmada) que aún no empieza. */
+  proximaCita: Date | null;
+  /** Citas que no se cancelaron: completadas, inasistencias y activas. */
+  totalCitas: number;
+}
+
+export const ORDENES_CLIENTES = ['nombre', 'ultima_visita', 'proxima_cita', 'total_citas', 'reciente'] as const;
+/** reciente: el último cliente creado o agendado primero (para elegirlo rápido en Nueva cita). */
+export type OrdenClientes = (typeof ORDENES_CLIENTES)[number];
+
 export interface FiltroClientes {
   /** Solo los que tienen citas con este barbero. null = todo el negocio. */
   profesionalId: string | null;
-  /** Parte del nombre o del teléfono. */
+  /** Parte del nombre o del teléfono. Sin importar tildes ni mayúsculas. */
   buscar: string | null;
+  orden: OrdenClientes;
+  direccion: 'asc' | 'desc';
   limite: number;
   desplazamiento: number;
 }

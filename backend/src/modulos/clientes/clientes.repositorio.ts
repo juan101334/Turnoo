@@ -1,5 +1,13 @@
 import type { Transaccion } from '../../db/contexto.js';
-import type { CambiosCliente, Cliente, ClienteDeWhatsapp, ClienteResumen, FiltroClientes } from './clientes.tipos.js';
+import type {
+  CambiosCliente,
+  Cliente,
+  ClienteDeLista,
+  ClienteDeWhatsapp,
+  ClienteResumen,
+  FiltroClientes,
+  OrdenClientes,
+} from './clientes.tipos.js';
 
 /** Espacio de los candados de clientes; no choca con el de las tareas (7001). */
 const ESPACIO_CANDADO_CLIENTE = 7002;
@@ -144,18 +152,57 @@ function textoLiteralParaLike(texto: string): string {
   return texto.replace(/[\\%_]/g, '\\$&');
 }
 
-/** Un cliente anonimizado ya no es nadie a quien buscar: no aparece en la lista. */
-export async function listar(tx: Transaccion, filtro: FiltroClientes): Promise<Cliente[]> {
+interface FilaClienteDeLista extends FilaCliente {
+  ultima_visita: Date | null;
+  proxima_cita: Date | null;
+  total_citas: number;
+}
+
+/**
+ * ORDER BY de cada orden. Solo salen de esta tabla, nunca del texto del usuario. Los vacíos van
+ * al final en ambas direcciones; el nombre y el id desempatan para que las páginas no se crucen.
+ */
+const ORDEN_SQL: Record<OrdenClientes, (dir: 'ASC' | 'DESC') => string> = {
+  nombre: (dir) => `cl.nombre ${dir} NULLS LAST`,
+  ultima_visita: (dir) => `r.ultima_visita ${dir} NULLS LAST, cl.nombre NULLS LAST`,
+  proxima_cita: (dir) => `r.proxima_cita ${dir} NULLS LAST, cl.nombre NULLS LAST`,
+  total_citas: (dir) => `r.total_citas ${dir}, cl.nombre NULLS LAST`,
+  reciente: (dir) => `GREATEST(cl.created_at, r.ultima_agendada) ${dir}`,
+};
+
+/**
+ * Un cliente anonimizado ya no es nadie a quien buscar: no aparece en la lista.
+ * El nombre se compara sin tildes ni mayúsculas (texto_para_buscar, migración 015).
+ *
+ * `negocio_id = $6` repite lo que ya impone RLS, pero no sobra: la política tiene un OR y no
+ * puede usar índices, y el LIKE no es LEAKPROOF; esta igualdad sí entra por el índice
+ * (negocio_id, ...) y deja la búsqueda en los clientes de un solo negocio.
+ */
+export async function listar(tx: Transaccion, negocioId: string, filtro: FiltroClientes): Promise<ClienteDeLista[]> {
   // Solo se busca por teléfono si el texto parece uno: "Ana 3" no debe traer todo número con un 3.
   const digitos = filtro.buscar && /^[\d\s().+-]+$/.test(filtro.buscar) ? filtro.buscar.replace(/\D/g, '') : '';
-  const { rows } = await tx.consultar<FilaCliente>(
-    `SELECT ${COLUMNAS}
+  const orden = ORDEN_SQL[filtro.orden](filtro.direccion === 'asc' ? 'ASC' : 'DESC');
+  const { rows } = await tx.consultar<FilaClienteDeLista>(
+    `SELECT ${COLUMNAS.split(', ').map((c) => `cl.${c}`).join(', ')},
+            r.ultima_visita, r.proxima_cita, r.total_citas
        FROM clientes cl
-      WHERE cl.anonimizado_en IS NULL
-        AND ($1::uuid IS NULL
-             OR EXISTS (SELECT 1 FROM citas c WHERE c.cliente_id = cl.id AND c.profesional_id = $1))
-        AND ($2::text IS NULL OR cl.nombre ILIKE $2 OR cl.telefono LIKE $3::text)
-      ORDER BY cl.nombre NULLS LAST, cl.id
+      CROSS JOIN LATERAL (
+        SELECT count(*) AS todas,
+               count(*) FILTER (WHERE c.estado <> 'cancelada')::int AS total_citas,
+               max(c.inicio) FILTER (WHERE c.estado = 'completada') AS ultima_visita,
+               min(c.inicio) FILTER (WHERE c.estado IN ('por_aprobar', 'pendiente', 'confirmada')
+                                       AND c.inicio > now()) AS proxima_cita,
+               max(c.created_at) AS ultima_agendada
+          FROM citas c
+         WHERE c.cliente_id = cl.id AND ($1::uuid IS NULL OR c.profesional_id = $1)
+      ) r
+      WHERE cl.negocio_id = $6
+        AND cl.anonimizado_en IS NULL
+        AND ($1::uuid IS NULL OR r.todas > 0)
+        AND ($2::text IS NULL
+             OR texto_para_buscar(cl.nombre) LIKE texto_para_buscar($2)
+             OR cl.telefono LIKE $3::text)
+      ORDER BY ${orden}, cl.id
       LIMIT $4 OFFSET $5`,
     [
       filtro.profesionalId,
@@ -163,9 +210,15 @@ export async function listar(tx: Transaccion, filtro: FiltroClientes): Promise<C
       digitos ? `%${digitos}%` : null,
       filtro.limite,
       filtro.desplazamiento,
+      negocioId,
     ],
   );
-  return rows.map(aCliente);
+  return rows.map((f) => ({
+    ...aCliente(f),
+    ultimaVisita: f.ultima_visita,
+    proximaCita: f.proxima_cita,
+    totalCitas: f.total_citas,
+  }));
 }
 
 export async function obtener(tx: Transaccion, clienteId: string): Promise<Cliente | null> {

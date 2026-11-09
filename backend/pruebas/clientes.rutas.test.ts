@@ -267,12 +267,54 @@ describe('rutas de clientes', () => {
         notas: null,
         anonimizadoEn: null,
         createdAt: expect.any(String),
+        ultimaVisita: null,
+        proximaCita: null,
+        totalCitas: 0,
       });
     });
 
     it('busca por parte del nombre sin importar mayúsculas', async () => {
       expect(await buscar('ANA P')).toEqual([ana.id]);
       expect((await buscar('an')).sort()).toEqual([ana.id, anita.id].sort());
+    });
+
+    it('busca sin importar tildes, en el nombre o en lo que se escribe', async () => {
+      // El nombre tiene tilde y la búsqueda no, en cualquier combinación de mayúsculas.
+      for (const texto of ['perez', 'PEREZ', 'Perez', 'pérez', 'PÉREZ', 'ána péréz']) {
+        expect(await buscar(texto), texto).toEqual([ana.id]);
+      }
+    });
+
+    it('la ñ y la diéresis también se igualan', async () => {
+      const otro = await crearNegocio('Tildes');
+      const token = await sesion(otro, 'dueno');
+      const munoz = await cliente(otro, 'Señor Muñoz Güiza');
+      const sinTilde = await cliente(otro, 'Cliente Rapido');
+      const conTilde = await cliente(otro, 'Cliente Rápido');
+      const en = async (texto: string) =>
+        ids((await api(token, 'GET', `/clientes?buscar=${encodeURIComponent(texto)}`)).json.clientes).sort();
+      expect(await en('munoz guiza')).toEqual([munoz.id]);
+      expect(await en('SEÑOR MUÑOZ')).toEqual([munoz.id]);
+      // "Rapido" y "rápido" encuentran a los dos: con y sin tilde son el mismo nombre.
+      expect(await en('Rapido')).toEqual([sinTilde.id, conTilde.id].sort());
+      expect(await en('RÁPIDO')).toEqual([sinTilde.id, conTilde.id].sort());
+    });
+
+    it('el rol de la aplicación usa la búsqueda sin tildes y solo recorre los clientes del negocio', async () => {
+      await conNegocio(n.negocioId, async (tx) => {
+        const { rows: [rol] } = await tx.consultar<{ rol: string }>('SELECT current_user AS rol');
+        expect(rol!.rol).toBe('turnoo_app');
+        const { rows: [fila] } = await tx.consultar<{ t: string }>("SELECT texto_para_buscar('Ñandú PÉREZ') AS t");
+        expect(fila!.t).toBe('nandu perez');
+        // Con pocas filas el planificador prefiere recorrer la tabla; se fuerza para ver que el índice sirve.
+        await tx.consultar('SET LOCAL enable_seqscan = off');
+        const { rows } = await tx.consultar(
+          `EXPLAIN (FORMAT JSON) SELECT id FROM clientes
+            WHERE negocio_id = $1 AND texto_para_buscar(nombre) LIKE texto_para_buscar('%perez%')`,
+          [n.negocioId],
+        );
+        expect(JSON.stringify(rows[0])).toMatch(/"Index Cond":"\(negocio_id = /);
+      });
     });
 
     it('busca por teléfono en cualquier formato', async () => {
@@ -323,6 +365,107 @@ describe('rutas de clientes', () => {
     it('un id mal escrito o inexistente responde 404', async () => {
       expect((await api(dueno, 'GET', '/clientes/no-es-uuid')).status).toBe(404);
       expect((await api(dueno, 'GET', `/clientes/${NINGUNO}`)).status).toBe(404);
+    });
+  });
+
+  describe('resumen de citas y orden', () => {
+    let n: NegocioDePrueba;
+    let dueno: string;
+    let empleado: string;
+    let propio: string;
+    let otroBarbero: string;
+    let frecuente: { id: string };
+    let nuevo: { id: string };
+    let soloCancelada: { id: string };
+    let sinCitas: { id: string };
+
+    const cita = (profesionalId: string, clienteId: string, dia: string, estado: EstadoCita) =>
+      crearCita(n, { profesionalId, clienteId, inicio: hora('10:00', dia), fin: hora('10:30', dia), estado });
+    const lista = async (token: string, consulta = '') =>
+      (await api(token, 'GET', `/clientes${consulta}`)).json.clientes as {
+        id: string;
+        nombre: string;
+        ultimaVisita: string | null;
+        proximaCita: string | null;
+        totalCitas: number;
+      }[];
+
+    beforeAll(async () => {
+      n = await crearNegocio('Resumen');
+      dueno = await sesion(n, 'dueno');
+      propio = await crearProfesional(n, 'Propio');
+      otroBarbero = await crearProfesional(n, 'Otro');
+      empleado = await sesion(n, 'empleado', propio);
+
+      frecuente = await cliente(n, 'Frecuente');
+      await cita(propio, frecuente.id, '2025-03-01', 'completada');
+      await cita(otroBarbero, frecuente.id, '2025-04-01', 'completada');
+      await cita(propio, frecuente.id, '2025-05-01', 'no_asistio');
+      await cita(propio, frecuente.id, '2031-03-01', 'cancelada');
+      await cita(propio, frecuente.id, '2031-03-05', 'pendiente');
+      await cita(otroBarbero, frecuente.id, '2031-03-02', 'confirmada');
+      // Activa pero ya pasó (nadie la cerró): no es la próxima.
+      await cita(otroBarbero, frecuente.id, '2025-06-01', 'confirmada');
+
+      nuevo = await cliente(n, 'Nuevo');
+      await cita(propio, nuevo.id, '2031-04-01', 'por_aprobar');
+
+      soloCancelada = await cliente(n, 'Solo cancelada');
+      await cita(propio, soloCancelada.id, '2031-05-01', 'cancelada');
+
+      sinCitas = await cliente(n, 'Sin citas');
+    });
+
+    it('trae la última visita completada, la próxima cita activa y las citas no canceladas', async () => {
+      const filas = await lista(dueno);
+      const de = (id: string) => filas.find((f) => f.id === id)!;
+      expect(de(frecuente.id)).toMatchObject({
+        ultimaVisita: hora('10:00', '2025-04-01').toISOString(),
+        proximaCita: hora('10:00', '2031-03-02').toISOString(),
+        totalCitas: 6,
+      });
+      expect(de(nuevo.id)).toMatchObject({ ultimaVisita: null, proximaCita: hora('10:00', '2031-04-01').toISOString(), totalCitas: 1 });
+      expect(de(soloCancelada.id)).toMatchObject({ ultimaVisita: null, proximaCita: null, totalCitas: 0 });
+      expect(de(sinCitas.id)).toMatchObject({ ultimaVisita: null, proximaCita: null, totalCitas: 0 });
+    });
+
+    it('al empleado el resumen le cuenta solo las citas de su barbero', async () => {
+      const filas = await lista(empleado);
+      expect(filas.map((f) => f.id).sort()).toEqual([frecuente.id, nuevo.id, soloCancelada.id].sort());
+      expect(filas.find((f) => f.id === frecuente.id)).toMatchObject({
+        ultimaVisita: hora('10:00', '2025-03-01').toISOString(),
+        proximaCita: hora('10:00', '2031-03-05').toISOString(),
+        totalCitas: 3,
+      });
+    });
+
+    it('ordena por cada columna, con los vacíos al final en ambas direcciones', async () => {
+      const orden = async (consulta: string) => (await lista(dueno, consulta)).map((f) => f.nombre);
+      expect(await orden('?orden=ultima_visita')).toEqual(['Frecuente', 'Nuevo', 'Sin citas', 'Solo cancelada']);
+      expect(await orden('?orden=proxima_cita')).toEqual(['Frecuente', 'Nuevo', 'Sin citas', 'Solo cancelada']);
+      expect(await orden('?orden=proxima_cita&direccion=desc')).toEqual(['Nuevo', 'Frecuente', 'Sin citas', 'Solo cancelada']);
+      expect(await orden('?orden=total_citas')).toEqual(['Frecuente', 'Nuevo', 'Sin citas', 'Solo cancelada']);
+      expect(await orden('?orden=total_citas&direccion=asc')).toEqual(['Sin citas', 'Solo cancelada', 'Nuevo', 'Frecuente']);
+      expect(await orden('?orden=nombre&direccion=desc')).toEqual(['Solo cancelada', 'Sin citas', 'Nuevo', 'Frecuente']);
+    });
+
+    it('reciente: primero el último cliente agendado o creado', async () => {
+      const ultimo = await cliente(n, 'Recién creado');
+      expect((await lista(dueno, '?orden=reciente&limite=1'))[0]!.id).toBe(ultimo.id);
+      await cita(otroBarbero, sinCitas.id, '2031-06-01', 'pendiente');
+      expect((await lista(dueno, '?orden=reciente&limite=1'))[0]!.id).toBe(sinCitas.id);
+    });
+
+    it('ordenar y buscar a la vez pagina sin repetir', async () => {
+      const uno = await api(dueno, 'GET', '/clientes?orden=total_citas&limite=2');
+      const dos = await api(dueno, 'GET', '/clientes?orden=total_citas&limite=2&desplazamiento=2');
+      const todos = [...ids(uno.json.clientes), ...ids(dos.json.clientes)];
+      expect(new Set(todos).size).toBe(todos.length);
+      expect(ids((await api(dueno, 'GET', '/clientes?orden=ultima_visita&buscar=frecuente')).json.clientes)).toEqual([frecuente.id]);
+    });
+
+    it.each(['orden=telefono', 'orden=nombre;DROP', 'direccion=arriba', 'orden=', 'direccion=ASC'])('rechaza %s', async (filtro) => {
+      expect((await api(dueno, 'GET', `/clientes?${filtro}`)).status).toBe(400);
     });
   });
 
