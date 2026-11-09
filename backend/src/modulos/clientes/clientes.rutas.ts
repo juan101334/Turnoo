@@ -5,6 +5,7 @@ import { validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, negocioDeSesion, usuarioDe } from '../auth/auth.middleware.js';
 import { profesionalDelUsuario } from '../profesionales/profesionales.servicio.js';
 import * as servicio from './clientes.servicio.js';
+import { ORDENES_CLIENTES, type OrdenClientes } from './clientes.tipos.js';
 
 /**
  * Clientes para el panel. El dueño ve todo el negocio; el empleado, solo los clientes con citas
@@ -22,11 +23,22 @@ async function barberoDelAlcance(req: Request): Promise<string | null> {
   return propio.id;
 }
 
+/** Sin dirección: A-Z y la próxima cita más cercana; lo más reciente y los que más vienen, primero. */
+const DIRECCION_POR_DEFECTO: Record<OrdenClientes, 'asc' | 'desc'> = {
+  nombre: 'asc',
+  proxima_cita: 'asc',
+  ultima_visita: 'desc',
+  total_citas: 'desc',
+  reciente: 'desc',
+};
+
 rutasClientes.get('/', async (req, res) => {
   const profesionalId = await barberoDelAlcance(req);
   const q = validarEsquema(
     z.strictObject({
       buscar: z.string().max(100).optional(),
+      orden: z.enum(ORDENES_CLIENTES).default('nombre'),
+      direccion: z.enum(['asc', 'desc']).optional(),
       limite: z.coerce.number().int().min(1).max(100).default(50),
       desplazamiento: z.coerce.number().int().min(0).max(1_000_000).default(0),
     }),
@@ -36,6 +48,8 @@ rutasClientes.get('/', async (req, res) => {
     await servicio.listarClientes(negocioDeSesion(req), {
       profesionalId,
       buscar: q.buscar ?? null,
+      orden: q.orden,
+      direccion: q.direccion ?? DIRECCION_POR_DEFECTO[q.orden],
       limite: q.limite,
       desplazamiento: q.desplazamiento,
     }),

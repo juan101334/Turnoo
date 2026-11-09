@@ -8,7 +8,14 @@ import { listarCitasDelCliente } from '../citas/citas.repositorio.js';
 import type { CitaDetalle } from '../citas/citas.tipos.js';
 import { exigirNegocioOperativo } from '../negocios/negocios.reglas.js';
 import * as repositorio from './clientes.repositorio.js';
-import type { CambiosCliente, Cliente, ClienteResumen, EntradaCliente, FiltroClientes } from './clientes.tipos.js';
+import type {
+  CambiosCliente,
+  Cliente,
+  ClienteDeLista,
+  ClienteResumen,
+  EntradaCliente,
+  FiltroClientes,
+} from './clientes.tipos.js';
 
 const MAX_NOMBRE = 100;
 const MAX_NOTAS = 2000;
@@ -46,10 +53,10 @@ export async function obtenerOCrearCliente(
 export async function listarClientes(
   negocioId: string,
   filtro: FiltroClientes,
-): Promise<{ clientes: Cliente[]; hayMas: boolean }> {
+): Promise<{ clientes: ClienteDeLista[]; hayMas: boolean }> {
   const buscar = filtro.buscar?.trim() || null;
   const filas = await conNegocio(negocioId, (tx) =>
-    repositorio.listar(tx, { ...filtro, buscar, limite: filtro.limite + 1 }),
+    repositorio.listar(tx, negocioId, { ...filtro, buscar, limite: filtro.limite + 1 }),
   );
   return { clientes: filas.slice(0, filtro.limite), hayMas: filas.length > filtro.limite };
 }
