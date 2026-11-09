@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "componentes/tarjeta-de-cita.tsx"
+        ],
+        "createdAt": "2026-11-09T00:40:12.676Z",
+        "reason": "user approved decision 2 of the panel audit (8 nov 2026): status stripe per appointment state, always paired with a written status badge"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "componentes/grilla-del-dia.tsx"
+        ],
+        "createdAt": "2026-11-09T00:40:12.698Z",
+        "reason": "user approved decision 2 of the panel audit (8 nov 2026): status stripe per appointment state, always paired with a written status badge"
+      }
+    ]
+  }
+}
