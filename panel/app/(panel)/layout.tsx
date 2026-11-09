@@ -1,6 +1,7 @@
 import { CircleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ProveedorDeAvisos } from '@/componentes/avisos-flotantes';
+import { IsotipoTurnoo, LogoTurnoo } from '@/componentes/marca';
 import { NavInferior, NavLateral } from '@/componentes/navegacion';
 import { ErrorDelBackend } from '@/lib/backend';
 import { citasPorAprobar, conversaciones, miNegocio } from '@/lib/datos';
@@ -42,7 +43,10 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
     <ProveedorDeAvisos>
       <div className="flex min-h-dvh">
         <aside className="sticky top-0 hidden h-dvh w-20 shrink-0 flex-col border-r border-borde bg-superficie md:flex lg:w-60">
-          <p className="px-2 pt-5 pb-4 text-center text-lg font-bold tracking-tight text-marca lg:px-6 lg:text-left lg:text-xl">Turnoo</p>
+          <div className="px-2 pt-5 pb-4 lg:px-6">
+            <IsotipoTurnoo className="mx-auto block size-10 lg:hidden" />
+            <LogoTurnoo className="hidden h-8 lg:block" />
+          </div>
           <NavLateral grupos={gruposDe(usuario.rol)} conCuenta={puedeVer(usuario.rol, 'cuenta')} contadores={contadores} />
         </aside>
         <main className="min-w-0 flex-1 px-4 pt-5 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-6 md:pb-10 lg:px-10 lg:pt-8">

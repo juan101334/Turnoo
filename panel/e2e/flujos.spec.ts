@@ -28,6 +28,7 @@ test.describe('flujos principales', () => {
       for (const grupo of ['Día a día', 'Clientes y equipo', 'Negocio']) await expect(menu.getByText(grupo, { exact: true })).toBeVisible();
       await expect(menu.getByRole('link', { name: 'Cuenta' })).toBeVisible();
       await expect(menu.getByRole('link', { name: 'Más' })).toHaveCount(0);
+      await expect(page.getByRole('img', { name: 'Turnoo' })).toBeVisible();
     } else {
       await expect(menu.getByRole('link', { name: 'Más' })).toBeVisible();
       await menu.getByRole('link', { name: 'Más' }).click();
@@ -71,5 +72,31 @@ test.describe('flujos principales', () => {
     await page.getByRole('button', { name: 'Agendar cita' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Cita agendada.' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(hora);
+  });
+});
+
+test.describe('marca e instalación', () => {
+  test('el login muestra el logo y la página enlaza favicon, ícono de Apple y manifiesto', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.getByRole('img', { name: 'Turnoo' })).toBeVisible();
+    await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
+  });
+
+  test('el manifiesto se puede instalar: íconos de 192 y 512, normales y maskable, sin sesión', async ({ request }) => {
+    const respuesta = await request.get('/manifest.webmanifest');
+    expect(respuesta.ok()).toBe(true);
+    const manifiesto = await respuesta.json();
+    expect(manifiesto).toMatchObject({ name: 'Turnoo', display: 'standalone', start_url: '/', theme_color: '#075985' });
+    const iconos: { src: string; sizes: string; purpose: string }[] = manifiesto.icons;
+    expect(iconos.map((i) => `${i.sizes} ${i.purpose}`).sort()).toEqual(['192x192 any', '192x192 maskable', '512x512 any', '512x512 maskable']);
+    for (const icono of iconos) {
+      const imagen = await request.get(icono.src);
+      expect(imagen.headers()['content-type']).toBe('image/png');
+      // Ancho y alto reales del PNG (cabecera IHDR, bytes 16 a 23).
+      const bytes = await imagen.body();
+      expect(`${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`).toBe(icono.sizes);
+    }
   });
 });

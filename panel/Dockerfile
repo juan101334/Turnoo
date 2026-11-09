@@ -22,6 +22,8 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=compilado --chown=node:node /app/panel/.next/standalone ./
 COPY --from=compilado --chown=node:node /app/panel/.next/static ./.next/static
+# standalone no incluye public/ (logo e íconos para instalar): se copia aparte.
+COPY --from=compilado --chown=node:node /app/panel/public ./public
 USER node
 EXPOSE 3001
 # /login no necesita sesión ni backend: si responde 200, el servidor del panel está vivo.
