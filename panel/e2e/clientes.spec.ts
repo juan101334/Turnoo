@@ -10,7 +10,6 @@ test.describe('clientes', () => {
     await expect(page.getByRole('link', { name: /Cliente De Otro/ })).toHaveCount(0);
 
     await page.getByRole('searchbox', { name: 'Buscar por nombre o teléfono' }).fill('Futuro');
-    await page.getByRole('button', { name: 'Buscar' }).click();
     await expect(page).toHaveURL(/buscar=Futuro/);
     await expect(page.getByRole('link', { name: /Cliente Futuro/ })).toBeVisible();
     await expect(page.getByRole('link', { name: /Cliente Pasado/ })).toHaveCount(0);

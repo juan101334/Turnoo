@@ -6,6 +6,7 @@ import type {
   ConfiguracionNegocio,
   EstadoNegocio,
   Negocio,
+  NegocioDeLaLista,
 } from './negocios.tipos.js';
 
 /** Único lugar con SQL del módulo de negocios. */
@@ -89,11 +90,14 @@ export async function crearNegocio(
   return aNegocio(rows[0]!);
 }
 
-export async function listarNegocios(tx: Transaccion): Promise<Negocio[]> {
-  const { rows } = await tx.consultar<FilaNegocio>(
-    `SELECT ${COLUMNAS_NEGOCIO} FROM negocios ORDER BY created_at DESC, id`,
+/** Con whatsappConectado: una sola consulta, para no pedir los números negocio por negocio. */
+export async function listarNegocios(tx: Transaccion): Promise<NegocioDeLaLista[]> {
+  const { rows } = await tx.consultar<FilaNegocio & { whatsapp_conectado: boolean }>(
+    `SELECT ${COLUMNAS_NEGOCIO},
+            EXISTS (SELECT 1 FROM whatsapp_cuentas w WHERE w.negocio_id = negocios.id AND w.activa) AS whatsapp_conectado
+       FROM negocios ORDER BY created_at DESC, id`,
   );
-  return rows.map(aNegocio);
+  return rows.map((f) => ({ ...aNegocio(f), whatsappConectado: f.whatsapp_conectado }));
 }
 
 export async function obtenerNegocio(tx: Transaccion, negocioId: string): Promise<Negocio | null> {

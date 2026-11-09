@@ -21,6 +21,8 @@ export interface NegocioDeLaPlataforma {
   pruebaHasta: string | null;
   pagadoHasta: string | null;
   createdAt: string;
+  /** Solo en la lista: si tiene al menos un número de WhatsApp activo. */
+  whatsappConectado?: boolean;
 }
 
 /** El token nunca viene: el backend lo guarda cifrado y no lo devuelve. */
