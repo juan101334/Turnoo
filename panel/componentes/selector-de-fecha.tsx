@@ -1,21 +1,24 @@
 'use client';
 
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 /**
- * Un botón de calendario: al elegir un día, la agenda cambia a ese día (sin "Ver"). Es el
- * selector del sistema, que en el celular abre la rueda o el calendario nativo.
+ * La fecha del encabezado es el botón para cambiar de día: al elegir, la agenda cambia (sin
+ * "Ver"). Va a la izquierda, bajo el título, para no quitarle espacio a la tira de días y para que
+ * el calendario del sistema abra con lugar debajo, sin cortarse.
  */
-export function SelectorDeFecha({ fecha, enlace }: { fecha: string; enlace: string }) {
+export function SelectorDeFecha({ fecha, texto, enlace }: { fecha: string; texto: string; enlace: string }) {
   const router = useRouter();
   return (
-    <label className="relative flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-borde bg-superficie px-3 text-sm font-medium hover:bg-fondo focus-within:outline-2 focus-within:outline-marca">
-      <CalendarDays aria-hidden className="size-5 text-marca" />
-      <span>Fecha</span>
+    <label className="relative -ml-2 inline-flex min-h-11 max-w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm text-suave transition-colors duration-150 focus-within:outline-2 focus-within:outline-marca hover:bg-hundido hover:text-texto">
+      <CalendarDays aria-hidden className="size-4 shrink-0 text-marca" />
+      {/* Mayúscula escrita, no con ::first-letter: Chrome mide el ancho con la minúscula y el texto se parte. */}
+      <span className="whitespace-nowrap">{texto.charAt(0).toUpperCase() + texto.slice(1)}</span>
+      <ChevronDown aria-hidden className="size-4 shrink-0" />
       <input
         type="date"
-        aria-label="Ir a otra fecha"
+        aria-label={`Ir a otra fecha (ahora: ${texto})`}
         defaultValue={fecha}
         className="absolute inset-0 cursor-pointer opacity-0"
         onClick={(evento) => {

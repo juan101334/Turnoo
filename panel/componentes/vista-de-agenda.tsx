@@ -217,7 +217,11 @@ export async function VistaDeAgenda({
         <div className="min-w-0">
           <p className="truncate text-sm text-suave">{usuario.negocio.nombre}</p>
           <h1 className="text-2xl font-semibold">{relativo ?? 'Agenda'}</h1>
-          <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
+          {conTira ? (
+            <SelectorDeFecha fecha={fecha} texto={fechaLarga(fecha)} enlace={enlaceAgenda('__FECHA__')} />
+          ) : (
+            <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {conTira && (
@@ -245,11 +249,8 @@ export async function VistaDeAgenda({
         </div>
       )}
       {conTira && (
-        <div className="mb-4 flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <TiraDeDias seleccionada={fecha} hoy={hoy} enlace={(f) => enlace({ fecha: f })} />
-          </div>
-          <SelectorDeFecha fecha={fecha} enlace={enlaceAgenda('__FECHA__')} />
+        <div className="mb-4">
+          <TiraDeDias seleccionada={fecha} hoy={hoy} enlace={(f) => enlace({ fecha: f })} />
         </div>
       )}
 
