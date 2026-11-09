@@ -30,13 +30,14 @@ export interface Cita {
   servicios: ServicioDeCita[];
 }
 
-export const ESTADOS: Record<EstadoCita, { etiqueta: string; clases: string }> = {
-  por_aprobar: { etiqueta: 'Por aprobar', clases: 'bg-aviso-suave text-aviso' },
-  pendiente: { etiqueta: 'Pendiente', clases: 'bg-fondo text-suave ring-1 ring-borde' },
-  confirmada: { etiqueta: 'Confirmada', clases: 'bg-marca-suave text-marca-oscura' },
-  completada: { etiqueta: 'Completada', clases: 'bg-exito-suave text-exito' },
-  no_asistio: { etiqueta: 'No asistió', clases: 'bg-peligro-suave text-peligro' },
-  cancelada: { etiqueta: 'Cancelada', clases: 'bg-fondo text-suave line-through' },
+/** `clases`: la insignia; `franja`: el borde izquierdo de la tarjeta o el bloque (color del estado). */
+export const ESTADOS: Record<EstadoCita, { etiqueta: string; clases: string; franja: string }> = {
+  por_aprobar: { etiqueta: 'Por aprobar', clases: 'bg-aviso-suave text-aviso', franja: 'border-l-estado-por-aprobar' },
+  pendiente: { etiqueta: 'Pendiente', clases: 'bg-fondo text-suave ring-1 ring-borde', franja: 'border-l-estado-pendiente' },
+  confirmada: { etiqueta: 'Confirmada', clases: 'bg-marca-suave text-marca-oscura', franja: 'border-l-estado-confirmada' },
+  completada: { etiqueta: 'Completada', clases: 'bg-exito-suave text-exito', franja: 'border-l-estado-completada' },
+  no_asistio: { etiqueta: 'No asistió', clases: 'bg-peligro-suave text-peligro', franja: 'border-l-estado-no-asistio' },
+  cancelada: { etiqueta: 'Cancelada', clases: 'bg-fondo text-suave line-through', franja: 'border-l-estado-cancelada' },
 };
 
 export type Accion = 'completar' | 'noAsistio' | 'reprogramar' | 'cancelar' | 'aprobar' | 'rechazar';

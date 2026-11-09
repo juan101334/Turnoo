@@ -8,7 +8,7 @@ import { citasPorAprobar, DIAS_POR_APROBAR } from '@/lib/datos';
 import { diaRelativo, fechaDe, fechaLarga, horaLocal, hoyEn } from '@/lib/fechas';
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
-import { AccionesCita } from '../citas/[id]/acciones-cita';
+import { AccionesCita } from '@/componentes/acciones-cita';
 
 export const metadata: Metadata = { title: SECCIONES.porAprobar.etiqueta };
 

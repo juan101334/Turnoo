@@ -87,7 +87,7 @@ async function cita(
   servicio: typeof corte,
   inicio: DateTime,
   clienteNombre: string,
-  { estado = 'pendiente', aprobacionExpiraEn = null }: { estado?: 'pendiente' | 'por_aprobar'; aprobacionExpiraEn?: DateTime | null } = {},
+  { estado = 'pendiente', aprobacionExpiraEn = null }: { estado?: 'pendiente' | 'confirmada' | 'por_aprobar'; aprobacionExpiraEn?: DateTime | null } = {},
 ) {
   const id = randomUUID();
   const clienteId = randomUUID();
@@ -121,6 +121,28 @@ const citaAjena = await cita(barberoDos, corteDos, pasadoManana.set({ hour: 10 }
 // empezaron, así que se pueden marcar. Seguidas, sin cruzarse, con el Barbero Dos.
 await cita(barberoDos, corteDos, ahora.minus({ minutes: 55 }).startOf('minute'), 'Cliente Flujo Escritorio');
 await cita(barberoDos, corteDos, ahora.minus({ minutes: 25 }).startOf('minute'), 'Cliente Flujo Celular');
+
+// "Completada" desde la tarjeta de Hoy (e2e/agenda.spec.ts): ya empezaron, sin cruzarse con
+// "Cliente Pasado" (el Barbero E2E no puede tener dos citas a la vez).
+await cita(barberoE2E, corte, ahora.minus({ minutes: 90 }).startOf('minute'), 'Cliente Deshacer');
+await cita(barberoE2E, corte, ahora.minus({ minutes: 60 }).startOf('minute'), 'Cliente Rápido');
+// Para el bloque "Sigue" de Hoy: más tarde, con el Barbero Dos (después de "Cliente Flujo Celular").
+await cita(barberoDos, corteDos, ahora.plus({ minutes: 40 }).startOf('minute'), 'Cliente Sigue');
+
+// Un día solo para mirar la agenda (e2e/agenda.spec.ts), lejos de los días que cambian otras
+// pruebas: una cita por barbero a las 9:00 y el almuerzo del Barbero E2E de 13:00 a 14:00.
+const diaDeVista = ahora.plus({ days: 10 }).startOf('day');
+await cita(barberoE2E, corte, diaDeVista.set({ hour: 9 }), 'Cliente Vista Uno', { estado: 'confirmada' });
+await cita(barberoDos, corteDos, diaDeVista.set({ hour: 9 }), 'Cliente Vista Dos');
+await conNegocio(negocio.negocioId, (tx) =>
+  tx.consultar('INSERT INTO bloqueos (negocio_id, profesional_id, inicio, fin, motivo) VALUES ($1, $2, $3, $4, $5)', [
+    negocio.negocioId,
+    barberoE2E,
+    diaDeVista.set({ hour: 13 }).toJSDate(),
+    diaDeVista.set({ hour: 14 }).toJSDate(),
+    'Almuerzo',
+  ]),
+);
 
 // Por aprobar, en otro día para no cambiar la agenda de pasado mañana. La de Rechazar vence antes:
 // va primero en la lista y se marca como urgente (menos de una hora).
@@ -243,6 +265,7 @@ console.log(
     invitacion: { email: invitado.email, token: invitacion.token },
     recuperacion: { email: recuperable.email, token: recuperacion.token },
     agenda: { fecha: pasadoManana.toISODate(), citaAjena },
+    vista: { fecha: diaDeVista.toISODate() },
     clientes: { editable: clienteEditable, borrable: clienteBorrable },
     conversaciones,
   }),

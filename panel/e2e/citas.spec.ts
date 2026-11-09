@@ -60,7 +60,9 @@ test.describe.serial('agenda y acciones sobre citas', () => {
   test('marcar completada y corregir a "no asistió" con confirmación', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
     await tarjeta(page, 'Cliente Pasado').click();
-    await page.getByRole('button', { name: 'Completada' }).click();
+    // Hoy también tiene botones "Completada" en las tarjetas: primero, estar en la cita.
+    await expect(page).toHaveURL(/\/citas\/[0-9a-f-]{36}$/);
+    await page.getByRole('button', { name: 'Completada', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Cita marcada como completada.' })).toBeVisible();
     await expect(page.locator('section').getByText('Completada', { exact: true })).toBeVisible();
 

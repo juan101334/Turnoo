@@ -29,7 +29,7 @@ export default defineConfig({
     // Los flujos principales también en un PC del local: menú lateral y marco ancho.
     {
       name: 'escritorio',
-      testMatch: /flujos\.spec\.ts/,
+      testMatch: /(flujos|agenda)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], channel: 'chrome', viewport: { width: 1440, height: 900 } },
     },
   ],

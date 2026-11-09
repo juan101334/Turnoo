@@ -1,0 +1,121 @@
+import { describe, expect, it } from 'vitest';
+import {
+  desdeAhora,
+  diaDeLaSemana,
+  duracionLegible,
+  huecosLibres,
+  minutosDesdeElInicio,
+  quienSigue,
+  rangoDeLaGrilla,
+  rangosDeTrabajo,
+  restar,
+  tramoDe,
+} from '@/lib/agenda';
+
+const BOGOTA = 'America/Bogota';
+// Lunes 9 de noviembre de 2026; en Bogotá es UTC-5.
+const FECHA = '2026-11-09';
+const a = (hora: string) => `${FECHA}T${hora}:00-05:00`;
+
+describe('minutos del día en la zona del negocio', () => {
+  it('cuenta desde las 00:00 locales, no desde las de UTC', () => {
+    expect(minutosDesdeElInicio(a('10:30'), FECHA, BOGOTA)).toBe(630);
+    expect(minutosDesdeElInicio('2026-11-09T15:30:00Z', FECHA, BOGOTA)).toBe(630);
+  });
+
+  it('un bloqueo de varios días se recorta al día', () => {
+    expect(tramoDe({ inicio: '2026-11-08T12:00:00-05:00', fin: '2026-11-10T12:00:00-05:00' }, FECHA, BOGOTA)).toEqual({ inicio: 0, fin: 1440 });
+    expect(tramoDe({ inicio: '2026-11-08T08:00:00-05:00', fin: '2026-11-08T09:00:00-05:00' }, FECHA, BOGOTA)).toBeNull();
+  });
+});
+
+describe('horario y huecos', () => {
+  const horarios = [
+    { diaSemana: 1, horaInicio: '14:00', horaFin: '18:00' },
+    { diaSemana: 1, horaInicio: '08:00:00', horaFin: '12:00:00' },
+    { diaSemana: 2, horaInicio: '08:00', horaFin: '20:00' },
+  ];
+
+  it('toma solo los rangos de ese día de la semana, en orden (1 = lunes)', () => {
+    expect(diaDeLaSemana(FECHA)).toBe(1);
+    expect(rangosDeTrabajo(horarios, FECHA)).toEqual([
+      { inicio: 480, fin: 720 },
+      { inicio: 840, fin: 1080 },
+    ]);
+  });
+
+  it('restar parte un tramo en dos y quita lo que tapa entero', () => {
+    expect(restar([{ inicio: 0, fin: 100 }], [{ inicio: 20, fin: 30 }, { inicio: 90, fin: 120 }])).toEqual([
+      { inicio: 0, fin: 20 },
+      { inicio: 30, fin: 90 },
+    ]);
+    expect(restar([{ inicio: 10, fin: 20 }], [{ inicio: 0, fin: 30 }])).toEqual([]);
+  });
+
+  it('los huecos descuentan citas activas y bloqueos, pero no las canceladas', () => {
+    const huecos = huecosLibres({
+      trabajo: rangosDeTrabajo(horarios, FECHA),
+      citas: [
+        { inicio: a('09:00'), fin: a('09:50'), estado: 'pendiente' },
+        { inicio: a('10:00'), fin: a('10:30'), estado: 'cancelada' },
+        { inicio: a('11:50'), fin: a('12:00'), estado: 'completada' },
+      ],
+      bloqueos: [{ inicio: a('15:00'), fin: a('16:00') }],
+      fecha: FECHA,
+      zona: BOGOTA,
+    });
+    expect(huecos).toEqual([
+      { inicio: 480, fin: 540 },
+      { inicio: 590, fin: 710 },
+      { inicio: 840, fin: 900 },
+      { inicio: 960, fin: 1080 },
+    ]);
+  });
+
+  it('hoy no ofrece lo que ya pasó, y un hueco de menos de 15 minutos no cuenta', () => {
+    const desde = desdeAhora(FECHA, BOGOTA, new Date(a('11:46')));
+    expect(desde).toBe(710);
+    expect(huecosLibres({ trabajo: [{ inicio: 480, fin: 720 }], citas: [], bloqueos: [], fecha: FECHA, zona: BOGOTA, desde })).toEqual([]);
+    expect(huecosLibres({ trabajo: [{ inicio: 480, fin: 720 }], citas: [], bloqueos: [], fecha: FECHA, zona: BOGOTA, desde: 700 })).toEqual([{ inicio: 700, fin: 720 }]);
+  });
+});
+
+describe('grilla del escritorio', () => {
+  it('va de la primera a la última hora con algo, en horas enteras', () => {
+    expect(rangoDeLaGrilla([{ inicio: 490, fin: 720 }, { inicio: 840, fin: 1075 }])).toEqual({ inicio: 480, fin: 1080 });
+  });
+
+  it('sin nada que mostrar, de 8:00 a 18:00', () => {
+    expect(rangoDeLaGrilla([])).toEqual({ inicio: 480, fin: 1080 });
+  });
+});
+
+describe('quién sigue', () => {
+  const citas = [
+    { id: 'pasada', inicio: a('08:00'), fin: a('08:30'), estado: 'pendiente' as const },
+    { id: 'cancelada', inicio: a('09:00'), fin: a('09:30'), estado: 'cancelada' as const },
+    { id: 'en-curso', inicio: a('09:10'), fin: a('09:40'), estado: 'confirmada' as const },
+    { id: 'despues', inicio: a('10:00'), fin: a('10:30'), estado: 'pendiente' as const },
+    { id: 'completada', inicio: a('10:30'), fin: a('11:00'), estado: 'completada' as const },
+  ];
+
+  it('la que está pasando gana sobre la siguiente', () => {
+    expect(quienSigue(citas, new Date(a('09:20')))).toMatchObject({ cita: { id: 'en-curso' }, enCurso: true });
+  });
+
+  it('si ninguna está pasando, la próxima pendiente o confirmada', () => {
+    expect(quienSigue(citas, new Date(a('09:45')))).toMatchObject({ cita: { id: 'despues' }, enCurso: false });
+  });
+
+  it('sin nada por atender, nadie', () => {
+    expect(quienSigue(citas, new Date(a('10:31')))).toBeNull();
+  });
+});
+
+describe('duración legible', () => {
+  it('minutos, horas y mezcla', () => {
+    expect(duracionLegible(50)).toBe('50 min');
+    expect(duracionLegible(60)).toBe('1 h');
+    expect(duracionLegible(80)).toBe('1 h 20 min');
+  });
+});

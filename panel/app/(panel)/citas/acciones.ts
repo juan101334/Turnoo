@@ -50,6 +50,18 @@ export async function accionSobreCita(citaId: string, _previo: EstadoAccion, dat
   return { listo };
 }
 
+/**
+ * "Completada" desde la tarjeta de la agenda. El panel la manda cuando se acaba el tiempo para
+ * deshacer (o al salir de la pantalla): el backend no permite volver una cita a "pendiente".
+ */
+export async function completarCita(citaId: string): Promise<EstadoAccion> {
+  if (!esId(citaId)) return { error: 'Acción no válida.' };
+  const resultado = await pedir<Cita>(`/citas/${citaId}/marcar`, RUTAS.completar.cuerpo);
+  if ('error' in resultado) return resultado;
+  revalidatePath('/', 'layout');
+  return { listo: RUTAS.completar.listo };
+}
+
 export async function reprogramarCita(citaId: string, _previo: EstadoAccion, datos: FormData): Promise<EstadoAccion> {
   const inicio = texto(datos, 'inicio');
   if (!esId(citaId)) return { error: 'Acción no válida.' };
