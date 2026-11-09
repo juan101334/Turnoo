@@ -67,7 +67,7 @@ export function ProveedorDeAvisos({ children }: { children: ReactNode }) {
               key={a.id}
               className="pointer-events-auto flex w-full max-w-sm animate-entrar items-center gap-3 rounded-lg bg-texto py-2 pr-2 pl-4 text-sm text-white shadow-flotante"
             >
-              <Icono aria-hidden className={`size-5 shrink-0 ${a.tipo === 'error' ? 'text-red-300' : a.tipo === 'info' ? 'text-sky-300' : 'text-emerald-300'}`} />
+              <Icono aria-hidden className={`size-5 shrink-0 ${a.tipo === 'error' ? 'text-red-300 dark:text-red-700' : a.tipo === 'info' ? 'text-sky-300 dark:text-sky-700' : 'text-emerald-300 dark:text-emerald-700'}`} />
               <p className="min-w-0 flex-1 py-1.5">{a.texto}</p>
               {a.accion && (
                 <button
@@ -76,7 +76,7 @@ export function ProveedorDeAvisos({ children }: { children: ReactNode }) {
                     a.accion!.hacer();
                     quitar(a.id);
                   }}
-                  className="min-h-11 shrink-0 cursor-pointer rounded-md px-3 font-semibold text-sky-200 hover:bg-white/10"
+                  className="min-h-11 shrink-0 cursor-pointer rounded-md px-3 font-semibold text-sky-200 hover:bg-white/10 dark:text-sky-800"
                 >
                   {a.accion.etiqueta}
                 </button>

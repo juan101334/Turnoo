@@ -130,7 +130,12 @@ export function GrillaDelDia({
                   <span className="block truncate">
                     <span className="cifras font-semibold">{cita.hora}</span> <span className="font-medium">{cita.cliente}</span>
                   </span>
-                  {alta >= 40 && <span className="block truncate text-suave">{cita.servicios}</span>}
+                  {alta >= 40 && (
+                    <>
+                      {' '}
+                      <span className="block truncate text-suave">{cita.servicios}</span>
+                    </>
+                  )}
                 </Link>
               );
             })}

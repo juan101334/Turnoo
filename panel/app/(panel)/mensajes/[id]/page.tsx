@@ -135,7 +135,7 @@ export default async function PaginaConversacion({ params, searchParams }: { par
             {puedeEscribir ? (
               <FormularioDeRespuesta
                 accion={responder.bind(null, id)}
-                ayuda={`Le llega por el WhatsApp del negocio. Puedes escribirle hasta ${momento(ventana!)}.`}
+                ayuda={`Le llega por el WhatsApp del negocio. Puedes escribirle hasta ${momento(ventana!)}`.replace(/\.?$/, '.')}
               />
             ) : (
               <p className="py-1 text-sm text-suave">

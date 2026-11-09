@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: { default: 'Turnoo', template: '%s · Turnoo' },
   description: 'Agenda y citas de tu barbería',
   robots: { index: false, follow: false },
+  // Instalado en el iPhone desde "Agregar a inicio": abre sin la barra de Safari.
+  appleWebApp: { capable: true, title: 'Turnoo', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
@@ -14,7 +16,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Deja que el contenido llegue al borde y respete la muesca con env(safe-area-inset-*).
   viewportFit: 'cover',
-  themeColor: '#075985',
+  // La barra del navegador (y del panel instalado) toma el color del modo del sistema.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#075985' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b141d' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -24,17 +24,19 @@ export function TiraDeDias({
           const activa = fecha === seleccionada;
           const { semana, dia } = partesDelDia(fecha);
           const relativo = diaRelativo(fecha, hoy);
+          // El nombre que se oye empieza con lo que se ve ("lun 9"), y para mañana lo agrega.
+          const etiqueta = relativo === 'Mañana' ? `${semana} ${dia}, mañana` : undefined;
           return (
             <li key={fecha}>
               <Link
                 href={enlace(fecha)}
                 aria-current={activa ? 'date' : undefined}
-                aria-label={relativo ?? undefined}
+                aria-label={etiqueta}
                 className={`flex min-h-14 w-14 flex-col items-center justify-center rounded-xl border text-sm transition-colors duration-150 ${
                   activa ? 'border-marca bg-marca text-white' : 'border-borde bg-superficie hover:bg-fondo'
                 }`}
               >
-                <span className={`text-xs capitalize ${activa ? 'text-white/90' : 'text-suave'}`}>{relativo === 'Hoy' ? 'hoy' : semana}</span>
+                <span className={`text-xs capitalize ${activa ? 'text-white/90' : 'text-suave'}`}>{relativo === 'Hoy' ? 'hoy' : semana}</span>{' '}
                 <span className="text-lg font-semibold leading-tight">{dia}</span>
               </Link>
             </li>

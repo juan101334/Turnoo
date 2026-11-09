@@ -57,7 +57,8 @@ export function NavInferior({ pestanas, contadores = {} }: { pestanas: ClaveSecc
                 }`}
               >
                 <Icono aria-hidden className="size-6" strokeWidth={esActiva ? 2.4 : 1.8} />
-                <span className="max-w-full truncate">{SECCIONES[clave].etiqueta}</span>
+                <span className="max-w-full truncate">{SECCIONES[clave].etiqueta}</span>{' '}
+                {/* El espacio deja "Por aprobar 2" como texto visible: coincide con el nombre accesible. */}
                 <Contador n={contadores[clave]} className="absolute top-1 left-1/2 ml-1.5" />
               </Link>
             </li>
@@ -83,7 +84,7 @@ function EnlaceLateral({ clave, ruta, n }: { clave: ClaveSeccion; ruta: string; 
     >
       <Icono aria-hidden className="size-5 shrink-0" strokeWidth={esActiva ? 2.3 : 1.8} />
       <span className="max-w-full truncate text-center lg:hidden">{SECCIONES[clave].corta ?? SECCIONES[clave].etiqueta}</span>
-      <span className="hidden flex-1 truncate lg:block">{SECCIONES[clave].etiqueta}</span>
+      <span className="hidden flex-1 truncate lg:block">{SECCIONES[clave].etiqueta}</span>{' '}
       <Contador n={n} className="absolute top-1 right-2 lg:static" />
     </Link>
   );

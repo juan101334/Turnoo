@@ -11,7 +11,9 @@ import type { Cita, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
 
 /**
- * Lecturas para las páginas. Si la sesión ya no vale, al login; si el backend dice que algo no
+ * Lecturas para las páginas. Las que se piden desde varias partes de una misma pantalla (el marco
+ * y la página, o la agenda y los primeros pasos) van en cache(): en una petición, una sola llamada.
+ * Si la sesión ya no vale, al login; si el backend dice que algo no
  * existe (o es de otro barbero, que el backend responde igual), la página de "no existe".
  * Cualquier otro error lo muestra app/(panel)/error.tsx.
  */
@@ -161,14 +163,14 @@ export interface ServicioDelBarbero {
 }
 
 /** Al dueño, todos los barberos; al barbero, solo el suyo (lo decide el backend). */
-export async function barberos(): Promise<Barbero[]> {
+export const barberos = cache(async (): Promise<Barbero[]> => {
   return (await leer<{ profesionales: Barbero[] }>('/profesionales')).profesionales;
-}
+});
 
-export async function serviciosDe(profesionalId: string): Promise<ServicioDelBarbero[]> {
+export const serviciosDe = cache(async (profesionalId: string): Promise<ServicioDelBarbero[]> => {
   if (!esId(profesionalId)) notFound();
   return (await leer<{ servicios: ServicioDelBarbero[] }>(`/profesionales/${profesionalId}/servicios`)).servicios;
-}
+});
 
 export interface Hueco {
   inicio: string;
@@ -188,10 +190,10 @@ export const barbero = cache(async (id: string): Promise<Barbero> => {
   return leer<Barbero>(`/profesionales/${id}`);
 });
 
-export async function horariosDe(profesionalId: string): Promise<Horario[]> {
+export const horariosDe = cache(async (profesionalId: string): Promise<Horario[]> => {
   if (!esId(profesionalId)) notFound();
   return (await leer<{ horarios: Horario[] }>(`/profesionales/${profesionalId}/horarios`)).horarios;
-}
+});
 
 /** Usuarios del negocio (solo el dueño; el backend responde 403 a los demás). */
 export async function usuarios(): Promise<UsuarioDelNegocio[]> {
@@ -212,18 +214,18 @@ export interface MiNegocio {
 }
 
 /** Datos y reglas del negocio de la sesión (solo el dueño). */
-export async function miNegocio(): Promise<MiNegocio> {
+export const miNegocio = cache(async (): Promise<MiNegocio> => {
   return leer<MiNegocio>('/negocio');
-}
+});
 
 /** El backend devuelve como mucho 100 conversaciones, la de mensaje más reciente primero. */
 export const MAX_CONVERSACIONES = 100;
 
 /** Conversaciones de WhatsApp (solo el dueño). `humano`: las que esperan a una persona. */
-export async function conversaciones(estado?: 'humano' | 'bot'): Promise<Conversacion[]> {
+export const conversaciones = cache(async (estado?: 'humano' | 'bot'): Promise<Conversacion[]> => {
   const consulta = new URLSearchParams({ limite: String(MAX_CONVERSACIONES), ...(estado && { estado }) });
   return (await leer<{ conversaciones: Conversacion[] }>(`/conversaciones?${consulta}`)).conversaciones;
-}
+});
 
 /** Una conversación con su cliente y su última derivación (solo el dueño). */
 export const conversacion = cache(async (id: string): Promise<Conversacion> => {
@@ -237,9 +239,9 @@ export async function mensajesDe(conversacionId: string): Promise<Mensaje[]> {
   return (await leer<{ mensajes: Mensaje[] }>(`/conversaciones/${conversacionId}/mensajes?limite=200`)).mensajes;
 }
 
-export async function conocimiento(): Promise<BaseDeConocimiento> {
+export const conocimiento = cache(async (): Promise<BaseDeConocimiento> => {
   return leer<BaseDeConocimiento>('/conocimiento');
-}
+});
 
 /** Uso del mes frente a los límites del plan (solo el dueño). */
 export async function usoDelMes(): Promise<UsoDelMes> {
