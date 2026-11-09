@@ -26,7 +26,7 @@ import { BloqueSigue } from './bloque-sigue';
 import { FiltroDeBarberos } from './filtro-de-barberos';
 import { GrillaDelDia, type ColumnaDeBarbero } from './grilla-del-dia';
 import { ListaDelDia, type ElementoDelDia } from './lista-del-dia';
-import { ProveedorDeMarcado } from './marcado-rapido';
+import { ProveedorDeMarcado } from './acciones-con-deshacer';
 import { PanelDeCita } from './panel-de-cita';
 import { RefrescoAutomatico } from './refresco-automatico';
 import { SelectorDeFecha } from './selector-de-fecha';
@@ -99,8 +99,13 @@ export async function VistaDeAgenda({
     const q = new URLSearchParams({ fecha: f, ...(elegido && { barbero: elegido.id }) });
     return `/agenda?${q}`;
   };
-  const nuevaCita = (barberoId?: string) =>
-    `/citas/nueva?${new URLSearchParams({ fecha: fecha < hoy ? hoy : fecha, ...((barberoId ?? elegido?.id) && { barbero: (barberoId ?? elegido?.id)! }) })}`;
+  /** Nueva cita con el día y el barbero; desde un hueco, también la hora (Nueva cita la deja marcada). */
+  const nuevaCita = (barberoId?: string, desde?: number) => {
+    const b = barberoId ?? elegido?.id;
+    const q = new URLSearchParams({ fecha: fecha < hoy ? hoy : fecha, ...(b && { barbero: b }) });
+    if (desde !== undefined) q.set('hora', instanteDe(fecha, desde, zona));
+    return `/citas/nueva?${q}`;
+  };
 
   const hora = (minutos: number) => horaLocal(instanteDe(fecha, minutos, zona), zona);
   const horas = (t: Tramo) => (t.inicio === 0 && t.fin === MINUTOS_DEL_DIA ? 'Todo el día' : `${hora(t.inicio)} – ${hora(t.fin)}`);
@@ -141,7 +146,7 @@ export async function VistaDeAgenda({
     for (const h of huecos) {
       conMinuto.push({
         minuto: h.inicio,
-        elemento: { tipo: 'hueco', clave: `h${h.inicio}`, horas: horas(h), href: nuevaCita(b.id), etiqueta: `Agendar, libre de ${horas(h)}` },
+        elemento: { tipo: 'hueco', clave: `h${h.inicio}`, horas: horas(h), href: nuevaCita(b.id, h.inicio), etiqueta: `Agendar, libre de ${horas(h)}` },
       });
     }
   }
@@ -199,7 +204,7 @@ export async function VistaDeAgenda({
     huecos: huecosLibres({ trabajo: c.trabajo, citas: c.citas, bloqueos: c.bloqueos, fecha, zona, desde: libreDesde }).map((h) => ({
       clave: `h${h.inicio}`,
       tramo: h,
-      href: nuevaCita(c.barbero.id),
+      href: nuevaCita(c.barbero.id, h.inicio),
       hora: hora(h.inicio),
       etiqueta: `Agendar con ${c.barbero.nombre}, libre de ${horas(h)}`,
     })),

@@ -63,11 +63,31 @@ test.describe.serial('citas por aprobar', () => {
     await expect(tarjetas.nth(1)).toContainText(/Vence en 1 h \d{1,2} min|Vence en 2 h/);
   });
 
-  test('aprobar la quita de la lista y baja el contador', async ({ page }) => {
+  test('aprobar se puede deshacer: la cita vuelve y el backend no la aprueba', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/por-aprobar');
+    const tarjeta = page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' });
+    await tarjeta.getByRole('button', { name: 'Aprobar' }).click();
+    await expect(tarjeta).toHaveCount(0);
+    await page.getByRole('status').filter({ hasText: 'Aprobada: Cliente Aprobar.' }).getByRole('button', { name: 'Deshacer' }).click();
+    await expect(tarjeta.getByRole('button', { name: 'Aprobar' })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' })).toHaveCount(1);
+    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 2 pendientes');
+  });
+
+  test('aprobar la quita de la lista al instante y, al acabar el aviso, baja el contador', async ({ page }) => {
+    await page.clock.install();
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/por-aprobar');
+    await page.waitForLoadState('networkidle');
     await page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' }).getByRole('button', { name: 'Aprobar' }).click();
     await expect(page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' })).toHaveCount(0);
+
+    const guardado = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/por-aprobar'));
+    await page.clock.fastForward('00:08');
+    expect((await guardado).ok()).toBe(true);
     await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 1 pendiente');
   });
 

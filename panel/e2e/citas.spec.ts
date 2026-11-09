@@ -112,6 +112,8 @@ test.describe.serial('agenda y acciones sobre citas', () => {
     const dia = sumarDias(datos().agenda.fecha, 2);
     await entrarYEsperar(page, datos().empleado);
     await page.getByRole('link', { name: 'Nueva cita' }).click();
+    // Primero el cliente: este es nuevo, su teléfono se escribe al final.
+    await page.getByRole('link', { name: 'Cliente nuevo' }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('checkbox', { name: /Barba/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
@@ -145,7 +147,7 @@ test.describe.serial('agenda y acciones sobre citas', () => {
       const contexto = await browser.newContext();
       const page = await contexto.newPage();
       await entrarYEsperar(page, datos().empleado);
-      await page.goto('/citas/nueva');
+      await page.goto('/citas/nueva?cliente=nuevo');
       await page.getByRole('checkbox', { name: /Corte/ }).check();
       await page.getByRole('button', { name: 'Ver horas libres' }).click();
       await page.goto(`${page.url().replace(/fecha=[^&]+/, `fecha=${dia}`)}`);

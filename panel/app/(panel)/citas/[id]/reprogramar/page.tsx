@@ -2,18 +2,19 @@ import { ChevronLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { FormularioConEstado } from '@/componentes/formulario-con-estado';
+import { FormularioDeHora } from '@/componentes/formulario-de-hora';
 import { HorasLibres } from '@/componentes/horas-libres';
 import { TiraDeDias } from '@/componentes/tira-de-dias';
+import { horasLibres } from '@/lib/agenda';
 import { accionesPosibles, nombresDeServicios } from '@/lib/citas';
 import { cita as leerCita, huecosDelDia } from '@/lib/datos';
-import { esFechaValida, fechaDe, fechaLarga, horaLocal, hoyEn } from '@/lib/fechas';
+import { esFechaValida, fechaDe, fechaLarga, horaLocal, hoyEn, partesDelDia } from '@/lib/fechas';
 import { exigirUsuario } from '@/lib/sesion';
 import { reprogramarCita } from '../../acciones';
 
 export const metadata: Metadata = { title: 'Reprogramar cita' };
 
-/** Misma cita, mismos servicios (misma duración): solo cambia el día y la hora. */
+/** Misma cita, mismos servicios (misma duración): solo cambia el día y la hora. Igual que Nueva cita. */
 export default async function PaginaReprogramar({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fecha?: string }> }) {
   const usuario = await exigirUsuario('agenda');
   const { id } = await params;
@@ -25,11 +26,15 @@ export default async function PaginaReprogramar({ params, searchParams }: { para
   const { fecha } = await searchParams;
   const actual = fechaDe(cita.inicio, zona);
   const dia = esFechaValida(fecha) && fecha >= hoy ? fecha : actual >= hoy ? actual : hoy;
-  const huecos = await huecosDelDia(
-    cita.profesionalId,
-    cita.servicios.map((s) => s.servicioId),
-    dia,
+  const horas = horasLibres(
+    await huecosDelDia(
+      cita.profesionalId,
+      cita.servicios.map((s) => s.servicioId),
+      dia,
+    ),
+    zona,
   );
+  const { semana, dia: numero } = partesDelDia(dia);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -46,12 +51,16 @@ export default async function PaginaReprogramar({ params, searchParams }: { para
         <TiraDeDias seleccionada={dia} hoy={hoy} enlace={(f) => `/citas/${cita.id}/reprogramar?fecha=${f}`} />
       </div>
       <p className="mb-2 font-medium first-letter:uppercase">{fechaLarga(dia)}</p>
-      {huecos.length > 0 ? (
-        <FormularioConEstado accion={reprogramarCita.bind(null, cita.id)} boton="Guardar la nueva hora" enviando="Guardando…">
-          <HorasLibres huecos={huecos} zona={zona} />
-        </FormularioConEstado>
+      {horas.length > 0 ? (
+        <FormularioDeHora
+          accion={reprogramarCita.bind(null, cita.id)}
+          horas={horas}
+          resumen={`${semana} ${numero} · ${cita.clienteNombre ?? 'Cliente sin nombre'}`}
+          boton="Guardar la nueva hora"
+          enviando="Guardando…"
+        />
       ) : (
-        <HorasLibres huecos={[]} zona={zona} />
+        <HorasLibres horas={[]} />
       )}
     </div>
   );

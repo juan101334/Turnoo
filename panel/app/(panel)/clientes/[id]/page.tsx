@@ -1,4 +1,4 @@
-import { ChevronLeft, MessageCircle, Pencil, Phone } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, MessageCircle, Pencil, Phone } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
@@ -77,6 +77,14 @@ export default async function PaginaCliente({ params, searchParams }: { params: 
                   <MessageCircle aria-hidden className="size-4" />
                   WhatsApp
                 </a>
+                {/* Solo viaja el id: el teléfono lo busca el servidor de Nueva cita. */}
+                <Link
+                  href={`/citas/nueva?cliente=${c.id}`}
+                  className="col-span-2 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-marca font-semibold text-white hover:bg-marca-oscura"
+                >
+                  <CalendarPlus aria-hidden className="size-4" />
+                  Agendar una cita
+                </Link>
               </div>
             </>
           )}

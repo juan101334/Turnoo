@@ -62,6 +62,15 @@ export async function completarCita(citaId: string): Promise<EstadoAccion> {
   return { listo: RUTAS.completar.listo };
 }
 
+/** "Aprobar" desde la lista de por aprobar, cuando se acaba el tiempo para deshacer. */
+export async function aprobarCitaDiferida(citaId: string): Promise<EstadoAccion> {
+  if (!esId(citaId)) return { error: 'Acción no válida.' };
+  const resultado = await pedir<Cita>(`/citas/${citaId}/aprobar`, RUTAS.aprobar.cuerpo);
+  if ('error' in resultado) return resultado;
+  revalidatePath('/', 'layout');
+  return { listo: RUTAS.aprobar.listo };
+}
+
 export async function reprogramarCita(citaId: string, _previo: EstadoAccion, datos: FormData): Promise<EstadoAccion> {
   const inicio = texto(datos, 'inicio');
   if (!esId(citaId)) return { error: 'Acción no válida.' };
@@ -72,26 +81,50 @@ export async function reprogramarCita(citaId: string, _previo: EstadoAccion, dat
   redirect(`/citas/${citaId}?listo=reprogramada`);
 }
 
+/**
+ * Nueva cita. El cliente llega de dos formas: uno que ya existe (`clienteId`: su teléfono se busca
+ * aquí, en el servidor, para que nunca viaje en la URL) o uno nuevo (`telefono` y `nombre`). El
+ * backend agenda por teléfono: si ya hay un cliente con ese número, usa ese.
+ */
 export async function crearCita(_previo: EstadoAccion, datos: FormData): Promise<EstadoAccion> {
   const profesionalId = texto(datos, 'profesionalId');
   const servicioIds = datos.getAll('servicioIds').filter((v): v is string => typeof v === 'string');
   const inicio = texto(datos, 'inicio');
-  const telefono = texto(datos, 'telefono');
+  const clienteId = texto(datos, 'clienteId');
   const nombre = texto(datos, 'nombre');
   const notas = texto(datos, 'notas');
 
   if (!esId(profesionalId) || servicioIds.length === 0 || !servicioIds.every(esId)) return { error: 'Elige el barbero y al menos un servicio.' };
   if (!inicio) return { error: 'Elige la hora de la cita.' };
+
+  let telefono = texto(datos, 'telefono');
+  if (clienteId) {
+    if (!esId(clienteId)) return { error: 'Elige el cliente otra vez.' };
+    const cliente = await pedirCliente(clienteId);
+    if ('error' in cliente) return cliente;
+    if (!cliente.ok.telefono) return { error: 'Este cliente no tiene teléfono guardado: agéndalo como cliente nuevo con su número.' };
+    telefono = cliente.ok.telefono;
+  }
   if (!telefono) return { error: 'Escribe el teléfono del cliente.' };
 
   const resultado = await pedir<Cita>('/citas', {
     profesionalId,
     servicioIds,
     inicio,
-    cliente: { telefono, ...(nombre && { nombre }) },
+    cliente: { telefono, ...(!clienteId && nombre && { nombre }) },
     ...(notas && { notas }),
   });
   if ('error' in resultado) return resultado;
   revalidatePath('/', 'layout');
   redirect(`/citas/${resultado.ok.id}?listo=creada`);
+}
+
+async function pedirCliente(clienteId: string): Promise<{ ok: { telefono: string | null } } | { error: string }> {
+  try {
+    return { ok: await llamarAlBackend<{ telefono: string | null }>(`/clientes/${clienteId}`) };
+  } catch (error) {
+    if (!(error instanceof ErrorDelBackend)) throw error;
+    if (error.estado === 401) redirect('/sesion-vencida');
+    return { error: error.estado === 404 ? 'Ese cliente ya no existe. Búscalo otra vez.' : error.message };
+  }
 }

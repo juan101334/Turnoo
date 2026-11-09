@@ -3,6 +3,8 @@ import {
   desdeAhora,
   diaDeLaSemana,
   duracionLegible,
+  horaElegida,
+  horasLibres,
   huecosLibres,
   minutosDesdeElInicio,
   quienSigue,
@@ -117,5 +119,23 @@ describe('duración legible', () => {
     expect(duracionLegible(50)).toBe('50 min');
     expect(duracionLegible(60)).toBe('1 h');
     expect(duracionLegible(80)).toBe('1 h 20 min');
+  });
+});
+
+describe('horas libres para elegir', () => {
+  const huecos = [{ inicio: a('09:30') }, { inicio: a('12:00') }, { inicio: a('17:30') }, { inicio: a('18:00') }];
+
+  it('se agrupan en mañana, tarde y noche, con la hora en la zona del negocio', () => {
+    const horas = horasLibres(huecos, BOGOTA);
+    expect(horas.map((h) => h.franja)).toEqual(['Mañana', 'Tarde', 'Tarde', 'Noche']);
+    expect(horas[0]!.etiqueta).toMatch(/^9:30\sa\.\s?m\.$/);
+  });
+
+  it('desde un hueco se marca esa hora, o la primera libre después', () => {
+    expect(horaElegida(huecos, a('12:00'))).toBe(a('12:00'));
+    expect(horaElegida(huecos, a('12:10'))).toBe(a('17:30'));
+    expect(horaElegida(huecos, a('19:00'))).toBeUndefined();
+    expect(horaElegida(huecos, 'no-es-una-hora')).toBeUndefined();
+    expect(horaElegida(huecos, undefined)).toBeUndefined();
   });
 });
