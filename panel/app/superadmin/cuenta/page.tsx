@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'Cuenta · Superadmin' };
 export default async function PaginaCuentaSuperadmin() {
   const usuario = await exigirSuperadmin();
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="ancho-formulario">
       <h1 className="mb-4 text-2xl font-semibold">Cuenta</h1>
       <div className="mb-4 rounded-xl border border-borde bg-superficie p-4">
         <p className="text-lg font-medium">{usuario.nombre}</p>

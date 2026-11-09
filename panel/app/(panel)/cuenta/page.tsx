@@ -14,7 +14,7 @@ const ROLES = { dueno: 'Dueño del negocio', empleado: 'Barbero', superadmin: 'S
 export default async function PaginaCuenta() {
   const usuario = await exigirUsuario('cuenta');
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-formulario">
       <h1 className="mb-4 text-2xl font-semibold">Cuenta</h1>
       <div className="mb-4 rounded-xl border border-borde bg-superficie p-4">
         <p className="text-lg font-medium">{usuario.nombre}</p>

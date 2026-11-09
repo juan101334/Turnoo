@@ -75,7 +75,7 @@ export default async function PaginaNegocio() {
   const indice = [{ id: 'datos', titulo: 'Datos del negocio' }, ...GRUPOS_DE_CONFIGURACION.map((g) => ({ id: g.id, titulo: g.titulo }))];
 
   return (
-    <div className="mx-auto max-w-2xl lg:max-w-5xl">
+    <div className="ancho-lista">
       <h1 className="mb-1 text-2xl font-semibold">Ajustes del negocio</h1>
       <p className="mb-4 text-sm text-suave">Las reglas las siguen el asistente de WhatsApp y el panel, y se aplican a las citas nuevas.</p>
 

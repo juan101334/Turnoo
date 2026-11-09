@@ -25,7 +25,7 @@ export default async function PaginaBloqueos() {
   const nombreDe = new Map(equipo.map((b) => [b.id, b.nombre]));
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-lista">
       <div className="mb-1 flex items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold">{esDueno ? 'Bloqueos' : 'Mis bloqueos'}</h1>
         <AccionPrincipal href="/bloqueos/nuevo" etiqueta="Bloquear horas" Icono={CalendarPlus} />

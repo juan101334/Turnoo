@@ -16,7 +16,7 @@ function zonasHorarias(): string[] {
 /** Crea el negocio en prueba. Después: conectar su WhatsApp e invitar al dueño (en su ficha). */
 export default function PaginaNuevoNegocio() {
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="ancho-formulario">
       <Link href="/superadmin" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Negocios

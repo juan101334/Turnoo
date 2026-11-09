@@ -53,7 +53,7 @@ export default async function PaginaConversacion({ params, searchParams }: { par
       : `La atiende el asistente. Si le escribes, deja de responderle por ${configuracion.horasModoHumano} horas.`;
 
   return (
-    <div className="mx-auto max-w-2xl lg:max-w-none">
+    <div className="ancho-completo">
       <RefrescoAutomatico segundos={20} />
       <div className="lg:grid lg:h-[calc(100dvh-4.5rem)] lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-6">
         <div className="hidden min-h-0 lg:flex lg:flex-col">

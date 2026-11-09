@@ -56,7 +56,7 @@ export default async function PaginaPlan() {
         : { tipo: 'exito' as const, texto: negocio.pagadoHasta ? `Cuenta activa, pagada hasta el ${fecha(negocio.pagadoHasta)}.` : 'Cuenta activa.' };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-lista">
       <h1 className="text-2xl font-semibold">{plan ? `Plan ${plan.nombre}` : 'Plan'}</h1>
       <p className="mb-4 text-sm text-suave first-letter:uppercase">
         Uso de {nombreDelMes(periodo)}. Los contadores vuelven a cero el {reinicioDelMes(periodo)}.

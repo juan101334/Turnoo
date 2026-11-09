@@ -9,9 +9,10 @@ function Bloque({ className }: { className: string }) {
   return <div className={`animate-latido rounded-md bg-hundido ${className}`} />;
 }
 
-function Cargando({ children, ancho = 'max-w-2xl' }: { children: ReactNode; ancho?: string }) {
+/** Con el mismo ancho estándar que la pantalla que se espera (globals.css). */
+function Cargando({ children, ancho = 'ancho-formulario' }: { children: ReactNode; ancho?: 'ancho-formulario' | 'ancho-lista' | 'ancho-completo' }) {
   return (
-    <div aria-busy="true" className={`mx-auto w-full ${ancho}`}>
+    <div aria-busy="true" className={ancho}>
       <p className="sr-only" role="status">
         Cargando…
       </p>
@@ -35,7 +36,7 @@ function Encabezado({ conAccion = false }: { conAccion?: boolean }) {
 /** Hoy y Agenda: encabezado, fila de días y tarjetas de citas (desde 1024 px, la grilla). */
 export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
   return (
-    <Cargando ancho="max-w-4xl lg:max-w-none">
+    <Cargando ancho="ancho-completo">
       <Encabezado conAccion />
       {conTira && (
         <div className="mb-5 flex gap-2 overflow-hidden">
@@ -71,7 +72,7 @@ export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
 /** Listas: clientes, usuarios, bloqueos, mensajes, por aprobar… */
 export function EsqueletoLista({ filas = 6, conBuscador = false, conAccion = false }: { filas?: number; conBuscador?: boolean; conAccion?: boolean }) {
   return (
-    <Cargando>
+    <Cargando ancho="ancho-lista">
       <Encabezado conAccion={conAccion} />
       {conBuscador && <Bloque className="mb-4 h-11 w-full rounded-lg" />}
       <div className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">

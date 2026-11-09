@@ -26,7 +26,7 @@ export default async function PaginaPorAprobar() {
   const citas = await citasPorAprobar(ahora);
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-lista">
       <RefrescoAutomatico />
       <h1 className="text-2xl font-semibold">Por aprobar</h1>
       <p className="mb-4 text-sm text-suave">

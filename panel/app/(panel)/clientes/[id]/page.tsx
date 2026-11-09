@@ -35,7 +35,7 @@ export default async function PaginaCliente({ params, searchParams }: { params: 
   const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
-    <div className="mx-auto max-w-2xl lg:max-w-5xl">
+    <div className="ancho-lista">
       <Link href="/clientes" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
         <ChevronLeft aria-hidden className="size-5" />
         Clientes

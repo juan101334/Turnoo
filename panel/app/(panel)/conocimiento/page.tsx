@@ -33,7 +33,7 @@ export default async function PaginaConocimiento({ searchParams }: { searchParam
   const mensaje = listo ? LISTO[listo] : undefined;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="ancho-lista">
       <h1 className="text-2xl font-semibold">Base de conocimiento</h1>
       <p className="mb-4 text-sm text-suave">
         Lo que el asistente responde cuando un cliente pregunta algo del negocio. Si no encuentra la respuesta aquí, te pasa la conversación.
