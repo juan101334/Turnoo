@@ -23,7 +23,11 @@ test.describe('nueva cita: el cliente primero', () => {
 
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
-    await page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(6).click();
+    // Esperar a que el día elegido quede en la URL: si no, se marcaría una hora del día anterior.
+    const dia6 = page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(6);
+    const destino6 = (await dia6.getAttribute('href'))!;
+    await dia6.click();
+    await expect(page).toHaveURL(destino6);
     // No pide teléfono: lo pone el servidor.
     await expect(page.getByLabel('Teléfono del cliente')).toHaveCount(0);
     await page.locator('label').filter({ has: page.getByRole('radio') }).first().click();

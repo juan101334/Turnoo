@@ -64,16 +64,20 @@ test.describe.serial('citas por aprobar', () => {
   });
 
   test('aprobar se puede deshacer: la cita vuelve y el backend no la aprueba', async ({ page }) => {
-    // Reloj quieto: los 7 s para deshacer no se acaban aunque la máquina vaya lenta.
     await page.clock.install();
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/por-aprobar');
+    // install() deja correr el tiempo: se pausa para que los 7 s de deshacer no se acaben solos.
+    await page.waitForLoadState('networkidle');
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     const tarjeta = page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' });
     await tarjeta.getByRole('button', { name: 'Aprobar' }).click();
     await expect(tarjeta).toHaveCount(0);
     await page.getByRole('status').filter({ hasText: 'Aprobada: Cliente Aprobar.' }).getByRole('button', { name: 'Deshacer' }).click();
     await expect(tarjeta.getByRole('button', { name: 'Aprobar' })).toBeVisible();
 
+    // Con el reloj quieto la página no termina de cargar: se reanuda antes de recargar.
+    await page.clock.resume();
     await page.reload();
     await expect(page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' })).toHaveCount(1);
     await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 2 pendientes');
