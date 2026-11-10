@@ -86,6 +86,8 @@ test.describe('menú plegable', () => {
 });
 
 test('anchos estándar: cada página con su ancho, centrada en el espacio junto al menú', async ({ page }) => {
+  // Recorre 14 páginas (7 en dos anchos); en desarrollo, Next compila las que no estaban listas.
+  test.setTimeout(60_000);
   await entrarYEsperar(page, datos().dueno);
   /** Ancho del contenedor de la página y cuánto se aparta su centro del centro del área de contenido. */
   const medir = async (ruta: string) => {

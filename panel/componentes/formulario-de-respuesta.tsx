@@ -10,7 +10,8 @@ const sinError = (e: EstadoFormulario) => Boolean(e.listo);
 
 /**
  * La respuesta al cliente, fija abajo de la conversación: el campo y "Enviar" a la mano mientras
- * se lee. Se vacía al enviar; si WhatsApp o el backend lo rechazan, el texto se queda.
+ * se lee. Se vacía al enviar; si WhatsApp o el backend lo rechazan, el texto se queda. Salir con
+ * una respuesta escrita sin enviar pregunta antes.
  */
 export function FormularioDeRespuesta({ accion, ayuda }: { accion: (previo: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>; ayuda: string }) {
   const avisar = useAvisar();
@@ -19,6 +20,7 @@ export function FormularioDeRespuesta({ accion, ayuda }: { accion: (previo: Esta
       accion={accion}
       inicial={{}}
       limpiarSi={sinError}
+      avisarAlSalir
       alTerminar={(e) => {
         if (e.listo) avisar(e.listo);
       }}

@@ -1,16 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
 import { EnlaceParaCompartir } from '@/componentes/enlace-para-compartir';
-import { alEnviarSinReinicio, BotonEnviar, Campo, CampoSeleccion, EnvioSinReinicio } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, Campo, CampoSeleccion, EnvioSinReinicio, useAvisoAlSalir } from '@/componentes/formulario';
 import { mensajeConEnlace } from '@/lib/administracion';
 import { invitarUsuario, type ResultadoEnlace } from '../acciones';
 
 /** Invitar: nombre, correo, rol y con qué barbero atiende. Al terminar, el enlace para compartir. */
 export function FormularioInvitacion({ barberos, barberoInicial, negocio }: { barberos: { id: string; nombre: string }[]; barberoInicial: string; negocio: string }) {
   const [estado, enviar, pendiente] = useActionState<ResultadoEnlace, FormData>(invitarUsuario, {});
+  const formulario = useRef<HTMLFormElement>(null);
+  const notaSinAviso = useAvisoAlSalir(formulario, pendiente || Boolean(estado.enlace));
   const [rol, setRol] = useState<'empleado' | 'dueno'>('empleado');
 
   if (estado.enlace) {
@@ -26,7 +28,7 @@ export function FormularioInvitacion({ barberos, barberoInicial, negocio }: { ba
 
   return (
     <EnvioSinReinicio pendiente={pendiente}>
-    <form action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4">
+    <form ref={formulario} action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4">
       <Campo id="nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" />
       <Campo id="email" name="email" etiqueta="Correo" type="email" required maxLength={254} autoComplete="off" ayuda="Con este correo entrará al panel." />
       <fieldset className="flex flex-col gap-2">
@@ -63,6 +65,7 @@ export function FormularioInvitacion({ barberos, barberoInicial, negocio }: { ba
       </CampoSeleccion>
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <BotonEnviar enviando="Creando enlace…">Crear enlace de invitación</BotonEnviar>
+      {notaSinAviso}
     </form>
     </EnvioSinReinicio>
   );

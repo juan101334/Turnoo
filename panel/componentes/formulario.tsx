@@ -13,8 +13,10 @@ import {
   type FormEvent,
   type InputHTMLAttributes,
   type ReactNode,
+  type RefObject,
   type SelectHTMLAttributes,
 } from 'react';
+import { fijarValores, NotaSinAvisoAlCerrar, soltarCentinela, useCambiosDelFormulario, useCambiosSinGuardar } from './guardia-de-salida';
 
 /** Si el formulario está enviando. null fuera de <EnvioSinReinicio> (ahí se usa useFormStatus). */
 const ContextoEnvio = createContext<boolean | null>(null);
@@ -29,7 +31,8 @@ export function alEnviarSinReinicio(enviar: (datos: FormData) => void) {
   return (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
     const datos = new FormData(evento.currentTarget);
-    startTransition(() => enviar(datos));
+    // Primero se quita el centinela del aviso al salir (ver guardia-de-salida.tsx).
+    soltarCentinela(() => startTransition(() => enviar(datos)));
   };
 }
 
@@ -40,11 +43,15 @@ export function EnvioSinReinicio({ pendiente, children }: { pendiente: boolean; 
 /**
  * Formulario de una Server Action que no se vacía al terminar (ver alEnviarSinReinicio).
  * `limpiarSi` vacía los campos cuando conviene (al agregar algo) y `alTerminar` recibe cada resultado.
+ * Con `avisarAlSalir`, salir con algo escrito sin guardar pregunta antes (useCambiosSinGuardar);
+ * `guardadoSi` dice qué resultado deja lo escrito como guardado (si no se vacía ni se sale).
  */
 export function Formulario<E extends object>({
   accion,
   inicial,
   limpiarSi,
+  guardadoSi,
+  avisarAlSalir = false,
   alTerminar,
   className,
   noValidate,
@@ -53,6 +60,8 @@ export function Formulario<E extends object>({
   accion: (previo: E, datos: FormData) => Promise<E>;
   inicial: E;
   limpiarSi?: (estado: E) => boolean;
+  guardadoSi?: (estado: E) => boolean;
+  avisarAlSalir?: boolean;
   alTerminar?: (estado: E) => void;
   className?: string;
   noValidate?: boolean;
@@ -61,21 +70,38 @@ export function Formulario<E extends object>({
   const [estado, enviar, pendiente] = useActionState<E, FormData>(accion, inicial as Awaited<E>);
   const formulario = useRef<HTMLFormElement>(null);
   const anterior = useRef(estado);
+  const { cambiados, revisar } = useCambiosDelFormulario(formulario);
+  // Mientras se envía, no hay nada que perder: si la acción redirige, no pregunta.
+  const { sinAvisoAlCerrar } = useCambiosSinGuardar(avisarAlSalir && cambiados.length > 0 && !pendiente);
 
   useEffect(() => {
     if (estado === anterior.current) return;
     anterior.current = estado;
     if (limpiarSi?.(estado)) formulario.current?.reset();
+    else if (guardadoSi?.(estado) && formulario.current) fijarValores(formulario.current);
+    revisar();
     alTerminar?.(estado);
-  }, [estado, limpiarSi, alTerminar]);
+  }, [estado, limpiarSi, guardadoSi, alTerminar, revisar]);
 
   return (
     <ContextoEnvio value={pendiente}>
       <form ref={formulario} action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className={className} noValidate={noValidate}>
         {typeof children === 'function' ? children(estado) : children}
+        {sinAvisoAlCerrar && <NotaSinAvisoAlCerrar />}
       </form>
     </ContextoEnvio>
   );
+}
+
+/**
+ * Para formularios propios (con useActionState y <EnvioSinReinicio>): salir con cambios sin
+ * guardar pregunta antes. `pausado`: mientras se envía o cuando ya se guardó (el formulario se
+ * cambia por el resultado), no hay nada que perder. Devuelve la nota del iPhone para el botón.
+ */
+export function useAvisoAlSalir(formulario: RefObject<HTMLFormElement | null>, pausado: boolean): ReactNode {
+  const { cambiados } = useCambiosDelFormulario(formulario);
+  const { sinAvisoAlCerrar } = useCambiosSinGuardar(cambiados.length > 0 && !pausado);
+  return sinAvisoAlCerrar ? <NotaSinAvisoAlCerrar /> : null;
 }
 
 /** Campo con etiqueta siempre visible, ayuda y error debajo. 16 px: el iPhone no hace zoom. */

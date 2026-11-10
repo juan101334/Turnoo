@@ -1,6 +1,7 @@
 import { CircleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ProveedorDeAvisos } from '@/componentes/avisos-flotantes';
+import { GuardiaDeSalida } from '@/componentes/guardia-de-salida';
 import { SaltarAlContenido } from '@/componentes/saltar-al-contenido';
 import { TituloConPendientes } from '@/componentes/titulo-con-pendientes';
 import { MenuLateral, NavInferior } from '@/componentes/navegacion';
@@ -34,31 +35,33 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
   const [{ contadores, suspendido }, tema, plegado] = await Promise.all([datosDelMarco(usuario), temaElegido(), menuPlegado()]);
   return (
     <ProveedorDeAvisos>
-      <SaltarAlContenido />
-      <div className="flex min-h-dvh">
-        <MenuLateral
-          grupos={gruposDe(usuario.rol)}
-          conCuenta={puedeVer(usuario.rol, 'cuenta')}
-          contadores={contadores}
-          tema={tema}
-          plegadoInicial={plegado}
-        />
-        <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 outline-none px-4 pt-5 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-6 md:pb-10 lg:px-10 lg:pt-8">
-          <div className="mx-auto w-full max-w-[1440px]">
-            {suspendido && (
-              <div role="status" className="mb-4 flex items-start gap-2 rounded-lg bg-peligro-suave px-3 py-2.5 text-sm text-peligro">
-                <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-                <p>
-                  <strong>La cuenta está suspendida.</strong> Puedes consultar, pero no hacer cambios. Escríbele al soporte de Turnoo.
-                </p>
-              </div>
-            )}
-            {children}
-          </div>
-        </main>
-        <NavInferior pestanas={pestanasDe(usuario.rol)} contadores={contadores} />
-        {usuario.rol === 'dueno' && <TituloConPendientes n={contadores.mensajes} />}
-      </div>
+      <GuardiaDeSalida>
+        <SaltarAlContenido />
+        <div className="flex min-h-dvh">
+          <MenuLateral
+            grupos={gruposDe(usuario.rol)}
+            conCuenta={puedeVer(usuario.rol, 'cuenta')}
+            contadores={contadores}
+            tema={tema}
+            plegadoInicial={plegado}
+          />
+          <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 outline-none px-4 pt-5 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-6 md:pb-10 lg:px-10 lg:pt-8">
+            <div className="mx-auto w-full max-w-[1440px]">
+              {suspendido && (
+                <div role="status" className="mb-4 flex items-start gap-2 rounded-lg bg-peligro-suave px-3 py-2.5 text-sm text-peligro">
+                  <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                  <p>
+                    <strong>La cuenta está suspendida.</strong> Puedes consultar, pero no hacer cambios. Escríbele al soporte de Turnoo.
+                  </p>
+                </div>
+              )}
+              {children}
+            </div>
+          </main>
+          <NavInferior pestanas={pestanasDe(usuario.rol)} contadores={contadores} />
+          {usuario.rol === 'dueno' && <TituloConPendientes n={contadores.mensajes} />}
+        </div>
+      </GuardiaDeSalida>
     </ProveedorDeAvisos>
   );
 }
