@@ -85,29 +85,35 @@ test.describe('menú plegable', () => {
   });
 });
 
-test('anchos estándar: todas las páginas arrancan en el mismo borde, con su ancho', async ({ page }) => {
+test('anchos estándar: cada página con su ancho, centrada en el espacio junto al menú', async ({ page }) => {
   await entrarYEsperar(page, datos().dueno);
-  // El contenedor de cada página es el padre del título.
+  /** Ancho del contenedor de la página y cuánto se aparta su centro del centro del área de contenido. */
   const medir = async (ruta: string) => {
     await page.goto(ruta);
-    const titulo = page.getByRole('heading', { level: 1 }).first();
-    await expect(titulo).toBeVisible();
-    const caja = (await titulo.boundingBox())!;
-    const contenedor = await page.locator('#contenido > div > *').last().boundingBox();
-    return { x: Math.round(caja.x), ancho: Math.round(contenedor!.width) };
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+    return page.evaluate(() => {
+      const main = document.getElementById('contenido')!;
+      const estilo = getComputedStyle(main);
+      const caja = main.getBoundingClientRect();
+      const izquierda = caja.left + parseFloat(estilo.paddingLeft);
+      const derecha = caja.right - parseFloat(estilo.paddingRight);
+      const pagina = main.querySelector(':scope > div > :last-child')!.getBoundingClientRect();
+      return { ancho: Math.round(pagina.width), desvio: Math.round(Math.abs((pagina.left + pagina.right) / 2 - (izquierda + derecha) / 2)) };
+    });
   };
-  const hoy = await medir('/hoy');
-  const cuenta = await medir('/cuenta');
-  const usuarios = await medir('/usuarios');
-  const ajustes = await medir('/negocio');
-  const clientes = await medir('/clientes');
-  for (const otra of [cuenta, usuarios, ajustes, clientes]) expect(otra.x).toBe(hoy.x);
-  expect(cuenta.ancho).toBe(672);
-  for (const lista of [usuarios, ajustes, clientes]) expect(lista.ancho).toBe(1024);
-  expect(hoy.ancho).toBeGreaterThan(1024);
-
-  // En una pantalla más ancha que el marco (1440 px), el contenido sigue pegado al menú: 240 px
-  // del menú más 40 de margen, sin hueco que crezca con la pantalla.
-  await page.setViewportSize({ width: 1920, height: 1000 });
-  for (const ruta of ['/hoy', '/cuenta']) expect((await medir(ruta)).x).toBe(280);
+  for (const ancho of [1440, 1920]) {
+    await page.setViewportSize({ width: ancho, height: 1000 });
+    const formularios = { '/cuenta': await medir('/cuenta') };
+    const listas = {
+      '/usuarios': await medir('/usuarios'),
+      '/negocio': await medir('/negocio'),
+      '/clientes': await medir('/clientes'),
+      '/por-aprobar': await medir('/por-aprobar'),
+      '/plan': await medir('/plan'),
+    };
+    for (const [ruta, m] of Object.entries(formularios)) expect(m, `${ruta} a ${ancho}`).toEqual({ ancho: 672, desvio: 0 });
+    for (const [ruta, m] of Object.entries(listas)) expect(m, `${ruta} a ${ancho}`).toEqual({ ancho: 1024, desvio: 0 });
+    // Hoy ocupa todo el ancho hasta el tope del marco (1440 px), también centrado.
+    expect(await medir('/hoy'), `/hoy a ${ancho}`).toEqual({ ancho: Math.min(1440, ancho - 240 - 80), desvio: 0 });
+  }
 });

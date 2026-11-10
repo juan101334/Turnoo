@@ -44,7 +44,7 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
           plegadoInicial={plegado}
         />
         <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 outline-none px-4 pt-5 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-6 md:pb-10 lg:px-10 lg:pt-8">
-          <div className="w-full max-w-[1440px]">
+          <div className="mx-auto w-full max-w-[1440px]">
             {suspendido && (
               <div role="status" className="mb-4 flex items-start gap-2 rounded-lg bg-peligro-suave px-3 py-2.5 text-sm text-peligro">
                 <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
