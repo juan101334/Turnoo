@@ -12,6 +12,7 @@ const sinError = (e: EstadoAccion) => Boolean(e.listo);
  * Formulario que llama a una Server Action: el error se muestra arriba del botón (junto a lo que
  * hay que corregir) y el éxito, en un aviso breve. Lo escrito no se pierde si el backend rechaza
  * algo; con `limpiar`, los campos se vacían al guardar (formularios para agregar).
+ * Salir con algo escrito sin guardar pregunta antes; `avisarAlSalir={false}` lo apaga.
  */
 export function FormularioConEstado({
   accion,
@@ -22,6 +23,7 @@ export function FormularioConEstado({
   limpiar = false,
   alListo,
   cancelar,
+  avisarAlSalir = true,
 }: {
   accion: (previo: EstadoAccion, datos: FormData) => Promise<EstadoAccion>;
   boton: string;
@@ -33,6 +35,7 @@ export function FormularioConEstado({
   alListo?: () => void;
   /** Con esto aparece "Cancelar" junto al botón. */
   cancelar?: () => void;
+  avisarAlSalir?: boolean;
 }) {
   const avisar = useAvisar();
   return (
@@ -40,7 +43,8 @@ export function FormularioConEstado({
       accion={accion}
       inicial={{}}
       className="flex flex-col gap-4"
-      {...(limpiar && { limpiarSi: sinError })}
+      {...(limpiar ? { limpiarSi: sinError } : { guardadoSi: sinError })}
+      avisarAlSalir={avisarAlSalir}
       alTerminar={(e) => {
         if (!e.listo) return;
         avisar(e.listo);

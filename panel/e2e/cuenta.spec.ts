@@ -36,8 +36,12 @@ test('cambiar la contraseña: pide la actual, cierra las otras sesiones y esta s
   await expect(alerta(page)).toContainText('Las dos contraseñas nuevas no coinciden.');
 
   await seccion.getByLabel('Repite la contraseña nueva').fill(nueva);
+  const historial = () => page.evaluate(() => window.history.length);
+  const antes = await historial();
   await seccion.getByRole('button', { name: 'Cambiar contraseña' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Contraseña cambiada.' })).toBeVisible();
+  // Guardar no deja entradas de más en el historial (el aviso al salir no pone ni quita nada).
+  expect(await historial()).toBe(antes);
   // Cambiada, el formulario se cierra y vuelve la fila con "Cambiar".
   await expect(actual).toHaveCount(0);
   await expect(seccion.getByRole('button', { name: 'Cambiar contraseña' })).toBeFocused();

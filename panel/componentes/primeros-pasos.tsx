@@ -37,7 +37,7 @@ export async function PrimerosPasos() {
     { titulo: 'Agrega a tus barberos', detalle: 'Cada uno con su agenda.', href: '/equipo', listo: datos.hayBarberos },
     { titulo: 'Ponles servicios y precios', detalle: 'Lo que el asistente ofrece.', href: `${ficha}?pestana=servicios`, listo: datos.conServicios },
     { titulo: 'Define su horario', detalle: 'Sin horario no hay horas libres.', href: `${ficha}?pestana=horario`, listo: datos.conHorario },
-    { titulo: 'Escribe tu WhatsApp para avisos', detalle: 'Para enterarte cuando un cliente te necesita.', href: '/negocio#datos', listo: datos.avisos },
+    { titulo: 'Escribe tu WhatsApp para avisos', detalle: 'Para enterarte cuando un cliente te necesita.', href: '/negocio?seccion=datos', listo: datos.avisos },
     { titulo: 'Enséñale al asistente', detalle: 'Parqueadero, medios de pago, dirección…', href: '/conocimiento', listo: datos.base },
   ];
   const listos = pasos.filter((p) => p.listo).length;

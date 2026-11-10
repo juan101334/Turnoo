@@ -2,15 +2,17 @@
 
 import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
-import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio } from '@/componentes/formulario';
+import { alEnviarSinReinicio, BotonEnviar, Campo, EnvioSinReinicio, useAvisoAlSalir } from '@/componentes/formulario';
 import { crearBloqueo, type EstadoBloqueo } from '../acciones';
 
 const MOTIVOS = ['Almuerzo', 'Permiso', 'Cita médica', 'Vacaciones', 'Festivo'];
 
 export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { id: string; nombre: string }[] | null }) {
   const [estado, enviar, pendiente] = useActionState<EstadoBloqueo, FormData>(crearBloqueo, {});
+  const formulario = useRef<HTMLFormElement>(null);
+  const notaSinAviso = useAvisoAlSalir(formulario, pendiente || Boolean(estado.creado));
   const [todoElDia, setTodoElDia] = useState(false);
 
   if (estado.creado) {
@@ -45,7 +47,7 @@ export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { 
 
   return (
     <EnvioSinReinicio pendiente={pendiente}>
-    <form action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4">
+    <form ref={formulario} action={enviar} onSubmit={alEnviarSinReinicio(enviar)} className="flex flex-col gap-4">
       {barberos && (
         <div className="flex flex-col gap-1.5">
           <label htmlFor="profesionalId" className="text-sm font-medium">
@@ -94,6 +96,7 @@ export function FormularioBloqueo({ hoy, barberos }: { hoy: string; barberos: { 
 
       {estado.error && <Aviso tipo="error">{estado.error}</Aviso>}
       <BotonEnviar enviando="Guardando…">Guardar bloqueo</BotonEnviar>
+      {notaSinAviso}
     </form>
     </EnvioSinReinicio>
   );

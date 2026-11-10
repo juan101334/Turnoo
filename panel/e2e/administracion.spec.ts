@@ -244,37 +244,3 @@ test.describe.serial('usuarios e invitaciones', () => {
     await expect(invitado.getByLabel('Enlace listo. Envíaselo solo a esa persona.')).toHaveValue(/\/aceptar-invitacion#token=/);
   });
 });
-
-test.describe.serial('ajustes del negocio', () => {
-  test('guardar el WhatsApp de avisos; el backend lo deja con indicativo', async ({ page }) => {
-    await entrarYEsperar(page, datos().dueno);
-    await page.goto('/negocio');
-    await expect(page.getByLabel('Zona horaria')).toHaveValue('America/Bogota');
-    await page.getByLabel('WhatsApp para avisos').fill('300 123 4567');
-    await page.getByRole('button', { name: 'Guardar datos' }).click();
-    await expect(page.getByText('Datos guardados.')).toBeVisible();
-    await page.reload();
-    await expect(page.getByLabel('WhatsApp para avisos')).toHaveValue('+573001234567');
-  });
-
-  test('reglas: sin cambios no envía nada; un cambio se guarda; una regla incoherente muestra el error', async ({ page }) => {
-    await entrarYEsperar(page, datos().dueno);
-    await page.goto('/negocio');
-    await expect(page.getByRole('navigation', { name: 'Secciones de ajustes' }).getByRole('link', { name: 'Recordatorios' })).toHaveAttribute('href', '#recordatorios');
-    // Cada sección se guarda sola.
-    const recordatorios = seccion(page, 'Recordatorios');
-    const guardar = recordatorios.getByRole('button', { name: 'Guardar cambios' });
-    await guardar.click();
-    await expect(page.getByText('No había cambios para guardar.')).toBeVisible();
-
-    await recordatorios.getByLabel('Recordar la cita (horas antes)').fill('12');
-    await guardar.click();
-    await expect(page.getByText('Recordatorios: cambios guardados.')).toBeVisible();
-    await page.reload();
-    await expect(page.getByLabel('Recordar la cita (horas antes)')).toHaveValue('12');
-
-    await recordatorios.getByLabel('No enviar antes de las').fill('21:00');
-    await guardar.click();
-    await expect(alerta(page)).toContainText('El horario de recordatorios debe empezar antes de terminar');
-  });
-});

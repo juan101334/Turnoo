@@ -1,7 +1,7 @@
 'use client';
 
 import { KeyRound } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { EstadoFormulario } from '@/lib/acciones';
 import { CLAVE_MIN } from '@/lib/claves';
 import { CampoContrasena } from './formulario';
@@ -21,11 +21,17 @@ export function SeccionContrasena({
 }) {
   const [abierta, setAbierta] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
+  const volverAlBoton = useRef(false);
   const cerrar = () => {
+    volverAlBoton.current = true;
     setAbierta(false);
-    // Tras pintar la fila otra vez, el foco vuelve al botón que abrió el formulario.
-    requestAnimationFrame(() => boton.current?.focus());
   };
+  // Ya pintada la fila otra vez, el foco vuelve al botón que abrió el formulario.
+  useEffect(() => {
+    if (abierta || !volverAlBoton.current) return;
+    volverAlBoton.current = false;
+    boton.current?.focus();
+  }, [abierta]);
   return (
     <section aria-labelledby="titulo-contrasena" className="mb-4 rounded-xl border border-borde bg-superficie p-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
