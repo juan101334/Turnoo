@@ -1,4 +1,4 @@
-import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
@@ -14,15 +14,18 @@ import {
   quienSigue,
   rangoDeLaGrilla,
   rangosDeTrabajo,
+  resumenDelDia,
+  sinTurno,
   tramoDe,
   type Tramo,
 } from '@/lib/agenda';
 import type { Bloqueo } from '@/lib/bloqueos';
 import { accionesPosibles, ESTADOS, nombresDeServicios, pesos, type Cita } from '@/lib/citas';
 import { barberos as leerBarberos, bloqueosEntre, citaSiExiste, citasDelDia, horariosDe, siSePuede, type Barbero } from '@/lib/datos';
-import { diaRelativo, fechaLarga, horaLocal, hoyEn, limitesDelDia, sumarDias } from '@/lib/fechas';
+import { diaRelativo, fechaLarga, horaLocal, hoyEn, limitesDelDia } from '@/lib/fechas';
 import type { UsuarioDelNegocio } from '@/lib/sesion';
 import { AccionPrincipal } from './accion-principal';
+import { BarberosSinTurno } from './barberos-sin-turno';
 import { BloqueSigue } from './bloque-sigue';
 import { FiltroDeBarberos } from './filtro-de-barberos';
 import { GrillaDelDia, type ColumnaDeBarbero } from './grilla-del-dia';
@@ -30,6 +33,7 @@ import { ListaDelDia, type ElementoDelDia } from './lista-del-dia';
 import { ProveedorDeMarcado } from './acciones-con-deshacer';
 import { PanelDeCita } from './panel-de-cita';
 import { RefrescoAutomatico } from './refresco-automatico';
+import { ResumenDelDia } from './resumen-del-dia';
 import { SelectorDeFecha } from './selector-de-fecha';
 import type { VistaDeCita } from './tarjeta-de-cita';
 import { TiraDeDias } from './tira-de-dias';
@@ -177,10 +181,13 @@ export async function VistaDeAgenda({
     const b = Math.min(t.fin, rango.fin);
     return b > a ? { inicio: a, fin: b } : null;
   };
+  // Con un solo barbero a la vista no se esconde nada: si no trabaja, la grilla vacía lo dice.
+  const conSinTurno = columnasDeLaGrilla.length > 1;
   const grilla: ColumnaDeBarbero[] = columnasDeLaGrilla.map((c) => ({
     id: c.barbero.id,
     nombre: c.barbero.nombre,
     trabajo: c.trabajo,
+    sinTurno: conSinTurno && sinTurno({ trabajo: c.trabajo, citas: c.citas.filter((x) => ocupaLaAgenda(x.estado)) }),
     citas: c.citas
       .filter((x) => ocupaLaAgenda(x.estado))
       .flatMap((x) => {
@@ -218,6 +225,17 @@ export async function VistaDeAgenda({
     .map((m) => ({ minuto: m, texto: hora(m).replace(':00', '') }));
   const canceladas = ordenadas.filter((c) => c.estado === 'cancelada');
   const conPanel = abierta !== undefined;
+  const sinTurnoHoy = grilla.filter((c) => c.sinTurno).map((c) => c.nombre);
+  const resumen = resumenDelDia(citas);
+  const laGrilla = (
+    <GrillaDelDia
+      columnas={grilla}
+      rango={rango}
+      horas={etiquetasDeHora}
+      ahora={minutoAhora !== undefined ? { minuto: minutoAhora, texto: horaLocal(ahora, zona) } : undefined}
+      seleccionada={abierta?.id}
+    />
+  );
 
   return (
     <div className="ancho-completo">
@@ -232,24 +250,7 @@ export async function VistaDeAgenda({
             <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {conTira && (
-            <nav aria-label="Día anterior y siguiente" className="hidden items-center gap-1 lg:flex">
-              <Link href={enlaceAgenda(sumarDias(fecha, -1))} aria-label="Día anterior" className="flex size-11 items-center justify-center rounded-lg border border-borde bg-superficie hover:bg-fondo">
-                <ChevronLeft aria-hidden className="size-5" />
-              </Link>
-              <Link href={enlaceAgenda(sumarDias(fecha, 1))} aria-label="Día siguiente" className="flex size-11 items-center justify-center rounded-lg border border-borde bg-superficie hover:bg-fondo">
-                <ChevronRight aria-hidden className="size-5" />
-              </Link>
-              {!esHoy && (
-                <Link href={enlaceAgenda(hoy)} className="flex min-h-11 items-center rounded-lg border border-borde bg-superficie px-3 text-sm font-medium hover:bg-fondo">
-                  Hoy
-                </Link>
-              )}
-            </nav>
-          )}
-          <AccionPrincipal href={nuevaCita()} etiqueta="Nueva cita" Icono={CalendarPlus} />
-        </div>
+        <AccionPrincipal href={nuevaCita()} etiqueta="Nueva cita" Icono={CalendarPlus} />
       </div>
 
       {arriba}
@@ -260,7 +261,8 @@ export async function VistaDeAgenda({
       )}
       {conTira && (
         <div className="mb-4">
-          <TiraDeDias seleccionada={fecha} hoy={hoy} enlace={(f) => enlace({ fecha: f })} />
+          {/* Seis semanas: en el PC se pasan con los botones de semana o la rueda; más lejos, el calendario. */}
+          <TiraDeDias seleccionada={fecha} hoy={hoy} dias={42} semanas enlace={(f) => enlace({ fecha: f })} />
         </div>
       )}
 
@@ -279,6 +281,23 @@ export async function VistaDeAgenda({
         </ProveedorDeMarcado>
       </div>
 
+      {/* En el escritorio, lo de ahora y el día en números, arriba de la grilla. */}
+      <div className="mb-4 hidden items-stretch gap-4 lg:flex">
+        {sigue && (
+          <BloqueSigue
+            cita={sigue.cita}
+            enCurso={sigue.enCurso}
+            zona={zona}
+            conBarbero={esDueno && !unSoloBarbero}
+            ahora={ahora}
+            href={enlace({ cita: sigue.cita.id })}
+            className="min-w-0 flex-1"
+            id="sigue-escritorio"
+          />
+        )}
+        <ResumenDelDia {...resumen} enlacePorAprobar={esDueno ? '/por-aprobar' : undefined} />
+      </div>
+
       <div className="hidden gap-6 lg:flex">
         <div className="min-w-0 flex-1">
           {grilla.length === 0 ? (
@@ -286,13 +305,13 @@ export async function VistaDeAgenda({
           ) : (
             <>
               {citas.length === 0 && <p className="mb-2 text-sm text-suave">{sinCitas}</p>}
-              <GrillaDelDia
-                columnas={grilla}
-                rango={rango}
-                horas={etiquetasDeHora}
-                ahora={minutoAhora !== undefined ? { minuto: minutoAhora, texto: horaLocal(ahora, zona) } : undefined}
-                seleccionada={abierta?.id}
-              />
+              {sinTurnoHoy.length > 0 ? (
+                <BarberosSinTurno nombres={sinTurnoHoy} columnas={grilla.length}>
+                  {laGrilla}
+                </BarberosSinTurno>
+              ) : (
+                laGrilla
+              )}
             </>
           )}
           {canceladas.length > 0 && (

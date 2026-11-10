@@ -1,33 +1,36 @@
 import Link from 'next/link';
-import { diaRelativo, partesDelDia, sumarDias } from '@/lib/fechas';
+import { diaRelativo, diasDeLaTira, partesDelDia } from '@/lib/fechas';
+import { FilaDeslizable } from './fila-deslizable';
 
 /**
  * Fila de días deslizable: hoy y los siguientes. Cada día es un enlace (?fecha=), así que el
- * botón "atrás" del celular vuelve al día anterior y la vista se puede compartir.
+ * botón "atrás" del celular vuelve al día anterior y la vista se puede compartir. Con `semanas`,
+ * en el PC lleva botones para pasar de semana (la rueda del mouse también la mueve).
  */
 export function TiraDeDias({
   seleccionada,
   hoy,
   dias = 14,
+  semanas = false,
   enlace,
 }: {
   seleccionada: string;
   hoy: string;
   dias?: number;
+  semanas?: boolean;
   enlace: (fecha: string) => string;
 }) {
-  const fechas = Array.from({ length: dias }, (_, i) => sumarDias(hoy, i));
   return (
-    <nav aria-label="Días" className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0">
+    <FilaDeslizable etiqueta="Días" semanas={semanas}>
       <ul className="flex gap-2">
-        {fechas.map((fecha) => {
+        {diasDeLaTira(seleccionada, hoy, dias).map((fecha) => {
           const activa = fecha === seleccionada;
           const { semana, dia } = partesDelDia(fecha);
           const relativo = diaRelativo(fecha, hoy);
           // El nombre que se oye empieza con lo que se ve ("lun 9"), y para mañana lo agrega.
           const etiqueta = relativo === 'Mañana' ? `${semana} ${dia}, mañana` : undefined;
           return (
-            <li key={fecha}>
+            <li key={fecha} className="shrink-0">
               <Link
                 href={enlace(fecha)}
                 aria-current={activa ? 'date' : undefined}
@@ -43,6 +46,6 @@ export function TiraDeDias({
           );
         })}
       </ul>
-    </nav>
+    </FilaDeslizable>
   );
 }

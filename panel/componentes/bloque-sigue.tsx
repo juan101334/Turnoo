@@ -16,6 +16,8 @@ export function BloqueSigue({
   conBarbero,
   ahora,
   href,
+  className = 'mb-4',
+  id = 'sigue',
 }: {
   cita: Cita;
   enCurso: boolean;
@@ -23,10 +25,13 @@ export function BloqueSigue({
   conBarbero: boolean;
   ahora: Date;
   href: string;
+  className?: string;
+  /** Hoy va dos veces (lista del celular y escritorio, una escondida): cada una con su id. */
+  id?: string;
 }) {
   return (
-    <section aria-labelledby="sigue-titulo" className="mb-4 rounded-xl border border-marca/30 bg-marca-suave p-4">
-      <h2 id="sigue-titulo" className="mb-1 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold tracking-wide text-marca-oscura uppercase">
+    <section aria-labelledby={`${id}-titulo`} className={`rounded-xl border border-marca/30 bg-marca-suave p-4 ${className}`}>
+      <h2 id={`${id}-titulo`} className="mb-1 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold tracking-wide text-marca-oscura uppercase">
         {enCurso ? 'En curso' : 'Sigue'}
         <span className="font-medium tracking-normal normal-case">
           {enCurso ? `· hasta ${horaLocal(cita.fin, zona)}` : <FaltaPara inicio={cita.inicio} ahora={ahora.getTime()} />}
@@ -36,7 +41,7 @@ export function BloqueSigue({
         <div className="min-w-0">
           <p className="flex flex-wrap items-baseline gap-x-3">
             <span className="cifras text-3xl font-bold text-texto">{horaLocal(cita.inicio, zona)}</span>
-            <span className="truncate text-lg font-semibold">{cita.clienteNombre ?? 'Cliente sin nombre'}</span>
+            <span className="text-lg font-semibold break-words">{cita.clienteNombre ?? 'Cliente sin nombre'}</span>
           </p>
           <p className="text-sm text-suave">
             {nombresDeServicios(cita.servicios)}

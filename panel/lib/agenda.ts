@@ -129,6 +129,28 @@ export function rangoDeLaGrilla(tramos: Tramo[]): Tramo {
   return { inicio, fin: Math.max(fin, inicio + 60) };
 }
 
+/**
+ * La etiqueta de una hora entera ("12 p. m.") se esconde si la de "ahora" cae encima: cada una
+ * mide unos 16 px de alto, 12 minutos de la grilla (20 px cada 15 min); con 15 de margen no se tocan.
+ */
+export const MINUTOS_DE_UNA_ETIQUETA = 15;
+export const horaTapada = (minuto: number, ahora: number | undefined) => ahora !== undefined && Math.abs(minuto - ahora) < MINUTOS_DE_UNA_ETIQUETA;
+
+/**
+ * Un barbero no trabaja ese día si no tiene horario ni citas: en la grilla se esconde (con
+ * "Mostrar todos") para que las columnas grises no le quiten espacio a los que sí atienden.
+ */
+export const sinTurno = (columna: { trabajo: Tramo[]; citas: unknown[] }) => columna.trabajo.length === 0 && columna.citas.length === 0;
+
+/** Lo que cuenta el resumen del día: citas (sin las canceladas), completadas y por aprobar. */
+export function resumenDelDia(citas: Pick<Cita, 'estado'>[]): { citas: number; completadas: number; porAprobar: number } {
+  return {
+    citas: citas.filter((c) => ocupaLaAgenda(c.estado)).length,
+    completadas: citas.filter((c) => c.estado === 'completada').length,
+    porAprobar: citas.filter((c) => c.estado === 'por_aprobar').length,
+  };
+}
+
 /** Duración de una cita en minutos. */
 export const duracionMinutos = (cita: Pick<Cita, 'inicio' | 'fin'>) => Math.round((Date.parse(cita.fin) - Date.parse(cita.inicio)) / 60_000);
 

@@ -54,7 +54,8 @@ const cuentaPropia = await usuario('dueno', 'Dueña Cuenta');
 const barberoE2E = await crearProfesional(negocio, 'Barbero E2E');
 const empleado = await usuario('empleado', 'Barbero E2E', barberoE2E);
 const barberoDos = await crearProfesional(negocio, 'Barbero Dos');
-const recuperable = await usuario('empleado', 'Barbero Olvidadizo', await crearProfesional(negocio, 'Barbero Olvidadizo'));
+const barberoOlvidadizo = await crearProfesional(negocio, 'Barbero Olvidadizo');
+const recuperable = await usuario('empleado', 'Barbero Olvidadizo', barberoOlvidadizo);
 const limite = await usuario('empleado', 'Barbero Límite', await crearProfesional(negocio, 'Barbero Límite'));
 
 const superadmin = { email: correo('superadmin') };
@@ -138,6 +139,10 @@ await cita(barberoDos, corteDos, ahora.plus({ minutes: 40 }).startOf('minute'), 
 const diaDeVista = ahora.plus({ days: 10 }).startOf('day');
 await cita(barberoE2E, corte, diaDeVista.set({ hour: 9 }), 'Cliente Vista Uno', { estado: 'confirmada' });
 await cita(barberoDos, corteDos, diaDeVista.set({ hour: 9 }), 'Cliente Vista Dos');
+// El día siguiente, una cita del Barbero Olvidadizo, que no tiene horario (como si se lo hubieran
+// quitado después de agendar): en la grilla no se esconde aunque "no trabaje" ese día.
+const corteOlvidadizo = { id: await crearServicio(negocio, barberoOlvidadizo, 'Corte', 30, 20000), nombre: 'Corte', duracion: 30, precio: 20000 };
+await cita(barberoOlvidadizo, corteOlvidadizo, diaDeVista.plus({ days: 1 }).set({ hour: 10 }), 'Cliente Sin Horario');
 await conNegocio(negocio.negocioId, (tx) =>
   tx.consultar('INSERT INTO bloqueos (negocio_id, profesional_id, inicio, fin, motivo) VALUES ($1, $2, $3, $4, $5)', [
     negocio.negocioId,

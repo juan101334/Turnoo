@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Barbero } from '@/lib/datos';
+import { FilaDeslizable } from './fila-deslizable';
 
 /**
  * Para el dueño: ver la agenda de todo el equipo o la de un barbero. Son enlaces (?barbero=), así
@@ -8,12 +9,12 @@ import type { Barbero } from '@/lib/datos';
 export function FiltroDeBarberos({ barberos, elegido, enlace }: { barberos: Barbero[]; elegido: string | undefined; enlace: (barbero?: string) => string }) {
   const opciones = [{ id: undefined, nombre: 'Todos' }, ...barberos];
   return (
-    <nav aria-label="Barbero" className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0">
+    <FilaDeslizable etiqueta="Barbero">
       <ul className="flex gap-2">
         {opciones.map((b) => {
           const activo = b.id === elegido;
           return (
-            <li key={b.id ?? 'todos'}>
+            <li key={b.id ?? 'todos'} className="shrink-0">
               <Link
                 href={enlace(b.id)}
                 aria-current={activo ? 'true' : undefined}
@@ -27,6 +28,6 @@ export function FiltroDeBarberos({ barberos, elegido, enlace }: { barberos: Barb
           );
         })}
       </ul>
-    </nav>
+    </FilaDeslizable>
   );
 }
