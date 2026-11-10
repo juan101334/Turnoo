@@ -88,6 +88,33 @@ test.describe('agenda en el celular', () => {
   });
 });
 
+test.describe('agenda en el celular: filas y botón flotante', () => {
+  test.beforeEach(({}, info) => test.skip(!esCelular(info.project.name), 'Lista del celular'));
+
+  test('la tira abre con el día elegido a la vista y la fila de barberos se desvanece donde sigue', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
+    await page.waitForLoadState('networkidle');
+    const elegido = page.getByRole('navigation', { name: 'Días' }).locator('[aria-current="date"]');
+    await expect(elegido).toBeInViewport({ ratio: 1 });
+
+    const fila = page.getByRole('navigation', { name: 'Barbero' }).locator('div').first();
+    const mascara = () => fila.evaluate((f) => getComputedStyle(f).maskImage || getComputedStyle(f).webkitMaskImage);
+    // Al principio, solo a la derecha; al final, solo a la izquierda.
+    await expect.poll(mascara).toMatch(/^linear-gradient\(to right, rgb\(0, 0, 0\), rgb\(0, 0, 0\), rgb\(0, 0, 0\) calc\(100% - 32px\), rgba\(0, 0, 0, 0\)\)$/);
+    await fila.evaluate((f) => f.scrollTo({ left: f.scrollWidth }));
+    await expect.poll(mascara).toMatch(/^linear-gradient\(to right, rgba\(0, 0, 0, 0\), rgb\(0, 0, 0\) 32px, rgb\(0, 0, 0\), rgb\(0, 0, 0\)\)$/);
+  });
+
+  test('"Nueva cita" flotante no tapa la última tarjeta al llegar abajo', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const ultima = (await page.getByRole('main').getByRole('listitem').last().boundingBox())!;
+    const boton = (await page.getByRole('link', { name: 'Nueva cita' }).boundingBox())!;
+    expect(ultima.y + ultima.height).toBeLessThanOrEqual(boton.y);
+  });
+});
+
 test.describe('agenda en el escritorio', () => {
   test.beforeEach(({}, info) => test.skip(esCelular(info.project.name), 'Grilla del escritorio'));
 
@@ -133,13 +160,140 @@ test.describe('agenda en el escritorio', () => {
     await expect(page.getByRole('group', { name: 'Agenda de Barbero E2E' })).toBeVisible();
   });
 
-  test('las flechas pasan al día anterior y al siguiente', async ({ page }) => {
-    const { fecha } = datos().vista;
+  test('sin flechas: la tira pasa de semana con sus botones o con la rueda, sin mover la página', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
-    await page.goto(`/agenda?fecha=${fecha}`);
-    await page.getByRole('link', { name: 'Día siguiente' }).click();
-    await expect(page).not.toHaveURL(`/agenda?fecha=${fecha}`);
-    await page.getByRole('link', { name: 'Día anterior' }).click();
-    await expect(page).toHaveURL(`/agenda?fecha=${fecha}`);
+    await page.goto('/agenda');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('link', { name: /^Día (anterior|siguiente)$/ })).toHaveCount(0);
+    const dias = page.getByRole('navigation', { name: 'Días' });
+    const fila = dias.locator('div').first();
+    const anterior = dias.getByRole('button', { name: 'Semana anterior' });
+    const siguiente = dias.getByRole('button', { name: 'Semana siguiente' });
+    const desplazado = () => fila.evaluate((f) => f.scrollLeft);
+    await expect(anterior).toBeDisabled();
+
+    // Seis semanas: el día 41 no se ve hasta pasar de semana.
+    const ultimo = dias.getByRole('link').nth(41);
+    await expect(ultimo).not.toBeInViewport();
+    await siguiente.click();
+    await expect(anterior).toBeEnabled();
+    await expect.poll(desplazado).toBeGreaterThan(0);
+    // Avanza de a 7 días (64 px cada uno), no lo que se ve.
+    await expect.poll(desplazado).toBe(7 * 64);
+    for (let i = 0; i < 6; i++) await siguiente.click();
+    await expect(ultimo).toBeInViewport();
+    await expect(siguiente).toBeDisabled();
+    await anterior.click();
+    await expect(siguiente).toBeEnabled();
+
+    // La rueda sobre la tira la mueve de lado y no baja la página.
+    await fila.evaluate((f) => (f.scrollLeft = 0));
+    await fila.hover();
+    await page.mouse.wheel(0, 200);
+    await expect.poll(desplazado).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test('un día más allá de la tira la hace empezar en él, marcado', async ({ page }) => {
+    await entrarYEsperar(page, datos().empleado);
+    await page.goto('/agenda?fecha=2099-01-15');
+    const elegido = page.getByRole('navigation', { name: 'Días' }).getByRole('link', { name: /15/ }).first();
+    await expect(elegido).toHaveAttribute('aria-current', 'date');
+    await expect(elegido).toBeInViewport();
+  });
+
+  test('Hoy en el PC: "Sigue" abre la cita al lado, y el resumen cuenta el día', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    const sigue = page.getByRole('region', { name: /^(Sigue|En curso)/ });
+    await expect(sigue).toBeVisible();
+    await expect(sigue.getByRole('link', { name: 'Ver cita' })).toHaveAttribute('href', /^\/hoy\?cita=[0-9a-f-]{36}$/);
+    const resumen = page.getByRole('region', { name: 'Resumen del día' });
+    await expect(resumen).toContainText(/Citas\s*\d+/);
+    await expect(resumen).not.toContainText('$');
+
+    // Un día que no es hoy: solo el resumen, sin "Sigue".
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
+    await expect(page.getByRole('region', { name: /^(Sigue|En curso)/ })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Resumen del día' })).toContainText(/Citas\s*2.*Completadas\s*0.*Por aprobar\s*0/);
+  });
+
+  test('los barberos que no trabajan ese día se esconden hasta "Mostrar todos"', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
+    const limite = page.getByRole('group', { name: 'Agenda de Barbero Límite' });
+    const dos = page.getByRole('group', { name: 'Agenda de Barbero Dos' });
+    await expect(page.getByText(/^No trabajan este día: .*Barbero Límite/)).toBeVisible();
+    await expect(limite).toBeHidden();
+    // Las columnas que quedan se reparten el ancho: la escondida no deja un hueco.
+    const grilla = (await page.locator('#grilla-del-dia').boundingBox())!;
+    const ancho = (await dos.boundingBox())!.width;
+    const visibles = await page.getByRole('group', { name: /^Agenda de / }).evaluateAll((g) => g.filter((x) => (x as HTMLElement).offsetParent !== null).length);
+    expect(ancho).toBeGreaterThan((grilla.width - 80) / visibles - 4);
+
+    const boton = page.getByRole('button', { name: 'Mostrar todos' });
+    await expect(boton).toHaveAttribute('aria-expanded', 'false');
+    await boton.click();
+    await expect(limite).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ocultar a los que no trabajan' })).toHaveAttribute('aria-expanded', 'true');
+    expect((await dos.boundingBox())!.width).toBeLessThan(ancho);
+    await page.getByRole('button', { name: 'Ocultar a los que no trabajan' }).click();
+    await expect(limite).toBeHidden();
+
+    // Al día siguiente el Barbero Olvidadizo tiene una cita sin tener horario: se ve, no se esconde.
+    await page.goto(`/agenda?fecha=${diaSiguiente(datos().vista.fecha)}`);
+    await expect(page.getByRole('group', { name: 'Agenda de Barbero Olvidadizo' }).getByRole('link', { name: /Cliente Sin Horario/ })).toBeVisible();
+    await expect(page.getByText(/^No trabajan este día: /)).not.toContainText('Olvidadizo');
+
+    // Filtrado a ese barbero, su columna se ve aunque no trabaje.
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}&barbero=${await idDe(page, 'Barbero Límite')}`);
+    await expect(limite).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mostrar todos' })).toHaveCount(0);
+  });
+
+  test('en la grilla los nombres no se cortan, ni con todas las columnas', async ({ page }) => {
+    // A 1024 px y con todas las columnas, varios nombres no caben en una línea y pasan a la siguiente.
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await entrarYEsperar(page, datos().dueno);
+    await page.getByRole('button', { name: 'Mostrar todos' }).click();
+    // Cada bloque deja ver la hora y el nombre completos (dentro de lo que se ve del texto, que
+    // corta por líneas enteras): lo que no cabe son los servicios.
+    const nombres = await page.locator('#grilla-del-dia a[title]').evaluateAll((enlaces) =>
+      enlaces.map((a) => {
+        const nombre = a.querySelector('span > span.font-medium') as HTMLElement;
+        const visible = nombre.parentElement!.getBoundingClientRect();
+        const lineas = [...nombre.getClientRects()];
+        return { nombre: nombre.textContent, enDosLineas: new Set(lineas.map((r) => Math.round(r.top))).size > 1, dentro: lineas.every((r) => r.bottom <= visible.bottom + 0.5) };
+      }),
+    );
+    expect(nombres.length).toBeGreaterThan(0);
+    expect(nombres.some((n) => n.enDosLineas)).toBe(true);
+    expect(nombres.filter((n) => !n.dentro)).toEqual([]);
+    // Los nombres de los barberos tampoco llevan "…".
+    await expect(page.locator('#grilla-del-dia .truncate')).toHaveCount(0);
+  });
+
+  test('la etiqueta de la hora actual no tapa la de una hora entera', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    const ahora = page.locator('#grilla-ahora');
+    await expect(ahora).toBeVisible();
+    const caja = (await ahora.boundingBox())!;
+    const chocan = await page.locator('#grilla-del-dia [aria-hidden] > span:not(#grilla-ahora)').evaluateAll(
+      (etiquetas, c) =>
+        etiquetas
+          .filter((e) => getComputedStyle(e).visibility !== 'hidden')
+          .map((e) => e.getBoundingClientRect())
+          .filter((r) => r.bottom > c.y && r.top < c.y + c.height).length,
+      caja,
+    );
+    expect(chocan).toBe(0);
   });
 });
+
+/** '2026-11-20' → '2026-11-21' (a mediodía UTC: sin líos de zona). */
+const diaSiguiente = (fecha: string) => new Date(Date.parse(`${fecha}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** Id de un barbero, tomado del filtro. */
+async function idDe(page: Page, nombre: string): Promise<string> {
+  const href = await page.getByRole('navigation', { name: 'Barbero' }).getByRole('link', { name: nombre }).getAttribute('href');
+  return new URL(href!, 'http://x').searchParams.get('barbero')!;
+}

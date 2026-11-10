@@ -5,6 +5,9 @@ import {
   duracionLegible,
   horaElegida,
   horasLibres,
+  horaTapada,
+  resumenDelDia,
+  sinTurno,
   huecosLibres,
   minutosDesdeElInicio,
   quienSigue,
@@ -89,6 +92,28 @@ describe('grilla del escritorio', () => {
 
   it('sin nada que mostrar, de 8:00 a 18:00', () => {
     expect(rangoDeLaGrilla([])).toEqual({ inicio: 480, fin: 1080 });
+  });
+
+  it('la etiqueta de la hora se esconde solo si la de "ahora" cae encima', () => {
+    // 12:04 tapa "12 p. m."; 12:15 ya no (15 min = 20 px).
+    expect(horaTapada(720, 724)).toBe(true);
+    expect(horaTapada(720, 706)).toBe(true);
+    expect(horaTapada(720, 735)).toBe(false);
+    expect(horaTapada(720, 705)).toBe(false);
+    expect(horaTapada(720, undefined)).toBe(false);
+  });
+
+  it('sin turno: ni horario ni citas ese día', () => {
+    expect(sinTurno({ trabajo: [], citas: [] })).toBe(true);
+    expect(sinTurno({ trabajo: [{ inicio: 480, fin: 720 }], citas: [] })).toBe(false);
+    // Una cita fuera de horario lo deja a la vista: hay algo que atender.
+    expect(sinTurno({ trabajo: [], citas: [{}] })).toBe(false);
+  });
+
+  it('el resumen cuenta las citas sin las canceladas, las completadas y las por aprobar', () => {
+    const estados = ['pendiente', 'confirmada', 'completada', 'completada', 'no_asistio', 'cancelada', 'por_aprobar'] as const;
+    expect(resumenDelDia(estados.map((estado) => ({ estado })))).toEqual({ citas: 6, completadas: 2, porAprobar: 1 });
+    expect(resumenDelDia([])).toEqual({ citas: 0, completadas: 0, porAprobar: 0 });
   });
 });
 

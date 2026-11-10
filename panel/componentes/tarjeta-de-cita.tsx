@@ -39,8 +39,8 @@ export function TarjetaDeCita({ cita }: { cita: VistaDeCita }) {
           <span className="cifras text-xl leading-tight font-semibold">{cita.hora}</span>
           <InsigniaEstado estado={estado} />
         </span>
-        <span className="block truncate font-medium">{cita.cliente}</span>
-        <span className="block truncate text-sm text-suave">{cita.detalle}</span>
+        <span className="block font-medium break-words">{cita.cliente}</span>
+        <span className="block text-sm text-suave break-words">{cita.detalle}</span>
         <span className="block text-sm text-suave tabular-nums">{cita.resumen}</span>
       </Link>
       {cita.puedeCompletar && !marcada ? (

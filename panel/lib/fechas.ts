@@ -21,6 +21,16 @@ export function sumarDias(fecha: string, dias: number): string {
   return DateTime.fromISO(fecha).plus({ days: dias }).toISODate()!;
 }
 
+/**
+ * Los días de la tira: desde hoy, `dias` seguidos. Si el elegido (con el calendario) queda fuera,
+ * la tira empieza en él: así siempre se ve marcado el día que muestra la agenda.
+ */
+export function diasDeLaTira(seleccionada: string, hoy: string, dias: number): string[] {
+  const ultimo = sumarDias(hoy, dias - 1);
+  const inicio = seleccionada < hoy || seleccionada > ultimo ? seleccionada : hoy;
+  return Array.from({ length: dias }, (_, i) => sumarDias(inicio, i));
+}
+
 /** Desde las 00:00 del día hasta las 00:00 del siguiente, en la zona del negocio (el backend excluye "hasta"). */
 export function limitesDelDia(fecha: string, zona: string): { desde: string; hasta: string } {
   const inicio = DateTime.fromISO(fecha, { zone: zona }).startOf('day');
