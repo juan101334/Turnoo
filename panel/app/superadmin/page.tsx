@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { BuscadorEnVivo } from '@/componentes/buscador-en-vivo';
 import { fechaCorta, fechaDe } from '@/lib/fechas';
 import type { EstadoNegocio } from '@/lib/plan';
+import { exigirSuperadmin } from '@/lib/sesion-superadmin';
 import { negocios as leerNegocios } from '@/lib/superadmin';
 import { EstadoDeNegocio } from './estado-de-negocio';
 
@@ -30,8 +31,12 @@ const normal = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').
  * Todos los negocios, el más nuevo primero. Búsqueda por nombre mientras se escribe (?buscar=) y
  * filtros por estado (?estado=) y por WhatsApp conectado (?whatsapp=si|no). Se filtra aquí: el
  * backend devuelve la lista completa, que es corta (uno por barbería cliente).
+ *
+ * exigirSuperadmin() también aquí, no solo en el layout: Next arma el layout y la página a la vez,
+ * y sin esto la página le pedía la lista al backend antes de que el layout sacara a otro rol (403).
  */
 export default async function PaginaSuperadmin({ searchParams }: { searchParams: Promise<Parametros> }) {
+  await exigirSuperadmin();
   const p = await searchParams;
   const buscar = (p.buscar ?? '').trim().slice(0, 100);
   const estado = ESTADOS.find((e) => e.valor === p.estado)?.valor;

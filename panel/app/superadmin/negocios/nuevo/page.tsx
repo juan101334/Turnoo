@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Campo, CampoSeleccion } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
+import { exigirSuperadmin } from '@/lib/sesion-superadmin';
 import { crearNegocio } from '../../acciones';
 
 export const metadata: Metadata = { title: 'Nuevo negocio · Superadmin' };
@@ -14,7 +15,9 @@ function zonasHorarias(): string[] {
 }
 
 /** Crea el negocio en prueba. Después: conectar su WhatsApp e invitar al dueño (en su ficha). */
-export default function PaginaNuevoNegocio() {
+export default async function PaginaNuevoNegocio() {
+  // Como en las demás páginas del superadmin: no depende solo del layout (ver la lista de negocios).
+  await exigirSuperadmin();
   return (
     <div className="ancho-formulario">
       <Link href="/superadmin" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-marca">
