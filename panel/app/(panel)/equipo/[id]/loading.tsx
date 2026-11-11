@@ -1,5 +1,5 @@
-import { EsqueletoDetalle } from '@/componentes/esqueletos';
+import { EsqueletoBarbero } from '@/componentes/esqueletos';
 
 export default function Cargando() {
-  return <EsqueletoDetalle />;
+  return <EsqueletoBarbero />;
 }

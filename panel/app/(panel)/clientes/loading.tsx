@@ -1,5 +1,5 @@
-import { EsqueletoLista } from '@/componentes/esqueletos';
+import { EsqueletoClientes } from '@/componentes/esqueletos';
 
 export default function Cargando() {
-  return <EsqueletoLista conBuscador />;
+  return <EsqueletoClientes />;
 }
