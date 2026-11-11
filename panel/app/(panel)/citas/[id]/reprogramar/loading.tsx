@@ -1,5 +1,5 @@
-import { EsqueletoFormulario } from '@/componentes/esqueletos';
+import { EsqueletoReprogramar } from '@/componentes/esqueletos';
 
 export default function Cargando() {
-  return <EsqueletoFormulario campos={3} />;
+  return <EsqueletoReprogramar />;
 }

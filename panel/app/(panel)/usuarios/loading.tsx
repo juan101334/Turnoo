@@ -1,5 +1,5 @@
-import { EsqueletoLista } from '@/componentes/esqueletos';
+import { EsqueletoTarjetas } from '@/componentes/esqueletos';
 
 export default function Cargando() {
-  return <EsqueletoLista filas={4} conAccion />;
+  return <EsqueletoTarjetas titulo="Usuarios" lineas={3} conAccionAbajo conEtiqueta />;
 }
