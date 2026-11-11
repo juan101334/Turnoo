@@ -45,6 +45,18 @@ function sinMarca(estado: unknown): Record<string, unknown> {
   delete copia[MARCA_CENTINELA];
   return copia;
 }
+/**
+ * El estado propio, sin lo de Next (__NA y su árbol), para cambiar la dirección. Si el estado trae
+ * __NA, Next cree que la escritura es suya y no se entera de la URL nueva: se queda con la vieja y
+ * la vuelve a escribir en su siguiente actualización (por ejemplo, al guardar). Sin __NA, Next
+ * copia lo suyo, toma la URL nueva y conserva lo demás (la marca del centinela incluida).
+ */
+function sinEstadoDeNext(estado: unknown): Record<string, unknown> {
+  const copia = { ...((estado as Record<string, unknown> | null) ?? {}) };
+  delete copia.__NA;
+  delete copia.__PRIVATE_NEXTJS_INTERNALS_TREE;
+  return copia;
+}
 /** El centinela copia el estado de Next (__NA y su árbol): si no, Next recarga la página al volver. */
 function ponerCentinela() {
   window.history.pushState({ ...((window.history.state as object | null) ?? {}), [MARCA_CENTINELA]: true }, '', window.location.href);
@@ -249,7 +261,7 @@ export function GuardiaDeSalida({ children }: { children: ReactNode }) {
 
   const apilar = useCallback(
     (url: string, estado: Record<string, unknown>) => {
-      window.history.pushState({ ...sinMarca(window.history.state), ...estado }, '', url);
+      window.history.pushState({ ...sinEstadoDeNext(sinMarca(window.history.state)), ...estado }, '', url);
       marcada.current = false;
       visible.current = window.location.href;
       if (hayCambios) poner();
@@ -258,8 +270,8 @@ export function GuardiaDeSalida({ children }: { children: ReactNode }) {
   );
 
   const reemplazar = useCallback((url: string) => {
-    // Con el estado de Next (y la marca, si es el centinela): Next no se entera, la pantalla sí.
-    window.history.replaceState({ ...((window.history.state as object | null) ?? {}) }, '', url);
+    // Con la marca, si es el centinela, y sin el estado de Next: así Next también toma la URL nueva.
+    window.history.replaceState(sinEstadoDeNext(window.history.state), '', url);
     visible.current = window.location.href;
   }, []);
 
@@ -311,13 +323,13 @@ export function useCambiosSinGuardar(hayCambios: boolean, opciones: Omit<Fuente,
 /** Cambiar la dirección dentro de la misma pantalla, sin historial ni romper el aviso (ver Ajustes). */
 export function useReemplazarEnHistorial(): (url: string) => void {
   const guardia = useContext(ContextoGuardia);
-  return guardia?.reemplazar ?? ((url) => window.history.replaceState({ ...((window.history.state as object | null) ?? {}) }, '', url));
+  return guardia?.reemplazar ?? ((url) => window.history.replaceState(sinEstadoDeNext(window.history.state), '', url));
 }
 
 /** Agregar una entrada al historial dentro de la misma pantalla sin romper el aviso (ver Ajustes). */
 export function useApilarEnHistorial(): (url: string, estado: Record<string, unknown>) => void {
   const guardia = useContext(ContextoGuardia);
-  return guardia?.apilar ?? ((url, estado) => window.history.pushState({ ...sinMarca(window.history.state), ...estado }, '', url));
+  return guardia?.apilar ?? ((url, estado) => window.history.pushState({ ...sinEstadoDeNext(sinMarca(window.history.state)), ...estado }, '', url));
 }
 
 // ---------------------------------------------------------------------
