@@ -36,4 +36,15 @@ test.describe('clientes', () => {
     await expect(page.getByRole('heading', { name: 'Clientes' })).toBeVisible();
     await expect(page.getByRole('link', { name: /Cliente De Otro/ })).toBeVisible();
   });
+
+  test('sin nombre, el teléfono hace de nombre; con cita, la próxima a la vista', async ({ page }) => {
+    const telefono = datos().clientes.telefonoSinNombre;
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/clientes?buscar=${telefono.slice(-7)}`);
+    const legible = `+57 ${telefono.slice(2, 5)} ${telefono.slice(5, 8)} ${telefono.slice(8)}`;
+    await expect(page.getByRole('link', { name: `${legible} Sin nombre` })).toBeVisible();
+
+    await page.goto('/clientes?buscar=Cliente Tabla');
+    await expect(page.getByRole('link', { name: /Cliente Tabla/ })).toContainText(/Próxima cita: \d{1,2} \p{L}{3} \d{4} · 4:00/u);
+  });
 });

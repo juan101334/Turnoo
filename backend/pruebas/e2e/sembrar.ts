@@ -143,6 +143,8 @@ await cita(barberoDos, corteDos, diaDeVista.set({ hour: 9 }), 'Cliente Vista Dos
 // quitado después de agendar): en la grilla no se esconde aunque "no trabaje" ese día.
 const corteOlvidadizo = { id: await crearServicio(negocio, barberoOlvidadizo, 'Corte', 30, 20000), nombre: 'Corte', duracion: 30, precio: 20000 };
 await cita(barberoOlvidadizo, corteOlvidadizo, diaDeVista.plus({ days: 1 }).set({ hour: 10 }), 'Cliente Sin Horario');
+// Solo para la tabla de Clientes (próxima cita y Nº de citas): ninguna otra prueba lo toca.
+await cita(barberoDos, corteDos, ahora.plus({ days: 20 }).startOf('day').set({ hour: 16 }), 'Cliente Tabla');
 await conNegocio(negocio.negocioId, (tx) =>
   tx.consultar('INSERT INTO bloqueos (negocio_id, profesional_id, inicio, fin, motivo) VALUES ($1, $2, $3, $4, $5)', [
     negocio.negocioId,
@@ -160,9 +162,8 @@ await cita(barberoE2E, corte, enTresDias.set({ hour: 10 }), 'Cliente Aprobar', {
 await cita(barberoDos, corteDos, enTresDias.set({ hour: 11 }), 'Cliente Rechazar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ minutes: 30 }) });
 
 // Clientes sin citas, para editarlos y anonimizarlos.
-async function clienteSinCitas(nombre: string) {
+async function clienteSinCitas(nombre: string | null, telefono = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0')) {
   const id = randomUUID();
-  const telefono = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
   await conNegocio(negocio.negocioId, (tx) =>
     tx.consultar('INSERT INTO clientes (id, negocio_id, nombre, telefono) VALUES ($1, $2, $3, $4)', [id, negocio.negocioId, nombre, telefono]),
   );
@@ -170,6 +171,9 @@ async function clienteSinCitas(nombre: string) {
 }
 const clienteEditable = await clienteSinCitas('Cliente Editable');
 const clienteBorrable = await clienteSinCitas('Cliente Borrable');
+// Sin nombre (llegó por WhatsApp sin decirlo): en la lista, su teléfono hace de nombre.
+const telefonoSinNombre = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
+await clienteSinCitas(null, telefonoSinNombre);
 
 // Conversaciones de WhatsApp. La cuenta usa un token de mentira: el backend de e2e envía a un Meta
 // de prueba (ver servidor.ts), nunca al real.
@@ -276,7 +280,7 @@ console.log(
     agenda: { fecha: pasadoManana.toISODate(), citaAjena },
     vista: { fecha: diaDeVista.toISODate() },
     cuenta: cuentaPropia.email,
-    clientes: { editable: clienteEditable, borrable: clienteBorrable },
+    clientes: { editable: clienteEditable, borrable: clienteBorrable, telefonoSinNombre },
     conversaciones,
   }),
 );

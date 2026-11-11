@@ -81,16 +81,54 @@ test.describe.serial('superadmin', () => {
     await expect(usuarios.getByRole('list', { name: 'Usuarios del negocio' })).toContainText('Invitación pendiente');
   });
 
-  test('suspender pide confirmación; después se puede activar', async ({ page }) => {
+  test('suspender va en la zona de peligro y pide escribir el nombre; después se puede activar', async ({ page }) => {
     await abrirNegocio(page, nombre);
     const estado = seccion(page, 'Estado');
-    await estado.getByRole('button', { name: 'Suspender' }).click();
-    await expect(estado.getByText(`¿Suspender ${nombre}?`)).toBeVisible();
-    await estado.getByRole('button', { name: 'Sí, suspender' }).click();
+    await expect(estado.getByRole('button', { name: /Suspender/ })).toHaveCount(0);
+    const peligro = seccion(page, 'Zona de peligro');
+    await peligro.getByRole('button', { name: 'Suspender negocio' }).click();
+    await expect(peligro.getByText(`¿Suspender ${nombre}?`)).toBeVisible();
+    const campo = peligro.getByLabel(`Para confirmar, escribe ${nombre}`);
+    await expect(campo).toBeFocused();
+    const boton = peligro.getByRole('button', { name: 'Suspender', exact: true });
+    await expect(boton).toBeDisabled();
+    // Casi el nombre (sin tilde, en minúsculas): no alcanza.
+    await campo.fill(nombre.toLowerCase().replace('í', 'i'));
+    await expect(boton).toBeDisabled();
+    await campo.press('Enter');
+    // Aunque el formulario se envíe por código (el navegador ignora el botón desactivado), no suspende.
+    await campo.evaluate((c) => (c as HTMLInputElement).form!.requestSubmit());
+    await page.waitForTimeout(500);
+    await expect(page.getByText('Suspendido', { exact: true })).toHaveCount(0);
+    // Volver cierra sin suspender y devuelve el foco.
+    await peligro.getByRole('button', { name: 'Volver' }).click();
+    await expect(peligro.getByRole('button', { name: 'Suspender negocio' })).toBeFocused();
+
+    await peligro.getByRole('button', { name: 'Suspender negocio' }).click();
+    await campo.fill(nombre);
+    await boton.click();
     await expect(page.getByText('Suspendido', { exact: true })).toBeVisible();
+    await expect(seccion(page, 'Zona de peligro')).toHaveCount(0);
     await estado.getByRole('button', { name: 'Activar' }).click();
     await expect(page.getByText('Activo', { exact: true }).first()).toBeVisible();
+    await expect(seccion(page, 'Zona de peligro')).toBeVisible();
   });
+
+  test('el correo largo se corta en su fila y completo queda en el title', async ({ page }) => {
+    await abrirNegocio(page, nombre);
+    const usuarios = page.getByRole('list', { name: 'Usuarios del negocio' });
+    const correo = usuarios.locator('p[title*="@"]').first();
+    const completo = await correo.getAttribute('title');
+    await expect(correo).toHaveText(completo!);
+    await expect(correo).toHaveCSS('text-overflow', 'ellipsis');
+    // Y no ensancha la página: nada se sale por la derecha.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    const caja = (await correo.boundingBox())!;
+    expect(caja.x + caja.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    // Sin tarjetas dentro de la tarjeta: las filas no llevan borde propio.
+    await expect(usuarios.locator('li').first()).toHaveCSS('border-top-width', '0px');
+  });
+
 
   test('a un dueño que olvidó su contraseña se le da un enlace para poner una nueva', async ({ page }) => {
     await abrirNegocio(page, 'Barbería E2E');

@@ -22,6 +22,7 @@ import {
 import { EstadoDeNegocio } from '../../estado-de-negocio';
 import { EnlaceDeUsuario } from './enlace-de-usuario';
 import { InvitarDueno } from './invitar-dueno';
+import { SuspenderNegocio } from './suspender-negocio';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   await exigirSuperadmin();
@@ -37,16 +38,36 @@ const ESTADOS_USUARIO = {
 } as const;
 
 /** Lo que significa cada estado, para elegir con conocimiento. */
-const CAMBIOS_DE_ESTADO: { estado: EstadoNegocio; boton: string; detalle: string }[] = [
-  { estado: 'activo', boton: 'Activar', detalle: 'Funciona sin límite de prueba.' },
-  { estado: 'prueba', boton: 'Poner en prueba', detalle: 'Funciona hasta la fecha de fin de la prueba.' },
-  { estado: 'suspendido', boton: 'Suspender', detalle: 'Entran y consultan, pero no pueden cambiar nada y el asistente no agenda.' },
+const DETALLE_DE_ESTADO: Record<EstadoNegocio, string> = {
+  activo: 'Funciona sin límite de prueba.',
+  prueba: 'Funciona hasta la fecha de fin de la prueba.',
+  suspendido: 'Entran y consultan, pero no pueden cambiar nada y el asistente no agenda.',
+};
+
+/** Activar o poner en prueba van en "Estado"; suspender, aparte, en la zona de peligro. */
+const CAMBIOS_DE_ESTADO: { estado: Exclude<EstadoNegocio, 'suspendido'>; boton: string }[] = [
+  { estado: 'activo', boton: 'Activar' },
+  { estado: 'prueba', boton: 'Poner en prueba' },
 ];
 
-function Seccion({ id, titulo, icono, ayuda, children }: { id: string; titulo: string; icono?: ReactNode; ayuda?: string; children: ReactNode }) {
+function Seccion({
+  id,
+  titulo,
+  icono,
+  ayuda,
+  peligro = false,
+  children,
+}: {
+  id: string;
+  titulo: string;
+  icono?: ReactNode;
+  ayuda?: string;
+  peligro?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section aria-labelledby={id} className="rounded-xl border border-borde bg-superficie p-4 lg:p-6">
-      <h2 id={id} className="flex items-center gap-2 font-semibold">
+    <section aria-labelledby={id} className={`rounded-xl border bg-superficie p-4 lg:p-6 ${peligro ? 'border-peligro' : 'border-borde'}`}>
+      <h2 id={id} className={`flex items-center gap-2 font-semibold ${peligro ? 'text-peligro' : ''}`}>
         {icono}
         {titulo}
       </h2>
@@ -87,21 +108,13 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
       </p>
       <AvisoDeLaUrl mensaje={listo ? LISTO[listo] : undefined} />
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      {/* grid-cols-1 (minmax(0, 1fr)): sin ella, el correo cortado ensancha la columna más que la pantalla. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         <div className="flex flex-col gap-4">
-          <Seccion id="estado" titulo="Estado" ayuda={CAMBIOS_DE_ESTADO.find((c) => c.estado === n.estado)?.detalle}>
+          <Seccion id="estado" titulo="Estado" ayuda={DETALLE_DE_ESTADO[n.estado]}>
             <div className="flex flex-col gap-2">
               {CAMBIOS_DE_ESTADO.filter((c) => c.estado !== n.estado).map((c) => (
-                <BotonDeAccion
-                  key={c.estado}
-                  etiqueta={c.boton}
-                  enviando="Guardando…"
-                  variante={c.estado === 'suspendido' ? 'peligro' : 'secundario'}
-                  accion={cambiarEstado.bind(null, n.id, c.estado)}
-                  {...(c.estado === 'suspendido' && {
-                    confirmar: { pregunta: `¿Suspender ${n.nombre}?`, detalle: c.detalle, boton: 'Sí, suspender' },
-                  })}
-                />
+                <BotonDeAccion key={c.estado} etiqueta={c.boton} enviando="Guardando…" accion={cambiarEstado.bind(null, n.id, c.estado)} />
               ))}
             </div>
           </Seccion>
@@ -115,9 +128,9 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
             {cuentas.length === 0 ? (
               <p className="mb-4 text-sm text-aviso">Sin número conectado: el asistente no recibe mensajes de este negocio.</p>
             ) : (
-              <ul className="mb-4 divide-y divide-borde rounded-xl border border-borde">
+              <ul className="mb-4 divide-y divide-borde border-y border-borde">
                 {cuentas.map((c) => (
-                  <li key={c.id} className="flex flex-col gap-2 p-3">
+                  <li key={c.id} className="flex flex-col gap-2 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium tabular-nums">{telefonoLegible(c.numeroVisible)}</p>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${c.activa ? 'bg-exito-suave text-exito' : 'bg-fondo text-suave ring-1 ring-borde'}`}>
@@ -173,17 +186,20 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
           {usuarios.length === 0 ? (
             <p className="mb-4 text-sm text-aviso">Nadie entra todavía. Invita al dueño.</p>
           ) : (
-            <ul aria-label="Usuarios del negocio" className="mb-4 flex flex-col gap-2">
+            <ul aria-label="Usuarios del negocio" className="mb-4 divide-y divide-borde border-y border-borde">
               {usuarios.map((u) => {
                 const estado = ESTADOS_USUARIO[u.estado];
                 const acciones = accionesDelSuperadmin(u);
                 const enlace = acciones.find((a) => a !== 'desactivar');
                 return (
-                  <li key={u.id} className="rounded-xl border border-borde p-3">
+                  <li key={u.id} className="py-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-medium break-words">{u.nombre}</p>
-                        <p className="text-sm break-all text-suave">{u.email}</p>
+                        {/* Truncado para no romper la fila; completo al pasar el mouse y al copiarlo. */}
+                        <p className="truncate text-sm text-suave" title={u.email}>
+                          {u.email}
+                        </p>
                         <p className="text-sm text-suave">
                           {u.rol === 'dueno' ? 'Dueño' : 'Barbero'}
                           {u.ultimoLoginEn && ` · entró el ${fecha(u.ultimoLoginEn)}`}
@@ -224,6 +240,14 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
           <p className="mt-3 text-xs text-suave">Los barberos los invita el dueño desde su panel.</p>
         </Seccion>
       </div>
+
+      {n.estado !== 'suspendido' && (
+        <div className="mt-4">
+          <Seccion id="zona-de-peligro" titulo="Zona de peligro" peligro ayuda="Suspender corta el servicio del negocio hasta que lo vuelvas a activar.">
+            <SuspenderNegocio negocio={n.nombre} detalle={DETALLE_DE_ESTADO.suspendido} accion={cambiarEstado.bind(null, n.id, 'suspendido')} />
+          </Seccion>
+        </div>
+      )}
     </div>
   );
 }
