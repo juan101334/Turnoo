@@ -131,6 +131,12 @@ await cita(barberoDos, corteDos, ahora.minus({ minutes: 25 }).startOf('minute'),
 // "Cliente Pasado" (el Barbero E2E no puede tener dos citas a la vez).
 await cita(barberoE2E, corte, ahora.minus({ minutes: 90 }).startOf('minute'), 'Cliente Deshacer');
 await cita(barberoE2E, corte, ahora.minus({ minutes: 60 }).startOf('minute'), 'Cliente Rápido');
+// "Marcar pasadas como completadas" en Hoy (e2e/agenda.spec.ts): un barbero solo para eso, sin
+// horario, con dos citas que ya terminaron. Así el lote no marca las citas de otras pruebas.
+const barberoLote = await crearProfesional(negocio, 'Barbero Lote');
+const corteLote = { id: await crearServicio(negocio, barberoLote, 'Corte', 30, 25000), nombre: 'Corte', duracion: 30, precio: 25000 };
+await cita(barberoLote, corteLote, ahora.minus({ minutes: 75 }).startOf('minute'), 'Cliente Lote Uno');
+await cita(barberoLote, corteLote, ahora.minus({ minutes: 40 }).startOf('minute'), 'Cliente Lote Dos');
 // Para el bloque "Sigue" de Hoy: más tarde, con el Barbero Dos (después de "Cliente Flujo Celular").
 await cita(barberoDos, corteDos, ahora.plus({ minutes: 40 }).startOf('minute'), 'Cliente Sigue');
 
@@ -279,6 +285,7 @@ console.log(
     recuperacion: { email: recuperable.email, token: recuperacion.token },
     agenda: { fecha: pasadoManana.toISODate(), citaAjena },
     vista: { fecha: diaDeVista.toISODate() },
+    lote: { barbero: barberoLote },
     cuenta: cuentaPropia.email,
     clientes: { editable: clienteEditable, borrable: clienteBorrable, telefonoSinNombre },
     conversaciones,

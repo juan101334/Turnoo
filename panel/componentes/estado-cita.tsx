@@ -1,7 +1,7 @@
 import { Ban, CircleCheckBig, CircleDashed, Clock, Hourglass, UserX, type LucideIcon } from 'lucide-react';
 import { ESTADOS, type EstadoCita } from '@/lib/citas';
 
-const ICONOS: Record<EstadoCita, LucideIcon> = {
+export const ICONOS_DE_ESTADO: Record<EstadoCita, LucideIcon> = {
   por_aprobar: Hourglass,
   pendiente: Clock,
   confirmada: CircleDashed,
@@ -12,7 +12,7 @@ const ICONOS: Record<EstadoCita, LucideIcon> = {
 
 /** Estado de la cita con ícono y texto: nunca solo color. */
 export function InsigniaEstado({ estado }: { estado: EstadoCita }) {
-  const Icono = ICONOS[estado];
+  const Icono = ICONOS_DE_ESTADO[estado];
   const { etiqueta, clases } = ESTADOS[estado];
   return (
     <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${clases}`}>

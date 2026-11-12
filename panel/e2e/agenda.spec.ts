@@ -115,6 +115,40 @@ test.describe('agenda en el celular: filas y botón flotante', () => {
   });
 });
 
+test.describe('marcar pasadas como completadas', () => {
+  // Marca de verdad las dos citas del Barbero Lote: corre en un solo proyecto.
+  test.beforeEach(({}, info) => test.skip(!esCelular(info.project.name), 'Marca citas de verdad: una sola vez'));
+
+  test('en Hoy confirma con la lista de citas y las marca todas', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/hoy?barbero=${datos().lote.barbero}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'Marcar las 2 como completadas' }).click();
+
+    const dialogo = page.getByRole('alertdialog', { name: '¿Marcar 2 citas como completadas?' });
+    const lista = dialogo.getByRole('list', { name: 'Citas que se marcan' });
+    await expect(lista.getByRole('listitem')).toHaveCount(2);
+    await expect(lista).toContainText('Cliente Lote Uno');
+    await expect(lista).toContainText('Cliente Lote Dos');
+    await dialogo.getByRole('button', { name: 'Marcar como completadas' }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: '2 citas marcadas como completadas.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Marcar las \d+ como completadas$/ })).toHaveCount(0);
+    for (const cliente of ['Cliente Lote Uno', 'Cliente Lote Dos']) {
+      await expect(tarjeta(page, cliente).getByText('Completada', { exact: true })).toBeVisible();
+    }
+  });
+
+  test('solo en Hoy: la Agenda del mismo día no lo ofrece', async ({ page }) => {
+    // El barbero tiene hoy citas que ya terminaron ("Cliente Deshacer", "Cliente Rápido").
+    await entrarYEsperar(page, datos().empleado);
+    await expect(page.getByRole('button', { name: /^Marcar las \d+ como completadas$/ })).toBeVisible();
+    await page.goto('/agenda');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: /como completadas$/ })).toHaveCount(0);
+  });
+});
+
 test.describe('agenda en el escritorio', () => {
   test.beforeEach(({}, info) => test.skip(esCelular(info.project.name), 'Grilla del escritorio'));
 
@@ -123,8 +157,8 @@ test.describe('agenda en el escritorio', () => {
     await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
     const uno = page.getByRole('group', { name: 'Agenda de Barbero E2E' });
     const dos = page.getByRole('group', { name: 'Agenda de Barbero Dos' });
-    await expect(uno.getByRole('link', { name: /Cliente Vista Uno, Corte, Confirmada/ })).toBeVisible();
-    await expect(dos.getByRole('link', { name: /Cliente Vista Dos, Corte, Pendiente/ })).toBeVisible();
+    await expect(uno.getByRole('link', { name: /Cliente Vista Uno, Confirmada, Corte/ })).toBeVisible();
+    await expect(dos.getByRole('link', { name: /Cliente Vista Dos, Pendiente, Corte/ })).toBeVisible();
     await expect(uno.getByText('Almuerzo')).toBeVisible();
     await expect(dos.getByText('Almuerzo')).toHaveCount(0);
     // Las dos citas de las 9:00 quedan a la misma altura.
@@ -177,6 +211,33 @@ test.describe('agenda en el escritorio', () => {
       await expect(page.getByRole('radio', { name: new RegExp(`^${hora}`) })).toBeChecked();
     });
   }
+
+  test('cada cita de la grilla dice su estado con ícono y texto, no solo con el color', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
+    const uno = page.locator('#grilla-del-dia a[title*="Cliente Vista Uno"]');
+    const dos = page.locator('#grilla-del-dia a[title*="Cliente Vista Dos"]');
+    await expect(uno).toContainText('Confirmada');
+    await expect(dos).toContainText('Pendiente');
+    await expect(uno.locator('svg')).toHaveCount(1);
+    await expect(dos.locator('svg')).toHaveCount(1);
+  });
+
+  test('"Completada" en la grilla para una cita que ya empezó; Deshacer la deja como estaba', async ({ page }) => {
+    await page.clock.install();
+    await entrarYEsperar(page, datos().empleado);
+    await page.waitForLoadState('networkidle');
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    const bloque = page.locator('#grilla-del-dia a[title*="Cliente Deshacer"]');
+    await expect(bloque).toContainText('Pendiente');
+    await page.locator('#grilla-del-dia').getByRole('button', { name: 'Completada, Cliente Deshacer' }).click();
+    await expect(bloque).toContainText('Completada');
+    await expect(page.locator('#grilla-del-dia').getByRole('button', { name: 'Completada, Cliente Deshacer' })).toHaveCount(0);
+
+    await page.getByRole('status').filter({ hasText: 'Completada: Cliente Deshacer.' }).getByRole('button', { name: 'Deshacer' }).click();
+    await expect(bloque).toContainText('Pendiente');
+    await expect(page.locator('#grilla-del-dia').getByRole('button', { name: 'Completada, Cliente Deshacer' })).toBeVisible();
+  });
 
   test('una cita que no es del barbero no rompe la agenda: el panel lo dice', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
