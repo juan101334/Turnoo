@@ -108,6 +108,9 @@ test.describe('agenda en el celular: filas y botón flotante', () => {
 
   test('"Nueva cita" flotante no tapa la última tarjeta al llegar abajo', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
+    // Hoy llega primero como esqueleto, más corto que la lista: bajar antes de que llegue deja la
+    // última tarjeta por debajo de la pantalla (y la prueba mediría el esqueleto, no la lista).
+    await page.waitForLoadState('networkidle');
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     const ultima = (await page.getByRole('main').getByRole('listitem').last().boundingBox())!;
     const boton = (await page.getByRole('link', { name: 'Nueva cita' }).boundingBox())!;
@@ -342,13 +345,16 @@ test.describe('agenda en el escritorio', () => {
     await entrarYEsperar(page, datos().dueno);
     await page.getByRole('button', { name: 'Mostrar todos' }).click();
     // Cada bloque deja ver la hora y el nombre completos (dentro de lo que se ve del texto, que
-    // corta por líneas enteras): lo que no cabe son los servicios.
+    // corta por líneas enteras): lo que no cabe son los servicios. Solo cuentan los bloques de dos
+    // líneas o más: las citas sembradas son de 30 min, pero después de las 23:00 "Cliente Sigue"
+    // cruza la medianoche y la grilla la recorta al final del día, a una sola línea.
     const nombres = await page.locator('#grilla-del-dia a[title]').evaluateAll((enlaces) =>
-      enlaces.map((a) => {
+      enlaces.flatMap((a) => {
         const nombre = a.querySelector('span > span.font-medium') as HTMLElement;
         const visible = nombre.parentElement!.getBoundingClientRect();
+        if (visible.height < 2 * 14 - 0.5) return [];
         const lineas = [...nombre.getClientRects()];
-        return { nombre: nombre.textContent, enDosLineas: new Set(lineas.map((r) => Math.round(r.top))).size > 1, dentro: lineas.every((r) => r.bottom <= visible.bottom + 0.5) };
+        return [{ nombre: nombre.textContent, enDosLineas: new Set(lineas.map((r) => Math.round(r.top))).size > 1, dentro: lineas.every((r) => r.bottom <= visible.bottom + 0.5) }];
       }),
     );
     expect(nombres.length).toBeGreaterThan(0);
