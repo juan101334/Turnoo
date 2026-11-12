@@ -16,6 +16,10 @@ import type {
 } from './negocios.tipos.js';
 
 const DIAS_DE_PRUEBA = 15;
+/** Al volver a poner en prueba un negocio que no lo estaba, sin indicar hasta cuándo. */
+const DIAS_AL_PONER_EN_PRUEBA = 30;
+/** Tope para la fecha que escribe el superadmin: evita una prueba "para siempre" por un error de año. */
+const DIAS_MAXIMOS_DE_PRUEBA = 365;
 const MINUTOS_POR_DIA = 24 * 60;
 const ZONA_POR_DEFECTO = 'America/Bogota';
 
@@ -79,15 +83,37 @@ export async function obtenerNegocio(negocioId: string): Promise<Negocio> {
   return negocio;
 }
 
+/**
+ * Plan, estado y fin de la prueba. Reglas de la prueba:
+ * - pasar a "prueba" desde otro estado sin decir hasta cuándo la deja en 30 días desde ahora
+ *   (si no, quedaría sin fecha o con una ya vencida); si ya estaba en prueba, la fecha no cambia;
+ * - `pruebaHasta` lo fija el superadmin: debe ser futura, a lo sumo en un año, y solo si el
+ *   negocio queda en prueba (en un negocio activo no significaría nada).
+ */
 export async function cambiarPlanYEstado(
   negocioId: string,
   cambios: CambiosAdministrativos,
+  ahora: Date = new Date(),
 ): Promise<Negocio> {
   exigirIdValido(negocioId);
   exigirCambios(cambios);
+  if (cambios.pruebaHasta !== undefined) {
+    const maximo = sumarMinutos(ahora, DIAS_MAXIMOS_DE_PRUEBA * MINUTOS_POR_DIA);
+    if (cambios.pruebaHasta <= ahora) throw new DatosInvalidos('El fin de la prueba debe ser una fecha futura');
+    if (cambios.pruebaHasta > maximo) throw new DatosInvalidos('El fin de la prueba no puede pasar de un año');
+  }
   const negocio = await conSistema(async (tx) => {
     await exigirPlan(tx, cambios.planId);
-    return repositorio.actualizarPlanYEstado(tx, negocioId, cambios);
+    const actual = await repositorio.obtenerNegocio(tx, negocioId);
+    if (!actual) return null;
+    const quedaEn = cambios.estado ?? actual.estado;
+    if (cambios.pruebaHasta !== undefined && quedaEn !== 'prueba') {
+      throw new DatosInvalidos('El fin de la prueba solo se fija a un negocio en prueba');
+    }
+    const pruebaHasta =
+      cambios.pruebaHasta ??
+      (cambios.estado === 'prueba' && actual.estado !== 'prueba' ? sumarMinutos(ahora, DIAS_AL_PONER_EN_PRUEBA * MINUTOS_POR_DIA) : undefined);
+    return repositorio.actualizarPlanYEstado(tx, negocioId, { ...cambios, pruebaHasta });
   });
   if (!negocio) throw new NoEncontrado('El negocio');
   return negocio;

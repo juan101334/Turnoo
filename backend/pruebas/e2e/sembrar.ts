@@ -32,6 +32,10 @@ await conSistema(async (tx) => {
 
 const hash = await argon2.hash(clave);
 const negocio = await crearNegocio(NEGOCIO);
+// En prueba con fecha de fin, como queda un negocio creado por el superadmin (Plan la muestra).
+await conSistema((tx) =>
+  tx.consultar("UPDATE negocios SET prueba_hasta = now() + interval '20 days' WHERE id = $1", [negocio.negocioId]),
+);
 
 async function usuario(rol: 'dueno' | 'empleado', nombre: string, profesionalId?: string) {
   const email = correo(rol);

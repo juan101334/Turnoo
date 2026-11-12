@@ -17,7 +17,7 @@ Archivos de configuración, que se crean en el servidor y **nunca se suben a Git
 - `.env.produccion` (raíz), a partir de `.env.produccion.example`: administrador de PostgreSQL, contraseña del rol `turnoo_app` y dominios de la API y del panel.
 - `backend/.env.produccion`, a partir de `backend/.env.produccion.example`: Meta, OpenAI, clave de cifrado y dirección del panel.
 
-`NODE_ENV=production`, `SALTOS_PROXY=1`, `ARCHIVOS_DIR=/datos/archivos` y `DATABASE_URL` los fija el compose, para que no dependan de lo que diga el archivo. El panel no tiene archivo de configuración: el compose le da `BACKEND_URL=http://api:3000` y `SALTOS_PROXY=1`, y no guarda secretos.
+`NODE_ENV=production`, `SALTOS_PROXY=1`, `ARCHIVOS_DIR=/datos/archivos` y `DATABASE_URL` los fija el compose, para que no dependan de lo que diga el archivo. El panel no tiene archivo de configuración: el compose le da `BACKEND_URL=http://api:3000` y `SALTOS_PROXY=1`, y no guarda secretos. Opcional: `SOPORTE_WHATSAPP` en `.env.produccion` (formato internacional, ej. `+57 300 123 4567`) hace que "soporte de Turnoo" abra un chat de WhatsApp; sin ella, el texto va sin enlace, y con un número mal escrito el panel no arranca.
 
 `PANEL_URL` (en `backend/.env.produccion`) y `DOMINIO_PANEL` (en `.env.produccion`) deben ser el mismo dominio: la API arma con `PANEL_URL` los enlaces de invitación y de nueva contraseña.
 

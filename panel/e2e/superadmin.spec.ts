@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { alerta, datos, entrarYEsperar } from './datos';
 
 /**
@@ -7,6 +8,10 @@ import { alerta, datos, entrarYEsperar } from './datos';
  */
 
 const nombre = `Barbería Superadmin ${Date.now()}`;
+/** El día que cae dentro de `dias` días, en la zona de los negocios de prueba. */
+const enDias = (dias: number) => DateTime.now().setZone('America/Bogota').plus({ days: dias }).toISODate()!;
+/** Como la muestra el panel: "jueves 10 de diciembre". */
+const fechaLarga = (fecha: string) => DateTime.fromISO(fecha).setLocale('es-CO').toFormat("cccc d 'de' LLLL");
 const seccion = (page: Page, titulo: string) => page.getByRole('region', { name: titulo });
 const digitos = () => String(Math.floor(1e11 + Math.random() * 9e11));
 
@@ -41,7 +46,27 @@ test.describe.serial('superadmin', () => {
     await expect(page).toHaveURL(/\/superadmin\/negocios\/[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { level: 1, name: nombre })).toBeVisible();
     await expect(page.getByText('En prueba', { exact: true })).toBeVisible();
+    // 15 días de prueba desde hoy, con la fecha a la vista y en el campo para cambiarla.
+    await expect(seccion(page, 'Estado')).toContainText(`Funciona hasta el ${fechaLarga(enDias(15))}.`);
+    await expect(page.getByLabel('Último día de la prueba')).toHaveValue(enDias(15));
     await expect(seccion(page, 'WhatsApp')).toContainText('Sin número conectado');
+  });
+
+  test('el fin de la prueba se cambia con la fecha; volver a prueba la deja en 30 días', async ({ page }) => {
+    await abrirNegocio(page, nombre);
+    const estado = seccion(page, 'Estado');
+    await page.waitForLoadState('networkidle');
+    await page.getByLabel('Último día de la prueba').fill(enDias(40));
+    await estado.getByRole('button', { name: 'Guardar fecha' }).click();
+    await expect(page.getByRole('status').filter({ hasText: `La prueba va hasta el ${fechaLarga(enDias(40))}.` })).toBeVisible();
+    await expect(estado).toContainText(`Funciona hasta el ${fechaLarga(enDias(40))}.`);
+
+    await estado.getByRole('button', { name: 'Activar' }).click();
+    await expect(page.getByText('Activo', { exact: true }).first()).toBeVisible();
+    await expect(page.getByLabel('Último día de la prueba')).toHaveCount(0);
+    await estado.getByRole('button', { name: 'Poner en prueba por 30 días' }).click();
+    await expect(page.getByText('En prueba', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Último día de la prueba')).toHaveValue(enDias(30));
   });
 
   test('conectar el WhatsApp: valida los ids y el token no se vuelve a mostrar', async ({ page }) => {

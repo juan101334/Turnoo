@@ -182,6 +182,61 @@ describe('rutas de negocios', () => {
       expect(await sinPlan.json()).toMatchObject({ estado: 'activo', planId: null });
     });
 
+    it('al volver a prueba sin fecha la deja en 30 días; si ya estaba en prueba, no la toca', async () => {
+      const { datos } = await crearPorRuta();
+      const ruta = `/negocios/${datos.id}`;
+      const deCreacion = datos.pruebaHasta;
+      // Ya en prueba (la de creación): pedir "prueba" otra vez no le cambia la fecha.
+      expect((await (await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'prueba' })).json()).pruebaHasta).toBe(deCreacion);
+
+      await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'activo' });
+      const antes = Date.now();
+      const vuelta = await (await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'prueba' })).json();
+      expect(vuelta.estado).toBe('prueba');
+      const dias = (new Date(vuelta.pruebaHasta).getTime() - antes) / DIA_MS;
+      expect(dias).toBeGreaterThanOrEqual(30);
+      expect(dias).toBeLessThan(30.01);
+    });
+
+    it('el superadmin fija el fin de la prueba: al pasar a prueba o después, siempre futuro', async () => {
+      const { datos } = await crearPorRuta();
+      const ruta = `/negocios/${datos.id}`;
+      const en = (dias: number) => new Date(Date.now() + dias * DIA_MS).toISOString();
+
+      const editada = await pedir(ruta, tokens.superadmin, 'PATCH', { pruebaHasta: en(45) });
+      expect(editada.status).toBe(200);
+      expect(new Date((await editada.json()).pruebaHasta).getTime()).toBeCloseTo(new Date(en(45)).getTime(), -4);
+
+      await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'activo' });
+      const conFecha = await (await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'prueba', pruebaHasta: en(7) })).json();
+      expect(conFecha.estado).toBe('prueba');
+      expect((new Date(conFecha.pruebaHasta).getTime() - Date.now()) / DIA_MS).toBeLessThan(7.01);
+    });
+
+    it('rechaza un fin de prueba pasado, de más de un año, sin zona o para un negocio que no queda en prueba', async () => {
+      const { datos } = await crearPorRuta();
+      const ruta = `/negocios/${datos.id}`;
+      const en = (dias: number) => new Date(Date.now() + dias * DIA_MS).toISOString();
+      for (const cuerpo of [
+        { pruebaHasta: en(-1) },
+        { pruebaHasta: en(400) },
+        { pruebaHasta: '2030-01-01' },
+        { pruebaHasta: null },
+        { estado: 'activo', pruebaHasta: en(10) },
+      ]) {
+        expect((await pedir(ruta, tokens.superadmin, 'PATCH', cuerpo)).status, JSON.stringify(cuerpo)).toBe(400);
+      }
+      await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'activo' });
+      expect((await pedir(ruta, tokens.superadmin, 'PATCH', { pruebaHasta: en(10) })).status).toBe(400);
+      // Nada de lo rechazado quedó guardado.
+      expect((await (await pedir(ruta, tokens.superadmin)).json()).estado).toBe('activo');
+    });
+
+    it('el dueño no puede fijarse el fin de la prueba', async () => {
+      expect((await pedir('/negocio', tokens.duenoA, 'PATCH', { pruebaHasta: new Date(Date.now() + 90 * DIA_MS).toISOString() })).status).toBe(400);
+      expect((await pedir(`/negocios/${a.negocioId}`, tokens.duenoA, 'PATCH', { pruebaHasta: new Date(Date.now() + 90 * DIA_MS).toISOString() })).status).toBe(403);
+    });
+
     it('no acepta un cambio vacío, un estado inválido ni otros campos', async () => {
       const ruta = `/negocios/${a.negocioId}`;
       for (const cuerpo of [{}, { estado: 'borrado' }, { nombre: 'Otro' }, { pagadoHasta: '2030-01-01' }]) {

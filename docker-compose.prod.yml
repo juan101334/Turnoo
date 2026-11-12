@@ -88,6 +88,8 @@ services:
       BACKEND_URL: http://api:3000
       # Caddy es el único proxy delante del panel: la IP real del usuario es la que agrega Caddy.
       SALTOS_PROXY: '1'
+      # Opcional: sin él, "soporte de Turnoo" se muestra sin enlace.
+      SOPORTE_WHATSAPP: ${SOPORTE_WHATSAPP:-}
     depends_on:
       - api
     <<: *registros

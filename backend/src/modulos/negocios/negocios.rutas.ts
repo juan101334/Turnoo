@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { validarEsquema } from '../../compartido/validacion.js';
+import { instanteIso, validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, negocioDeSesion as negocioDe } from '../auth/auth.middleware.js';
 import { usoDelMes } from '../uso/uso.servicio.js';
 import * as cuentasWhatsapp from '../whatsapp/whatsapp.cuentas.js';
@@ -44,6 +44,7 @@ rutasNegocios.patch('/:id', async (req, res) => {
     z.strictObject({
       planId: planId.optional(),
       estado: z.enum(['prueba', 'activo', 'suspendido']).optional(),
+      pruebaHasta: instanteIso.optional(),
     }),
     req.body,
   );
