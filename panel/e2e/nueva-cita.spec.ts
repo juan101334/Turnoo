@@ -22,6 +22,10 @@ test.describe('nueva cita: el cliente primero', () => {
 
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
+    // Que termine de llegar la pantalla con los servicios: si se toca el día mientras la tira se
+    // vuelve a pintar, el toque cae en otro día (pasaba con la máquina cargada).
+    await expect(page).toHaveURL(/servicios=/);
+    await page.waitForLoadState('networkidle');
     // Esperar a que el día elegido quede en la URL: si no, se marcaría una hora del día anterior.
     const dia6 = page.getByRole('navigation', { name: 'Días' }).getByRole('link').nth(6);
     const destino6 = (await dia6.getAttribute('href'))!;
