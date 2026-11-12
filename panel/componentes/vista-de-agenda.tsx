@@ -8,6 +8,8 @@ import {
   duracionMinutos,
   huecosLibres,
   instanteDe,
+  INTERVALO_POR_DEFECTO,
+  marcasDelHueco,
   MINUTOS_DEL_DIA,
   minutosDesdeElInicio,
   ocupaLaAgenda,
@@ -21,7 +23,7 @@ import {
 } from '@/lib/agenda';
 import type { Bloqueo } from '@/lib/bloqueos';
 import { accionesPosibles, ESTADOS, nombresDeServicios, pesos, type Cita } from '@/lib/citas';
-import { barberos as leerBarberos, bloqueosEntre, citaSiExiste, citasDelDia, horariosDe, siSePuede, type Barbero } from '@/lib/datos';
+import { barberos as leerBarberos, bloqueosEntre, citaSiExiste, citasDelDia, horariosDe, miNegocio, siSePuede, type Barbero } from '@/lib/datos';
 import { diaRelativo, fechaLarga, horaLocal, hoyEn, limitesDelDia } from '@/lib/fechas';
 import type { UsuarioDelNegocio } from '@/lib/sesion';
 import { AccionPrincipal } from './accion-principal';
@@ -81,11 +83,13 @@ export async function VistaDeAgenda({
   const unSoloBarbero = columnas.length === 1;
 
   const { desde, hasta } = limitesDelDia(fecha, zona);
-  const [citas, bloqueos, horarios, abierta] = await Promise.all([
+  const [citas, bloqueos, horarios, abierta, intervalo] = await Promise.all([
     citasDelDia(fecha, zona, { profesionalId: elegido?.id }),
     siSePuede(() => bloqueosEntre(desde, hasta)).then((b) => b ?? []),
     Promise.all(columnas.map((b) => siSePuede(() => horariosDe(b.id)).then((h) => h ?? []))),
     citaAbierta ? citaSiExiste(citaAbierta) : Promise.resolve(undefined),
+    // El dueño ya lo leyó para el marco (cache): no es otra llamada. El barbero no lo puede leer.
+    esDueno ? siSePuede(miNegocio).then((n) => n?.configuracion.intervaloMinutos ?? INTERVALO_POR_DEFECTO) : INTERVALO_POR_DEFECTO,
   ]);
   const ordenadas = [...citas].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio));
   const relativo = diaRelativo(fecha, hoy);
@@ -215,8 +219,7 @@ export async function VistaDeAgenda({
     huecos: huecosLibres({ trabajo: c.trabajo, citas: c.citas, bloqueos: c.bloqueos, fecha, zona, desde: libreDesde }).map((h) => ({
       clave: `h${h.inicio}`,
       tramo: h,
-      href: nuevaCita(c.barbero.id, h.inicio),
-      hora: hora(h.inicio),
+      marcas: marcasDelHueco(h, intervalo).map((m) => ({ minuto: m, hora: hora(m), href: nuevaCita(c.barbero.id, m) })),
       etiqueta: `Agendar con ${c.barbero.nombre}, libre de ${horas(h)}`,
     })),
   }));

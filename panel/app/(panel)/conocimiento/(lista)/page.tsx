@@ -10,8 +10,8 @@ import { conocimiento, conversaciones, siSePuede } from '@/lib/datos';
 import { diaRelativo, fechaDe, fechaLarga, hoyEn } from '@/lib/fechas';
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
-import { borrarEntrada, cambiarEntradaActiva, crearEntrada } from './acciones';
-import { CamposDeEntrada } from './campos';
+import { borrarEntrada, cambiarEntradaActiva, crearEntrada } from '../acciones';
+import { CamposDeEntrada } from '../campos';
 
 export const metadata: Metadata = { title: SECCIONES.conocimiento.etiqueta };
 

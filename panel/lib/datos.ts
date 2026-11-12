@@ -4,11 +4,12 @@ import { cache } from 'react';
 import { ErrorDelBackend, llamarAlBackend } from './backend';
 import type { Configuracion, Horario, UsuarioDelNegocio } from './administracion';
 import type { Bloqueo } from './bloqueos';
-import type { BaseDeConocimiento } from './conocimiento';
+import type { BaseDeConocimiento, EntradaConocimiento } from './conocimiento';
 import type { Conversacion, Mensaje } from './conversaciones';
 import type { EstadoNegocio, UsoDelMes } from './plan';
 import type { Cita, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
+import { exigirUsuario } from './sesion';
 
 /**
  * Lecturas para las páginas. Las que se piden desde varias partes de una misma pantalla (el marco
@@ -126,6 +127,15 @@ export const cliente = cache(async (id: string): Promise<Cliente> => {
   return leer<Cliente>(`/clientes/${id}`);
 });
 
+/** Solo el dueño edita clientes (el backend también lo exige). Un cliente anonimizado no se edita. */
+export async function clienteEditable(id: string): Promise<Cliente> {
+  const usuario = await exigirUsuario('clientes');
+  if (usuario.rol !== 'dueno') notFound();
+  const c = await cliente(id);
+  if (c.anonimizadoEn) notFound();
+  return c;
+}
+
 export const CITAS_POR_PAGINA_DEL_HISTORIAL = 10;
 
 /** Citas del cliente, la más reciente primero (al barbero, solo las suyas: lo decide el backend). */
@@ -209,6 +219,13 @@ export const barbero = cache(async (id: string): Promise<Barbero> => {
   return leer<Barbero>(`/profesionales/${id}`);
 });
 
+/** Un servicio de ese barbero; si no es suyo o no existe, "no existe". */
+export async function servicioDelBarbero(barberoId: string, servicioId: string): Promise<ServicioDelBarbero> {
+  const s = (await serviciosDe((await barbero(barberoId)).id)).find((x) => x.id === servicioId);
+  if (!s) notFound();
+  return s;
+}
+
 export const horariosDe = cache(async (profesionalId: string): Promise<Horario[]> => {
   if (!esId(profesionalId)) notFound();
   return (await leer<{ horarios: Horario[] }>(`/profesionales/${profesionalId}/horarios`)).horarios;
@@ -261,6 +278,13 @@ export async function mensajesDe(conversacionId: string): Promise<Mensaje[]> {
 export const conocimiento = cache(async (): Promise<BaseDeConocimiento> => {
   return leer<BaseDeConocimiento>('/conocimiento');
 });
+
+/** Una pregunta de la base de conocimiento; si no está, "no existe". */
+export async function entradaDeConocimiento(id: string): Promise<EntradaConocimiento> {
+  const e = (await conocimiento()).entradas.find((x) => x.id === id);
+  if (!e) notFound();
+  return e;
+}
 
 /** Uso del mes frente a los límites del plan (solo el dueño). */
 export async function usoDelMes(): Promise<UsoDelMes> {

@@ -6,7 +6,7 @@ import { FormularioConEstado } from '@/componentes/formulario-con-estado';
 import { barberos as leerBarberos, usuarios as leerUsuarios } from '@/lib/datos';
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
-import { crearBarbero } from './acciones';
+import { crearBarbero } from '../acciones';
 
 export const metadata: Metadata = { title: SECCIONES.equipo.etiqueta };
 

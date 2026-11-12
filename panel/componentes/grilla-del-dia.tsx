@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HuecoDeLaGrilla, type MarcaDelHueco } from './hueco-de-la-grilla';
 import { LlevarAAhora } from './llevar-a-ahora';
 import { horaTapada, type Tramo } from '@/lib/agenda';
 import { ESTADOS, type EstadoCita } from '@/lib/citas';
@@ -24,7 +25,8 @@ export interface ColumnaDeBarbero {
   trabajo: Tramo[];
   citas: BloqueDeCita[];
   bloqueos: { clave: string; tramo: Tramo; motivo: string }[];
-  huecos: { clave: string; tramo: Tramo; href: string; etiqueta: string; hora: string }[];
+  /** Cada hueco con sus franjas: la primera es su inicio (el destino con el teclado). */
+  huecos: { clave: string; tramo: Tramo; etiqueta: string; marcas: MarcaDelHueco[] }[];
   /** No trabaja ese día: su columna se esconde hasta "Mostrar todos" (ver BarberosSinTurno). */
   sinTurno?: boolean;
 }
@@ -39,7 +41,8 @@ const RELLENO = 10;
 /**
  * El día en el escritorio: una columna por barbero, el alto de cada cita según lo que dura, lo
  * que está fuera del horario en gris, los bloqueos rayados y la línea de "ahora". Tocar una cita
- * abre su detalle al lado (?cita=) sin salir de la agenda; tocar un hueco lleva a agendar ahí.
+ * abre su detalle al lado (?cita=) sin salir de la agenda; tocar un hueco agenda a la hora de la
+ * franja tocada (ver HuecoDeLaGrilla).
  */
 export function GrillaDelDia({
   columnas,
@@ -116,15 +119,13 @@ export function GrillaDelDia({
             ))}
 
             {c.huecos.map((h) => (
-              <Link
+              <HuecoDeLaGrilla
                 key={h.clave}
-                href={h.href}
-                aria-label={h.etiqueta}
-                className="group absolute inset-x-1 flex items-start rounded-md px-2 py-1 text-xs font-semibold text-marca opacity-0 transition-opacity duration-150 hover:bg-marca-suave hover:opacity-100 focus-visible:bg-marca-suave focus-visible:opacity-100"
+                marcas={h.marcas}
+                etiqueta={h.etiqueta}
+                pxPorMinuto={PX_POR_MINUTO}
                 style={{ top: arriba(h.tramo.inicio), height: px(h.tramo.fin - h.tramo.inicio) }}
-              >
-                + Agendar desde las {h.hora}
-              </Link>
+              />
             ))}
 
             {c.citas.map((cita) => {

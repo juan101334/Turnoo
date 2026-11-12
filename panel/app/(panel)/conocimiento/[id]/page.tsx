@@ -1,9 +1,8 @@
 import { ChevronLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
-import { conocimiento } from '@/lib/datos';
+import { entradaDeConocimiento } from '@/lib/datos';
 import { exigirUsuario } from '@/lib/sesion';
 import { editarEntrada } from '../acciones';
 import { CamposDeEntrada } from '../campos';
@@ -13,8 +12,7 @@ export const metadata: Metadata = { title: 'Editar pregunta' };
 export default async function PaginaEditarEntrada({ params }: { params: Promise<{ id: string }> }) {
   await exigirUsuario('conocimiento');
   const { id } = await params;
-  const e = (await conocimiento()).entradas.find((x) => x.id === id);
-  if (!e) notFound();
+  const e = await entradaDeConocimiento(id);
 
   return (
     <div className="ancho-formulario">

@@ -1,4 +1,4 @@
-import { expect, request, test } from '@playwright/test';
+import { expect, request, test, type Page } from '@playwright/test';
 import { alerta, BACKEND, COOKIE, datos, entrar, entrarYEsperar } from './datos';
 
 test.describe('acceso', () => {
@@ -49,10 +49,10 @@ test.describe('acceso', () => {
     }
     for (const ajena of ['Por aprobar', 'Mensajes', 'Más']) await expect(nav.getByRole('link', { name: ajena })).toHaveCount(0);
 
-    for (const ruta of ['/usuarios', '/por-aprobar', '/mensajes', '/plan', '/mas']) {
-      // Con las pantallas de carga la respuesta sale por partes y ya no lleva el código 404; lo
-      // que importa es que no se muestra nada de la sección.
-      await page.goto(ruta);
+    for (const ruta of ['/usuarios', '/por-aprobar', '/mensajes', '/plan', '/mas', '/negocio', '/equipo', '/conocimiento']) {
+      // 404 de verdad aunque la sección tenga pantalla de carga: el rol se revisa en su layout.
+      const respuesta = await page.goto(ruta);
+      expect(respuesta?.status(), ruta).toBe(404);
       await expect(page.getByRole('heading', { name: 'Esta página no existe' }), ruta).toBeVisible();
     }
   });
@@ -97,6 +97,51 @@ test.describe('acceso', () => {
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/superadmin');
     await expect(page).toHaveURL('/hoy');
+  });
+});
+
+/**
+ * Un id que no existe responde 404 de verdad, no 200 con el texto. Las fichas tienen pantalla de
+ * carga; su existencia se revisa en un layout antes de ella (ver app/(panel)/citas/[id]/layout.tsx).
+ */
+test.describe('rutas que no existen', () => {
+  const NADA = '00000000-0000-4000-8000-000000000000';
+  const esperar404 = async (page: Page, ruta: string) => {
+    const respuesta = await page.goto(ruta);
+    expect(respuesta?.status(), ruta).toBe(404);
+    await expect(page.getByRole('heading', { name: 'Esta página no existe' }), ruta).toBeVisible();
+  };
+
+  test('las fichas con un id que no existe responden 404; las que existen, 200', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    for (const ruta of [
+      '/una-ruta-que-no-existe',
+      `/citas/${NADA}`,
+      '/citas/no-es-un-id',
+      `/citas/${NADA}/reprogramar`,
+      `/clientes/${NADA}`,
+      `/clientes/${NADA}/editar`,
+      `/equipo/${NADA}`,
+      `/equipo/${NADA}/servicios/${NADA}`,
+      `/conocimiento/${NADA}`,
+      `/mensajes/${NADA}`,
+    ]) {
+      await esperar404(page, ruta);
+    }
+    const cliente = `/clientes/${datos().clientes.editable}`;
+    expect((await page.goto(cliente))?.status()).toBe(200);
+    expect((await page.goto(`${cliente}/editar`))?.status()).toBe(200);
+  });
+
+  test('una cita de otro barbero y editar un cliente responden 404 al barbero', async ({ page }) => {
+    await entrarYEsperar(page, datos().empleado);
+    await esperar404(page, `/citas/${datos().agenda.citaAjena}`);
+    await esperar404(page, `/clientes/${datos().clientes.editable}/editar`);
+  });
+
+  test('un negocio que no existe responde 404 al superadmin', async ({ page }) => {
+    await entrarYEsperar(page, datos().superadmin, '/superadmin');
+    await esperar404(page, `/superadmin/negocios/${NADA}`);
   });
 });
 
