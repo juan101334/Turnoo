@@ -1,4 +1,5 @@
 import 'server-only';
+import { numeroDeSoporte } from './soporte';
 
 /**
  * Variables de entorno del panel (panel/.env.example). Solo el servidor las lee: ninguna empieza
@@ -18,4 +19,6 @@ export const configuracion = {
   saltosProxy: saltosProxy(),
   /** En producción la cookie exige HTTPS y lleva el prefijo __Host- (sin dominio, ruta /). */
   produccion: process.env.NODE_ENV === 'production',
+  /** Solo dígitos, o null si no está configurado (entonces no se muestra el enlace). */
+  soporteWhatsapp: numeroDeSoporte(process.env.SOPORTE_WHATSAPP),
 };

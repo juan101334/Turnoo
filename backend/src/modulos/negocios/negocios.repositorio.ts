@@ -133,7 +133,7 @@ export function actualizarPlanYEstado(
   negocioId: string,
   cambios: CambiosAdministrativos,
 ): Promise<Negocio | null> {
-  return actualizarNegocio(tx, negocioId, cambios, { planId: 'plan_id', estado: 'estado' });
+  return actualizarNegocio(tx, negocioId, cambios, { planId: 'plan_id', estado: 'estado', pruebaHasta: 'prueba_hasta' });
 }
 
 export async function planActivoExiste(tx: Transaccion, planId: string): Promise<boolean> {

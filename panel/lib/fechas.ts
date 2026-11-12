@@ -37,6 +37,11 @@ export function limitesDelDia(fecha: string, zona: string): { desde: string; has
   return { desde: inicio.toISO()!, hasta: inicio.plus({ days: 1 }).toISO()! };
 }
 
+/** El último instante del día en la zona del negocio: "hasta el 10 de diciembre" incluye ese día entero. */
+export function finDelDia(fecha: string, zona: string): string {
+  return DateTime.fromISO(fecha, { zone: zona }).endOf('day').toISO()!;
+}
+
 /** 'Hoy', 'Mañana' o 'Ayer'; si no, null. */
 export function diaRelativo(fecha: string, hoy: string): string | null {
   if (fecha === hoy) return 'Hoy';

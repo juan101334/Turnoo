@@ -50,7 +50,7 @@ export interface EntradaNegocio {
 /** Lo único que el dueño puede cambiar de su negocio. Plan y estado son del superadmin. */
 export type CambiosMiNegocio = Cambios<Pick<Negocio, 'nombre' | 'telefonoAvisos' | 'zonaHoraria'>>;
 
-/** Lo único que el superadmin cambia de un negocio. */
-export type CambiosAdministrativos = Cambios<Pick<Negocio, 'planId' | 'estado'>>;
+/** Lo único que el superadmin cambia de un negocio. `pruebaHasta` solo vale si queda en prueba. */
+export type CambiosAdministrativos = Cambios<Pick<Negocio, 'planId' | 'estado'>> & { pruebaHasta?: Date | undefined };
 
 export type CambiosConfiguracion = Cambios<ConfiguracionNegocio>;

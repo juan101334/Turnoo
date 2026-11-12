@@ -1,6 +1,7 @@
 import { ChevronDown, Ellipsis, UserPlus } from 'lucide-react';
 import type { Metadata } from 'next';
 import { AccionPrincipal } from '@/componentes/accion-principal';
+import { Soporte } from '@/componentes/soporte';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { accionesDeUsuario, type EstadoUsuario } from '@/lib/administracion';
 import { barberos as leerBarberos, usuarios as leerUsuarios } from '@/lib/datos';
@@ -88,7 +89,9 @@ export default async function PaginaUsuarios() {
           );
         })}
       </ul>
-      <p className="mt-4 text-sm text-suave">Los enlaces para entrar o cambiar la contraseña son solo para barberos. Si un dueño olvida la suya, la recupera con el soporte de Turnoo.</p>
+      <p className="mt-4 text-sm text-suave">
+        Los enlaces para entrar o cambiar la contraseña son solo para barberos. Si un dueño olvida la suya, la recupera con el <Soporte />.
+      </p>
     </div>
   );
 }

@@ -8,12 +8,13 @@ import { Campo, CampoContrasena } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
 import { accionesDelSuperadmin } from '@/lib/administracion';
 import { telefonoLegible } from '@/lib/citas';
-import { fechaDe, fechaLarga } from '@/lib/fechas';
+import { fechaDe, fechaLarga, hoyEn, sumarDias } from '@/lib/fechas';
 import type { EstadoNegocio } from '@/lib/plan';
 import { cuentasWhatsapp, negocio as leerNegocio, usuariosDe } from '@/lib/superadmin';
 import { exigirSuperadmin } from '@/lib/sesion-superadmin';
 import {
   cambiarEstado,
+  cambiarFinDePrueba,
   cambiarTokenWhatsapp,
   cambiarWhatsappActiva,
   desactivarUsuarioDelNegocio,
@@ -37,17 +38,18 @@ const ESTADOS_USUARIO = {
   desactivado: { etiqueta: 'Desactivado', clases: 'bg-fondo text-suave ring-1 ring-borde' },
 } as const;
 
-/** Lo que significa cada estado, para elegir con conocimiento. */
-const DETALLE_DE_ESTADO: Record<EstadoNegocio, string> = {
-  activo: 'Funciona sin límite de prueba.',
-  prueba: 'Funciona hasta la fecha de fin de la prueba.',
-  suspendido: 'Entran y consultan, pero no pueden cambiar nada y el asistente no agenda.',
-};
+/** Lo que significa cada estado, para elegir con conocimiento. En prueba, con su fecha. */
+function detalleDeEstado(estado: EstadoNegocio, pruebaHasta: string | null, fecha: (iso: string) => string): string {
+  if (estado === 'activo') return 'Funciona sin límite de prueba.';
+  if (estado === 'suspendido') return 'Entran y consultan, pero no pueden cambiar nada y el asistente no agenda.';
+  if (!pruebaHasta) return 'En prueba, sin fecha de fin. Fíjala abajo.';
+  return Date.parse(pruebaHasta) > Date.now() ? `Funciona hasta el ${fecha(pruebaHasta)}.` : `La prueba terminó el ${fecha(pruebaHasta)}.`;
+}
 
 /** Activar o poner en prueba van en "Estado"; suspender, aparte, en la zona de peligro. */
 const CAMBIOS_DE_ESTADO: { estado: Exclude<EstadoNegocio, 'suspendido'>; boton: string }[] = [
   { estado: 'activo', boton: 'Activar' },
-  { estado: 'prueba', boton: 'Poner en prueba' },
+  { estado: 'prueba', boton: 'Poner en prueba por 30 días' },
 ];
 
 function Seccion({
@@ -111,8 +113,25 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
       {/* grid-cols-1 (minmax(0, 1fr)): sin ella, el correo cortado ensancha la columna más que la pantalla. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         <div className="flex flex-col gap-4">
-          <Seccion id="estado" titulo="Estado" ayuda={DETALLE_DE_ESTADO[n.estado]}>
+          <Seccion id="estado" titulo="Estado" ayuda={detalleDeEstado(n.estado, n.pruebaHasta, fecha)}>
             <div className="flex flex-col gap-2">
+              {n.estado === 'prueba' && (
+                <div className="mb-2">
+                  <FormularioConEstado accion={cambiarFinDePrueba.bind(null, n.id)} boton="Guardar fecha" enviando="Guardando…" variante="secundario">
+                    <Campo
+                      id="pruebaHasta"
+                      name="pruebaHasta"
+                      type="date"
+                      etiqueta="Último día de la prueba"
+                      ayuda="Funciona hasta el final de ese día, en la hora del negocio."
+                      required
+                      min={hoyEn(zona)}
+                      max={sumarDias(hoyEn(zona), 364)}
+                      defaultValue={n.pruebaHasta ? fechaDe(n.pruebaHasta, zona) : ''}
+                    />
+                  </FormularioConEstado>
+                </div>
+              )}
               {CAMBIOS_DE_ESTADO.filter((c) => c.estado !== n.estado).map((c) => (
                 <BotonDeAccion key={c.estado} etiqueta={c.boton} enviando="Guardando…" accion={cambiarEstado.bind(null, n.id, c.estado)} />
               ))}
@@ -244,7 +263,7 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
       {n.estado !== 'suspendido' && (
         <div className="mt-4">
           <Seccion id="zona-de-peligro" titulo="Zona de peligro" peligro ayuda="Suspender corta el servicio del negocio hasta que lo vuelvas a activar.">
-            <SuspenderNegocio negocio={n.nombre} detalle={DETALLE_DE_ESTADO.suspendido} accion={cambiarEstado.bind(null, n.id, 'suspendido')} />
+            <SuspenderNegocio negocio={n.nombre} detalle={detalleDeEstado('suspendido', null, fecha)} accion={cambiarEstado.bind(null, n.id, 'suspendido')} />
           </Seccion>
         </div>
       )}

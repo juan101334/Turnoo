@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { pedir, texto, type EstadoFormulario } from '@/lib/acciones';
 import { esId } from '@/lib/datos';
-import { fechaDe, fechaLarga, horaLocal } from '@/lib/fechas';
+import { esFechaValida, fechaDe, fechaLarga, finDelDia, horaLocal, hoyEn } from '@/lib/fechas';
 import type { EstadoNegocio } from '@/lib/plan';
 
 /**
@@ -53,7 +53,25 @@ export async function cambiarEstado(negocioId: string, estado: EstadoNegocio): P
   const r = await pedir(`/negocios/${negocioId}`, 'PATCH', { estado });
   if ('error' in r) return r;
   refrescar();
-  return { listo: estado === 'suspendido' ? 'Negocio suspendido.' : estado === 'activo' ? 'Negocio activo.' : 'Negocio en prueba.' };
+  return { listo: estado === 'suspendido' ? 'Negocio suspendido.' : estado === 'activo' ? 'Negocio activo.' : 'Negocio en prueba por 30 días.' };
+}
+
+/**
+ * Fin de la prueba: el superadmin elige el último día y vale hasta el final de ese día en la zona
+ * del negocio. Que sea futuro y de un año como mucho lo revisa el backend; aquí, solo la forma.
+ */
+export async function cambiarFinDePrueba(negocioId: string, _previo: EstadoFormulario, datos: FormData): Promise<EstadoFormulario> {
+  const fecha = texto(datos, 'pruebaHasta');
+  if (!esId(negocioId)) return { error: 'Cambio no válido.' };
+  if (!esFechaValida(fecha)) return { error: 'Elige el último día de la prueba.' };
+  const n = await pedir<{ zonaHoraria: string }>(`/negocios/${negocioId}`, 'GET');
+  if ('error' in n) return n;
+  const zona = n.ok.zonaHoraria;
+  if (fecha < hoyEn(zona)) return { error: 'El fin de la prueba no puede ser un día que ya pasó.' };
+  const r = await pedir(`/negocios/${negocioId}`, 'PATCH', { pruebaHasta: finDelDia(fecha, zona) });
+  if ('error' in r) return r;
+  refrescar();
+  return { listo: `La prueba va hasta el ${fechaLarga(fecha)}.` };
 }
 
 /**

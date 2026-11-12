@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diaRelativo, esFechaValida, fechaDe, fechaLarga, horaLocal, hoyEn, limitesDelDia, sumarDias, tiempoRestante } from '@/lib/fechas';
+import { diaRelativo, esFechaValida, fechaDe, fechaLarga, finDelDia, horaLocal, hoyEn, limitesDelDia, sumarDias, tiempoRestante } from '@/lib/fechas';
 
 const BOGOTA = 'America/Bogota';
 
@@ -39,5 +39,13 @@ describe('fechas en la zona del negocio', () => {
     expect(tiempoRestante('2026-11-08T14:00:00Z', ahora)).toBe('en 2 h');
     expect(tiempoRestante('2026-11-08T12:05:30Z', ahora)).toBe('en 5 min');
     expect(tiempoRestante('2026-11-08T12:00:00Z', ahora)).toBe('vencido');
+  });
+});
+
+describe('fin del día', () => {
+  it('es el último instante del día en la zona del negocio, no en UTC', () => {
+    const fin = finDelDia('2026-12-10', 'America/Bogota');
+    expect(fin).toBe('2026-12-10T23:59:59.999-05:00');
+    expect(fechaDe(fin, 'America/Bogota')).toBe('2026-12-10');
   });
 });

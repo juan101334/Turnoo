@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { Aviso } from '@/componentes/aviso';
+import { Soporte } from '@/componentes/soporte';
 import { miNegocio, usoDelMes } from '@/lib/datos';
 import { fechaDe, fechaLarga } from '@/lib/fechas';
 import { SECCIONES } from '@/lib/navegacion';
@@ -48,12 +50,31 @@ export default async function PaginaPlan() {
   const [{ periodo, plan, uso }, { negocio }] = await Promise.all([usoDelMes(), miNegocio()]);
   const fecha = (iso: string) => fechaLarga(fechaDe(iso, zona));
 
-  const estado =
+  const pruebaTerminada = negocio.pruebaHasta !== null && Date.parse(negocio.pruebaHasta) <= Date.now();
+  const estado: { tipo: 'error' | 'info' | 'exito'; texto: ReactNode } =
     negocio.estado === 'suspendido'
-      ? { tipo: 'error' as const, texto: 'La cuenta está suspendida: puedes consultar, pero no hacer cambios. Escríbele al soporte de Turnoo.' }
+      ? {
+          tipo: 'error',
+          texto: (
+            <>
+              La cuenta está suspendida: puedes consultar, pero no hacer cambios. Escríbele al <Soporte />.
+            </>
+          ),
+        }
       : negocio.estado === 'prueba'
-        ? { tipo: 'info' as const, texto: negocio.pruebaHasta ? `Periodo de prueba hasta el ${fecha(negocio.pruebaHasta)}.` : 'Periodo de prueba.' }
-        : { tipo: 'exito' as const, texto: negocio.pagadoHasta ? `Cuenta activa, pagada hasta el ${fecha(negocio.pagadoHasta)}.` : 'Cuenta activa.' };
+        ? {
+            tipo: 'info',
+            texto: !negocio.pruebaHasta ? (
+              'Periodo de prueba.'
+            ) : pruebaTerminada ? (
+              <>
+                El periodo de prueba terminó el {fecha(negocio.pruebaHasta)}. Escríbele al <Soporte /> para seguir.
+              </>
+            ) : (
+              `Periodo de prueba hasta el ${fecha(negocio.pruebaHasta)}.`
+            ),
+          }
+        : { tipo: 'exito', texto: negocio.pagadoHasta ? `Cuenta activa, pagada hasta el ${fecha(negocio.pagadoHasta)}.` : 'Cuenta activa.' };
 
   return (
     <div className="ancho-lista">
@@ -90,7 +111,9 @@ export default async function PaginaPlan() {
           m={medidor(uso.plantillasEnviadas, null)}
         />
       </div>
-      <p className="mt-4 text-sm text-suave">Para cambiar de plan, escríbele al soporte de Turnoo.</p>
+      <p className="mt-4 text-sm text-suave">
+        Para cambiar de plan, escríbele al <Soporte />.
+      </p>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ProveedorDeAvisos } from '@/componentes/avisos-flotantes';
 import { GuardiaDeSalida } from '@/componentes/guardia-de-salida';
 import { SaltarAlContenido } from '@/componentes/saltar-al-contenido';
+import { Soporte } from '@/componentes/soporte';
 import { TituloConPendientes } from '@/componentes/titulo-con-pendientes';
 import { MenuLateral, NavInferior } from '@/componentes/navegacion';
 import { citasPorAprobar, conversaciones, miNegocio, siSePuede } from '@/lib/datos';
@@ -51,7 +52,7 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
                 <div role="status" className="mb-4 flex items-start gap-2 rounded-lg bg-peligro-suave px-3 py-2.5 text-sm text-peligro">
                   <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
                   <p>
-                    <strong>La cuenta está suspendida.</strong> Puedes consultar, pero no hacer cambios. Escríbele al soporte de Turnoo.
+                    <strong>La cuenta está suspendida.</strong> Puedes consultar, pero no hacer cambios. Escríbele al <Soporte />.
                   </p>
                 </div>
               )}
