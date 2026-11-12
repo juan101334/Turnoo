@@ -6,7 +6,7 @@ import { fechaCorta, fechaDe } from '@/lib/fechas';
 import type { EstadoNegocio } from '@/lib/plan';
 import { exigirSuperadmin } from '@/lib/sesion-superadmin';
 import { negocios as leerNegocios } from '@/lib/superadmin';
-import { EstadoDeNegocio } from './estado-de-negocio';
+import { EstadoDeNegocio } from '../estado-de-negocio';
 
 export const metadata: Metadata = { title: 'Negocios · Superadmin' };
 

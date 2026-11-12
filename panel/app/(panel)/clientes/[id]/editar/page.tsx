@@ -1,22 +1,15 @@
 import { ChevronLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { Campo } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
-import { cliente as leerCliente } from '@/lib/datos';
-import { exigirUsuario } from '@/lib/sesion';
+import { clienteEditable } from '@/lib/datos';
 import { editarCliente } from '../../acciones';
 
 export const metadata: Metadata = { title: 'Editar cliente' };
 
-/** Solo el dueño edita clientes (el backend también lo exige). Un cliente anonimizado no se edita. */
 export default async function PaginaEditarCliente({ params }: { params: Promise<{ id: string }> }) {
-  const usuario = await exigirUsuario('clientes');
-  if (usuario.rol !== 'dueno') notFound();
-  const { id } = await params;
-  const c = await leerCliente(id);
-  if (c.anonimizadoEn) notFound();
+  const c = await clienteEditable((await params).id);
 
   return (
     <div className="ancho-formulario">

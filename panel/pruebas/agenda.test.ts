@@ -6,6 +6,8 @@ import {
   horaElegida,
   horasLibres,
   horaTapada,
+  marcaEn,
+  marcasDelHueco,
   resumenDelDia,
   sinTurno,
   huecosLibres,
@@ -162,5 +164,24 @@ describe('horas libres para elegir', () => {
     expect(horaElegida(huecos, a('19:00'))).toBeUndefined();
     expect(horaElegida(huecos, 'no-es-una-hora')).toBeUndefined();
     expect(horaElegida(huecos, undefined)).toBeUndefined();
+  });
+});
+
+describe('clic en un hueco de la grilla', () => {
+  it('las marcas empiezan en el hueco y siguen el reloj cada intervalo', () => {
+    expect(marcasDelHueco({ inicio: 570, fin: 660 }, 15)).toEqual([570, 585, 600, 615, 630, 645]); // 9:30–11:00
+    // Un hueco que empieza desalineado (una cita terminó a las 9:40): 9:40, luego 9:45, 10:00…
+    expect(marcasDelHueco({ inicio: 580, fin: 630 }, 15)).toEqual([580, 585, 600, 615]);
+    expect(marcasDelHueco({ inicio: 600, fin: 720 }, 60)).toEqual([600, 660]);
+    expect(marcasDelHueco({ inicio: 600, fin: 610 }, 30)).toEqual([600]);
+  });
+
+  it('el minuto del mouse cae en la franja que empieza en él o antes', () => {
+    const marcas = [570, 585, 600, 615];
+    expect(marcaEn(marcas, 570)).toBe(0);
+    expect(marcaEn(marcas, 599.9)).toBe(1);
+    expect(marcaEn(marcas, 600)).toBe(2);
+    expect(marcaEn(marcas, 700)).toBe(3);
+    expect(marcaEn(marcas, 500)).toBe(0);
   });
 });

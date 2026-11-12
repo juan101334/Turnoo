@@ -112,6 +112,30 @@ export function huecosLibres({
   return restar(trabajo, ocupados).filter((t) => t.fin - t.inicio >= minimo);
 }
 
+/**
+ * Intervalo que usa la agenda cuando no puede leer el del negocio: el barbero no tiene acceso a
+ * GET /negocio (es solo del dueño). Es el valor por defecto de la base.
+ */
+export const INTERVALO_POR_DEFECTO = 15;
+
+/**
+ * Las horas de un hueco donde se puede hacer clic en la grilla: su inicio y, después, cada múltiplo
+ * del intervalo según el reloj (con 15: 9:40, 9:45, 10:00…), igual que las horas libres que ofrece
+ * el backend. Así, clic en la franja de las 10:30 agenda a las 10:30, no al inicio del hueco.
+ */
+export function marcasDelHueco(hueco: Tramo, intervalo: number): number[] {
+  const marcas = [hueco.inicio];
+  for (let m = Math.floor(hueco.inicio / intervalo) * intervalo + intervalo; m < hueco.fin; m += intervalo) marcas.push(m);
+  return marcas;
+}
+
+/** La marca de la franja donde está el mouse: la última que empieza en ese minuto o antes. */
+export function marcaEn(marcas: number[], minuto: number): number {
+  let elegida = 0;
+  for (let i = 0; i < marcas.length; i++) if (marcas[i]! <= minuto) elegida = i;
+  return elegida;
+}
+
 /** Desde cuándo se ofrecen huecos hoy: el próximo múltiplo de 5 minutos. */
 export function desdeAhora(fecha: string, zona: string, ahora: Date): number {
   const minutos = minutosDesdeElInicio(ahora, fecha, zona);

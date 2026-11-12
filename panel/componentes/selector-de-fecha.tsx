@@ -20,7 +20,8 @@ export function SelectorDeFecha({ fecha, texto, enlace }: { fecha: string; texto
         type="date"
         aria-label={`Ir a otra fecha (ahora: ${texto})`}
         defaultValue={fecha}
-        className="absolute inset-0 cursor-pointer opacity-0"
+        // 16 px aunque no se vea: con menos, Safari del iPhone acerca la página al tocarlo.
+        className="absolute inset-0 cursor-pointer text-base opacity-0"
         onClick={(evento) => {
           try {
             evento.currentTarget.showPicker();

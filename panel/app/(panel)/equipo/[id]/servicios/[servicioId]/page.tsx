@@ -1,10 +1,9 @@
 import { ChevronLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { Campo } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
-import { barbero as leerBarbero, serviciosDe } from '@/lib/datos';
+import { barbero as leerBarbero, servicioDelBarbero } from '@/lib/datos';
 import { exigirUsuario } from '@/lib/sesion';
 import { editarServicio } from '../../../acciones';
 
@@ -14,9 +13,7 @@ export const metadata: Metadata = { title: 'Editar servicio' };
 export default async function PaginaEditarServicio({ params }: { params: Promise<{ id: string; servicioId: string }> }) {
   await exigirUsuario('equipo');
   const { id, servicioId } = await params;
-  const b = await leerBarbero(id);
-  const s = (await serviciosDe(b.id)).find((x) => x.id === servicioId);
-  if (!s) notFound();
+  const [b, s] = await Promise.all([leerBarbero(id), servicioDelBarbero(id, servicioId)]);
 
   return (
     <div className="ancho-formulario">

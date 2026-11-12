@@ -153,6 +153,31 @@ test.describe('agenda en el escritorio', () => {
     await expect(panel).toHaveCount(0);
   });
 
+  for (const hora of ['10:30', '11:45']) {
+    test(`clic en las ${hora} de un hueco: la franja dice "+ ${hora}" y Nueva cita la deja marcada`, async ({ page }) => {
+      const { fecha } = datos().vista;
+      await entrarYEsperar(page, datos().dueno);
+      await page.goto(`/agenda?fecha=${fecha}`);
+      // La franja sigue al mouse con JavaScript: que la página ya esté interactiva.
+      await page.waitForLoadState('networkidle');
+      // El hueco del Barbero E2E va de 9:30 (fin de su cita) a 13:00 (almuerzo); 15 min = 20 px.
+      const hueco = page.getByRole('group', { name: 'Agenda de Barbero E2E' }).getByRole('link', { name: /^Agendar con Barbero E2E, libre de 9:30/ });
+      const caja = (await hueco.boundingBox())!;
+      const [h, m] = hora.split(':').map(Number) as [number, number];
+      // 5 px dentro de la franja (menos de 4 minutos): cae en la franja de esa hora, no en la siguiente.
+      const y = caja.y + (h * 60 + m - (9 * 60 + 30)) * (20 / 15) + 5;
+      await page.mouse.move(caja.x + 30, y);
+      await expect(hueco.locator('[data-hora]')).toHaveText(new RegExp(`^\\+ ${hora}`));
+
+      await page.mouse.click(caja.x + 30, y);
+      await expect(page).toHaveURL((url) => url.pathname === '/citas/nueva' && (url.searchParams.get('hora') ?? '').startsWith(`${fecha}T${hora.padStart(5, '0')}:00`));
+      await page.getByRole('link', { name: 'Cliente nuevo', exact: true }).click();
+      await page.getByRole('checkbox', { name: /Corte/ }).check();
+      await page.getByRole('button', { name: 'Ver horas libres' }).click();
+      await expect(page.getByRole('radio', { name: new RegExp(`^${hora}`) })).toBeChecked();
+    });
+  }
+
   test('una cita que no es del barbero no rompe la agenda: el panel lo dice', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
     await page.goto(`/agenda?fecha=${datos().vista.fecha}&cita=${datos().agenda.citaAjena}`);
