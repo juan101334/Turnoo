@@ -22,13 +22,14 @@ import {
   type Tramo,
 } from '@/lib/agenda';
 import type { Bloqueo } from '@/lib/bloqueos';
-import { accionesPosibles, ESTADOS, nombresDeServicios, pesos, type Cita } from '@/lib/citas';
+import { accionesPosibles, nombresDeServicios, pesos, type Cita } from '@/lib/citas';
 import { barberos as leerBarberos, bloqueosEntre, citaSiExiste, citasDelDia, horariosDe, miNegocio, siSePuede, type Barbero } from '@/lib/datos';
 import { diaRelativo, fechaLarga, horaLocal, hoyEn, limitesDelDia } from '@/lib/fechas';
 import type { UsuarioDelNegocio } from '@/lib/sesion';
 import { AccionPrincipal } from './accion-principal';
 import { BarberosSinTurno } from './barberos-sin-turno';
 import { BloqueSigue } from './bloque-sigue';
+import { CompletarPasadas, type CitaPasada } from './completar-pasadas';
 import { FiltroDeBarberos } from './filtro-de-barberos';
 import { GrillaDelDia, type ColumnaDeBarbero } from './grilla-del-dia';
 import { ListaDelDia, type ElementoDelDia } from './lista-del-dia';
@@ -124,6 +125,21 @@ export async function VistaDeAgenda({
   const nombreDe = new Map(equipo.map((b) => [b.id, b.nombre]));
   const motivo = (b: Bloqueo) => b.motivo ?? 'Sin motivo';
 
+  /** Ya empezó y sigue sin marcar: "Completada" en la tarjeta y en la grilla. */
+  const puedeCompletar = (c: Cita) => (c.estado === 'pendiente' || c.estado === 'confirmada') && accionesPosibles(c, ahora).includes('completar');
+  // En Hoy, las que ya terminaron y nadie marcó: se pueden marcar todas de una vez.
+  const pasadas: CitaPasada[] =
+    ruta === '/hoy'
+      ? ordenadas
+          .filter((c) => puedeCompletar(c) && Date.parse(c.fin) <= ahora.getTime())
+          .map((c) => ({
+            id: c.id,
+            hora: horaLocal(c.inicio, zona),
+            cliente: c.clienteNombre ?? 'Cliente sin nombre',
+            barbero: esDueno && !unSoloBarbero ? c.profesionalNombre : undefined,
+          }))
+      : [];
+
   // --- Lista (celular y tablet) ---
   const vista = (c: Cita): VistaDeCita => ({
     id: c.id,
@@ -132,7 +148,7 @@ export async function VistaDeAgenda({
     detalle: `${nombresDeServicios(c.servicios)}${esDueno && !unSoloBarbero ? ` · ${c.profesionalNombre}` : ''}`,
     resumen: `hasta ${horaLocal(c.fin, zona)} · ${duracionLegible(duracionMinutos(c))} · ${pesos(c.precioTotalCop)}`,
     estado: c.estado,
-    puedeCompletar: (c.estado === 'pendiente' || c.estado === 'confirmada') && accionesPosibles(c, ahora).includes('completar'),
+    puedeCompletar: puedeCompletar(c),
   });
   const conMinuto: { minuto: number; elemento: ElementoDelDia }[] = ordenadas.map((c) => ({
     minuto: minutosDesdeElInicio(c.inicio, fecha, zona),
@@ -208,7 +224,7 @@ export async function VistaDeAgenda({
             servicios,
             estado: x.estado,
             href: enlace({ cita: x.id }),
-            etiqueta: `${horaLocal(x.inicio, zona)}, ${cliente}, ${servicios}, ${ESTADOS[x.estado].etiqueta}`,
+            puedeCompletar: puedeCompletar(x),
           },
         ];
       }),
@@ -240,100 +256,103 @@ export async function VistaDeAgenda({
     />
   );
 
+  // Un solo proveedor para la lista, la grilla y "marcar pasadas": lo marcado en uno se ve en todos.
   return (
-    <div className="ancho-completo">
-      <RefrescoAutomatico />
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm text-suave">{usuario.negocio.nombre}</p>
-          <h1 className="text-2xl font-semibold">{relativo ?? 'Agenda'}</h1>
-          {conTira ? (
-            <SelectorDeFecha fecha={fecha} texto={fechaLarga(fecha)} enlace={enlaceAgenda('__FECHA__')} />
-          ) : (
-            <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
-          )}
+    <ProveedorDeMarcado>
+      <div className="ancho-completo">
+        <RefrescoAutomatico />
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm text-suave">{usuario.negocio.nombre}</p>
+            <h1 className="text-2xl font-semibold">{relativo ?? 'Agenda'}</h1>
+            {conTira ? (
+              <SelectorDeFecha fecha={fecha} texto={fechaLarga(fecha)} enlace={enlaceAgenda('__FECHA__')} />
+            ) : (
+              <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
+            )}
+          </div>
+          <AccionPrincipal href={nuevaCita()} etiqueta="Nueva cita" Icono={CalendarPlus} />
         </div>
-        <AccionPrincipal href={nuevaCita()} etiqueta="Nueva cita" Icono={CalendarPlus} />
-      </div>
 
-      {arriba}
-      {conFiltro && (
-        <div className="mb-3">
-          <FiltroDeBarberos barberos={equipo} elegido={elegido?.id} enlace={(b) => enlace({ barbero: b })} />
-        </div>
-      )}
-      {conTira && (
-        <div className="mb-4">
-          {/* Seis semanas: en el PC se pasan con los botones de semana o la rueda; más lejos, el calendario. */}
-          <TiraDeDias seleccionada={fecha} hoy={hoy} dias={42} semanas enlace={(f) => enlace({ fecha: f })} />
-        </div>
-      )}
-
-      <p className="sr-only" aria-live="polite">
-        {citas.length === 1 ? '1 cita' : `${citas.length} citas`}
-        {elegido && ` de ${elegido.nombre}`}
-      </p>
-
-      <div className="lg:hidden">
-        {sigue && (
-          <BloqueSigue cita={sigue.cita} enCurso={sigue.enCurso} zona={zona} conBarbero={esDueno && !unSoloBarbero} ahora={ahora} href={`/citas/${sigue.cita.id}`} />
+        {arriba}
+        {conFiltro && (
+          <div className="mb-3">
+            <FiltroDeBarberos barberos={equipo} elegido={elegido?.id} enlace={(b) => enlace({ barbero: b })} />
+          </div>
         )}
-        {citas.length === 0 && elementos.some((e) => e.tipo === 'hueco') && <p className="mb-2 text-sm text-suave">{sinCitas}</p>}
-        <ProveedorDeMarcado>
+        {conTira && (
+          <div className="mb-4">
+            {/* Seis semanas: en el PC se pasan con los botones de semana o la rueda; más lejos, el calendario. */}
+            <TiraDeDias seleccionada={fecha} hoy={hoy} dias={42} semanas enlace={(f) => enlace({ fecha: f })} />
+          </div>
+        )}
+
+        <p className="sr-only" aria-live="polite">
+          {citas.length === 1 ? '1 cita' : `${citas.length} citas`}
+          {elegido && ` de ${elegido.nombre}`}
+        </p>
+
+        {pasadas.length > 0 && <CompletarPasadas citas={pasadas} />}
+
+        <div className="lg:hidden">
+          {sigue && (
+            <BloqueSigue cita={sigue.cita} enCurso={sigue.enCurso} zona={zona} conBarbero={esDueno && !unSoloBarbero} ahora={ahora} href={`/citas/${sigue.cita.id}`} />
+          )}
+          {citas.length === 0 && elementos.some((e) => e.tipo === 'hueco') && <p className="mb-2 text-sm text-suave">{sinCitas}</p>}
           <ListaDelDia elementos={elementos} vacia={<p>{sinCitas}</p>} />
-        </ProveedorDeMarcado>
-      </div>
-
-      {/* En el escritorio, lo de ahora y el día en números, arriba de la grilla. */}
-      <div className="mb-4 hidden items-stretch gap-4 lg:flex">
-        {sigue && (
-          <BloqueSigue
-            cita={sigue.cita}
-            enCurso={sigue.enCurso}
-            zona={zona}
-            conBarbero={esDueno && !unSoloBarbero}
-            ahora={ahora}
-            href={enlace({ cita: sigue.cita.id })}
-            className="min-w-0 flex-1"
-            id="sigue-escritorio"
-          />
-        )}
-        <ResumenDelDia {...resumen} enlacePorAprobar={esDueno ? '/por-aprobar' : undefined} />
-      </div>
-
-      <div className="hidden gap-6 lg:flex">
-        <div className="min-w-0 flex-1">
-          {grilla.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">No hay barberos activos.</div>
-          ) : (
-            <>
-              {citas.length === 0 && <p className="mb-2 text-sm text-suave">{sinCitas}</p>}
-              {sinTurnoHoy.length > 0 ? (
-                <BarberosSinTurno nombres={sinTurnoHoy} columnas={grilla.length}>
-                  {laGrilla}
-                </BarberosSinTurno>
-              ) : (
-                laGrilla
-              )}
-            </>
-          )}
-          {canceladas.length > 0 && (
-            <div className="mt-3 text-sm text-suave">
-              <p className="mb-1 font-medium">Canceladas</p>
-              <ul className="flex flex-wrap gap-2">
-                {canceladas.map((c) => (
-                  <li key={c.id}>
-                    <Link href={enlace({ cita: c.id })} scroll={false} className="inline-flex min-h-11 items-center rounded-lg border border-borde bg-superficie px-3 line-through hover:bg-fondo">
-                      {horaLocal(c.inicio, zona)} · {c.clienteNombre ?? 'Cliente sin nombre'}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
-        {conPanel && <PanelDeCita cita={abierta} zona={zona} cerrar={enlace({})} />}
+
+        {/* En el escritorio, lo de ahora y el día en números, arriba de la grilla. */}
+        <div className="mb-4 hidden items-stretch gap-4 lg:flex">
+          {sigue && (
+            <BloqueSigue
+              cita={sigue.cita}
+              enCurso={sigue.enCurso}
+              zona={zona}
+              conBarbero={esDueno && !unSoloBarbero}
+              ahora={ahora}
+              href={enlace({ cita: sigue.cita.id })}
+              className="min-w-0 flex-1"
+              id="sigue-escritorio"
+            />
+          )}
+          <ResumenDelDia {...resumen} enlacePorAprobar={esDueno ? '/por-aprobar' : undefined} />
+        </div>
+
+        <div className="hidden gap-6 lg:flex">
+          <div className="min-w-0 flex-1">
+            {grilla.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-borde bg-superficie px-6 py-10 text-center text-suave">No hay barberos activos.</div>
+            ) : (
+              <>
+                {citas.length === 0 && <p className="mb-2 text-sm text-suave">{sinCitas}</p>}
+                {sinTurnoHoy.length > 0 ? (
+                  <BarberosSinTurno nombres={sinTurnoHoy} columnas={grilla.length}>
+                    {laGrilla}
+                  </BarberosSinTurno>
+                ) : (
+                  laGrilla
+                )}
+              </>
+            )}
+            {canceladas.length > 0 && (
+              <div className="mt-3 text-sm text-suave">
+                <p className="mb-1 font-medium">Canceladas</p>
+                <ul className="flex flex-wrap gap-2">
+                  {canceladas.map((c) => (
+                    <li key={c.id}>
+                      <Link href={enlace({ cita: c.id })} scroll={false} className="inline-flex min-h-11 items-center rounded-lg border border-borde bg-superficie px-3 line-through hover:bg-fondo">
+                        {horaLocal(c.inicio, zona)} · {c.clienteNombre ?? 'Cliente sin nombre'}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          {conPanel && <PanelDeCita cita={abierta} zona={zona} cerrar={enlace({})} />}
+        </div>
       </div>
-    </div>
+    </ProveedorDeMarcado>
   );
 }

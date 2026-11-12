@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-11-09T00:40:12.698Z",
         "reason": "user approved decision 2 of the panel audit (8 nov 2026): status stripe per appointment state, always paired with a written status badge"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "componentes/cita-en-la-grilla.tsx"
+        ],
+        "createdAt": "2026-11-12T02:07:54.697Z",
+        "reason": "Claude: franja de estado ya existente en grilla-del-dia.tsx y tarjeta-de-cita.tsx (main); solo se movió al componente nuevo"
       }
     ]
   }

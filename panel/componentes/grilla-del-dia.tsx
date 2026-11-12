@@ -1,22 +1,14 @@
-import Link from 'next/link';
+import { CitaEnLaGrilla, type CitaDeLaGrilla } from './cita-en-la-grilla';
 import { HuecoDeLaGrilla, type MarcaDelHueco } from './hueco-de-la-grilla';
 import { LlevarAAhora } from './llevar-a-ahora';
 import { horaTapada, type Tramo } from '@/lib/agenda';
-import { ESTADOS, type EstadoCita } from '@/lib/citas';
 
 /** 15 minutos = 20 px: un corte de 30 min alcanza para la hora y el nombre. */
 const PX_POR_MINUTO = 20 / 15;
 const px = (minutos: number) => `${minutos * PX_POR_MINUTO}px`;
 
-export interface BloqueDeCita {
-  id: string;
+export interface BloqueDeCita extends CitaDeLaGrilla {
   tramo: Tramo;
-  hora: string;
-  cliente: string;
-  servicios: string;
-  estado: EstadoCita;
-  href: string;
-  etiqueta: string;
 }
 
 export interface ColumnaDeBarbero {
@@ -129,31 +121,10 @@ export function GrillaDelDia({
             ))}
 
             {c.citas.map((cita) => {
-              const alta = Math.max((cita.tramo.fin - cita.tramo.inicio) * PX_POR_MINUTO, 22);
-              const elegida = cita.id === seleccionada;
+              const alto = Math.max((cita.tramo.fin - cita.tramo.inicio) * PX_POR_MINUTO, 22);
               // El nombre no se corta: pasa a la línea siguiente, y los servicios usan las que sobren.
-              const lineas = Math.max(1, Math.floor((alta - RELLENO) / LINEA));
-              return (
-                <Link
-                  key={cita.id}
-                  href={cita.href}
-                  scroll={false}
-                  aria-label={cita.etiqueta}
-                  aria-current={elegida ? 'true' : undefined}
-                  title={cita.etiqueta}
-                  className={`absolute inset-x-1 z-[1] overflow-hidden rounded-md border border-l-4 border-borde bg-superficie px-2 py-1 text-xs shadow-sm transition-shadow duration-150 hover:shadow-flotante ${
-                    ESTADOS[cita.estado].franja
-                  } ${elegida ? 'ring-2 ring-marca' : ''}`}
-                  style={{ top: arriba(cita.tramo.inicio), height: `${alta}px` }}
-                >
-                  {/* Alto justo de las líneas que caben: lo que sobra se corta entre líneas, sin "…" que haga parecer cortado el nombre. */}
-                  <span className="block overflow-hidden leading-3.5 break-words" style={{ maxHeight: `${lineas * LINEA}px` }}>
-                    <span className="cifras font-semibold">{cita.hora}</span> <span className="font-medium">{cita.cliente}</span>
-                    <br />
-                    <span className="text-suave">{cita.servicios}</span>
-                  </span>
-                </Link>
-              );
+              const lineas = Math.max(1, Math.floor((alto - RELLENO) / LINEA));
+              return <CitaEnLaGrilla key={cita.id} cita={cita} elegida={cita.id === seleccionada} arriba={arriba(cita.tramo.inicio)} alto={alto} lineas={lineas} />;
             })}
 
             {ahoraVisible && <div aria-hidden className="pointer-events-none absolute inset-x-0 z-[2] h-0.5 bg-marca" style={{ top: arriba(ahoraVisible.minuto) }} />}
