@@ -29,6 +29,7 @@ import {
   type Actor,
   type Cita,
   type CitaCreada,
+  type CitaDeLista,
   type CitaDetalle,
   type ConsultaDisponibilidad,
   type DiaDisponible,
@@ -452,7 +453,7 @@ const ESTADOS_VALIDOS: readonly EstadoCita[] = [
   'por_aprobar', 'pendiente', 'confirmada', 'completada', 'cancelada', 'no_asistio',
 ];
 
-export async function listarCitas(negocioId: string, filtro: FiltroCitas): Promise<CitaDetalle[]> {
+export async function listarCitas(negocioId: string, filtro: FiltroCitas): Promise<CitaDeLista[]> {
   validarInstante(filtro.desde);
   validarInstante(filtro.hasta);
   if (filtro.hasta <= filtro.desde) throw new DatosInvalidos('"hasta" debe ser posterior a "desde"');

@@ -180,6 +180,59 @@ describe('rutas de citas', () => {
     expect((await api(tokens.duenoA, 'POST', `/citas/${futura.id}/marcar`, { estado: 'raro' })).status).toBe(400);
   });
 
+  describe('historial del cliente (incluir=historial)', () => {
+    /** Una cita pasada de `dias` atrás, en el estado indicado. */
+    const pasada = (profesionalId: string, clienteId: string, dias: number, estado: 'completada' | 'no_asistio' | 'cancelada') => {
+      const inicio = DateTime.now().minus({ days: dias });
+      return insertarCita(a, { profesionalId, clienteId, inicio: inicio.toJSDate(), fin: inicio.plus({ minutes: 30 }).toJSDate(), estado });
+    };
+    const porAprobar = (profesionalId: string, clienteId: string, hhmm: string) =>
+      insertarCita(a, { profesionalId, clienteId, inicio: en(hhmm).toJSDate(), fin: en(hhmm).plus({ minutes: 30 }).toJSDate(), estado: 'por_aprobar' });
+    const historialDe = (citas: { id: string; clienteCitasCompletadas?: number; clienteInasistencias?: number }[], id: string) => {
+      const c = citas.find((x) => x.id === id)!;
+      return [c.clienteCitasCompletadas, c.clienteInasistencias];
+    };
+
+    it('cuenta completadas e inasistencias del cliente en todo el negocio, no solo en el rango', async () => {
+      const uno = await barbero();
+      const otro = await barbero();
+      const recurrente = await crearCliente(a);
+      const nuevo = await crearCliente(a);
+      await pasada(uno.profesionalId, recurrente, 10, 'completada');
+      await pasada(otro.profesionalId, recurrente, 100, 'completada');
+      await pasada(uno.profesionalId, recurrente, 5, 'no_asistio');
+      await pasada(uno.profesionalId, recurrente, 3, 'cancelada'); // no cuenta
+      const suya = await porAprobar(uno.profesionalId, recurrente, '09:00');
+      const delNuevo = await porAprobar(uno.profesionalId, nuevo, '10:00');
+
+      const { json } = await api(tokens.duenoA, 'GET', `/citas?${rango}&profesionalId=${uno.profesionalId}&incluir=historial`);
+      expect(historialDe(json.citas, suya)).toEqual([2, 1]); // incluye la del otro barbero
+      expect(historialDe(json.citas, delNuevo)).toEqual([0, 0]);
+
+      // Sin pedirlo no se calcula: la agenda no paga la consulta.
+      const sin = await api(tokens.duenoA, 'GET', `/citas?${rango}&profesionalId=${uno.profesionalId}`);
+      expect(sin.json.citas.find((c: { id: string }) => c.id === suya)).not.toHaveProperty('clienteCitasCompletadas');
+    });
+
+    it('el empleado solo cuenta lo que el cliente hizo con su barbero', async () => {
+      const suyo = await barbero();
+      const ajeno = await barbero();
+      const token = await usuario(a, 'empleado', suyo.profesionalId);
+      const cliente = await crearCliente(a);
+      await pasada(suyo.profesionalId, cliente, 10, 'completada');
+      await pasada(ajeno.profesionalId, cliente, 20, 'completada');
+      await pasada(ajeno.profesionalId, cliente, 30, 'no_asistio');
+      const cita = await porAprobar(suyo.profesionalId, cliente, '11:00');
+
+      const { json } = await api(token, 'GET', `/citas?${rango}&incluir=historial`);
+      expect(historialDe(json.citas, cita)).toEqual([1, 0]);
+    });
+
+    it('un valor desconocido en incluir es 400', async () => {
+      expect((await api(tokens.duenoA, 'GET', `/citas?${rango}&incluir=raro`)).status).toBe(400);
+    });
+  });
+
   describe('empleado', () => {
     it('solo ve y maneja las citas de su barbero', async () => {
       const suyo = await barbero();

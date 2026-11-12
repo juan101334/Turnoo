@@ -78,6 +78,8 @@ rutasCitas.get('/', async (req, res) => {
       hasta: instante,
       profesionalId: z.string().optional(),
       estado: z.string().optional(),
+      /** "historial": cada cita trae cuántas completó el cliente y cuántas veces no vino. */
+      incluir: z.literal('historial').optional(),
     }),
     req.query,
   );
@@ -88,6 +90,9 @@ rutasCitas.get('/', async (req, res) => {
     hasta: q.hasta,
     ...(profesionalId && { profesionalId }),
     ...(estados && { estados: estados as EstadoCita[] }),
+    // El empleado solo cuenta lo que el cliente hizo con su barbero; el dueño, todo el negocio
+    // (aunque filtre la lista por un barbero).
+    ...(q.incluir === 'historial' && { historial: { profesionalId: a.profesionalId } }),
   });
   res.json({ citas });
 });
