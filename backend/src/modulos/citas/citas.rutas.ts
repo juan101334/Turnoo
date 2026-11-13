@@ -97,6 +97,26 @@ rutasCitas.get('/', async (req, res) => {
   res.json({ citas });
 });
 
+/**
+ * Cuántas citas hay cada día (fechas locales del negocio, ambas incluidas): los puntos bajo los
+ * días del calendario. El empleado cuenta solo las de su barbero.
+ */
+rutasCitas.get('/conteo', async (req, res) => {
+  const a = await alcanceDe(req);
+  const q = validarEsquema(
+    z.object({ desde: z.string(), hasta: z.string(), profesionalId: z.string().optional() }),
+    req.query,
+  );
+  const profesionalId = barberoPermitido(a, q.profesionalId);
+  res.json(
+    await servicio.contarCitasPorDia(a.negocioId, {
+      desde: q.desde,
+      hasta: q.hasta,
+      ...(profesionalId && { profesionalId }),
+    }),
+  );
+});
+
 rutasCitas.get('/:id', async (req, res) => {
   const a = await alcanceDe(req);
   res.json(await citaVisible(a, String(req.params.id)));
