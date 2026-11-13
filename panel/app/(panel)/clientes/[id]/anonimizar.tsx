@@ -15,31 +15,37 @@ export function AnonimizarCliente({ clienteId }: { clienteId: string }) {
   const [pendiente, iniciar] = useTransition();
 
   return (
-    <section aria-labelledby="borrar-datos" className="mt-6 rounded-xl border border-borde bg-superficie p-4">
-      <h2 id="borrar-datos" className="font-semibold">
-        Borrar sus datos
-      </h2>
-      <p className="mb-3 text-sm text-suave">Si el cliente te pide que borres su información. Sus citas pasadas se conservan, sin nombre ni teléfono.</p>
+    <section aria-labelledby="borrar-datos" className="rounded-xl border border-borde bg-superficie px-4 py-3">
+      {/* Cerrado, una sola fila (en el celular, el botón baja): lo que pasa se explica al confirmar. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-1 basis-48">
+          <h2 id="borrar-datos" className="font-semibold">
+            Borrar sus datos
+          </h2>
+          <p className="text-sm text-suave">Si el cliente te pide que borres su información.</p>
+        </div>
+        {!confirmando && (
+          <button
+            type="button"
+            onClick={() => setConfirmando(true)}
+            className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-peligro hover:bg-peligro-suave"
+          >
+            <ShieldX aria-hidden className="size-4" />
+            Borrar datos del cliente
+          </button>
+        )}
+      </div>
       {error && (
-        <div className="mb-3">
+        <div className="mt-3">
           <Aviso tipo="error">{error}</Aviso>
         </div>
       )}
-      {!confirmando ? (
-        <button
-          type="button"
-          onClick={() => setConfirmando(true)}
-          className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-peligro font-semibold text-peligro hover:bg-peligro-suave"
-        >
-          <ShieldX aria-hidden className="size-5" />
-          Borrar datos del cliente
-        </button>
-      ) : (
-        <div className="flex flex-col gap-3 rounded-xl border border-peligro bg-peligro-suave p-3">
+      {confirmando && (
+        <div className="mt-3 flex flex-col gap-3 rounded-xl border border-peligro bg-peligro-suave p-3">
           <p className="font-semibold text-peligro">¿Borrar los datos de este cliente?</p>
           <p className="text-sm">
-            Se borran su nombre, su teléfono, las notas y las fotos que envió. <strong>No se puede deshacer.</strong> Si tiene citas activas, primero
-            cancélalas o márcalas.
+            Se borran su nombre, su teléfono, las notas y las fotos que envió; sus citas pasadas se conservan, sin nombre ni teléfono.{' '}
+            <strong>No se puede deshacer.</strong> Si tiene citas activas, primero cancélalas o márcalas.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button

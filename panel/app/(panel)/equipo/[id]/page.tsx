@@ -6,6 +6,7 @@ import { AvisoDeLaUrl } from '@/componentes/aviso-de-la-url';
 import { BotonDeAccion } from '@/componentes/boton-de-accion';
 import { Campo, CampoSeleccion } from '@/componentes/formulario';
 import { FormularioConEstado } from '@/componentes/formulario-con-estado';
+import { FormularioDesplegable } from '@/componentes/formulario-desplegable';
 import { horariosPorDia } from '@/lib/administracion';
 import { pesos } from '@/lib/citas';
 import { barbero as leerBarbero, horariosDe, serviciosDe, usuarios as leerUsuarios } from '@/lib/datos';
@@ -99,56 +100,73 @@ export default async function PaginaBarbero({ params, searchParams }: { params: 
           ) : (
             <ul className="mb-4 divide-y divide-borde rounded-xl border border-borde">
               {servicios.map((s) => (
-                <li key={s.id} className="flex flex-col gap-2 px-3 py-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className={`font-medium break-words ${s.activo ? '' : 'text-suave line-through'}`}>{s.nombre}</p>
-                      <p className="text-sm text-suave tabular-nums">
-                        {s.duracionMinutos} min · {pesos(s.precioCop)}
-                        {!s.activo && ' · no se ofrece'}
-                      </p>
-                    </div>
+                // Desde 640 px, cada servicio en una línea: nombre y precio a la izquierda, acciones a la derecha.
+                <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                  <div className="min-w-0 flex-1 basis-40">
+                    <p className={`font-medium break-words ${s.activo ? '' : 'text-suave line-through'}`}>{s.nombre}</p>
+                    <p className="text-sm text-suave tabular-nums">
+                      {s.duracionMinutos} min · {pesos(s.precioCop)}
+                      {!s.activo && ' · no se ofrece'}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-start gap-2">
                     <Link
                       href={`/equipo/${b.id}/servicios/${s.id}`}
                       aria-label={`Editar ${s.nombre}`}
-                      className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
+                      className="flex min-h-11 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
                     >
                       <Pencil aria-hidden className="size-4" />
                       Editar
                     </Link>
+                    <BotonDeAccion
+                      etiqueta={s.activo ? 'Dejar de ofrecer' : 'Volver a ofrecer'}
+                      enviando="Guardando…"
+                      accion={cambiarServicioActivo.bind(null, b.id, s.id, !s.activo)}
+                    />
                   </div>
-                  <BotonDeAccion
-                    etiqueta={s.activo ? 'Dejar de ofrecer' : 'Volver a ofrecer'}
-                    enviando="Guardando…"
-                    accion={cambiarServicioActivo.bind(null, b.id, s.id, !s.activo)}
-                  />
                 </li>
               ))}
             </ul>
           )}
-          <h3 className="mb-2 text-sm font-semibold">Agregar servicio</h3>
-          <FormularioConEstado limpiar accion={crearServicio.bind(null, b.id)} boton="Agregar servicio" enviando="Agregando…" variante="secundario">
+          <FormularioDesplegable
+            abrir="Nuevo servicio"
+            titulo="Agregar servicio"
+            abierto={servicios.length === 0}
+            accion={crearServicio.bind(null, b.id)}
+            boton="Agregar servicio"
+            enviando="Agregando…"
+            variante="secundario"
+          >
             <Campo id="servicio-nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" placeholder="Corte" />
             <div className="grid grid-cols-2 gap-3">
               <Campo id="servicio-duracion" name="duracion" etiqueta="Duración (min)" required inputMode="numeric" pattern="[0-9]*" maxLength={3} placeholder="30" />
               <Campo id="servicio-precio" name="precio" etiqueta="Precio ($)" required inputMode="numeric" maxLength={13} placeholder="25.000" />
             </div>
-          </FormularioConEstado>
+          </FormularioDesplegable>
         </Seccion>
       )}
 
       {pestana === 'horario' && (
         <Seccion id="horario" titulo="Horario semanal" ayuda="Para el almuerzo, usa dos rangos el mismo día: de 8:00 a. m. a 12:00 p. m. y de 2:00 p. m. a 8:00 p. m. Los días sueltos se cierran con un bloqueo.">
           <HorarioSemanal barberoId={b.id} dias={horariosPorDia(horarios)} />
-          <h3 className="mt-4 mb-2 text-sm font-semibold">Agregar horario</h3>
-          <p className="mb-2 text-sm text-suave">Elige uno o varios días: el mismo rango se agrega a todos.</p>
-          <FormularioConEstado limpiar accion={crearHorario.bind(null, b.id)} boton="Agregar horario" enviando="Agregando…" variante="secundario">
-            <DiasDelHorario />
-            <div className="grid grid-cols-2 gap-3">
-              <Campo id="horario-desde" name="desde" etiqueta="Desde" type="time" required step={300} />
-              <Campo id="horario-hasta" name="hasta" etiqueta="Hasta" type="time" required step={300} />
-            </div>
-          </FormularioConEstado>
+          <div className="mt-4">
+            <FormularioDesplegable
+              abrir="Nuevo horario"
+              titulo="Agregar horario"
+              ayuda="Elige uno o varios días: el mismo rango se agrega a todos."
+              abierto={horarios.length === 0}
+              accion={crearHorario.bind(null, b.id)}
+              boton="Agregar horario"
+              enviando="Agregando…"
+              variante="secundario"
+            >
+              <DiasDelHorario />
+              <div className="grid grid-cols-2 gap-3">
+                <Campo id="horario-desde" name="desde" etiqueta="Desde" type="time" required step={300} />
+                <Campo id="horario-hasta" name="hasta" etiqueta="Hasta" type="time" required step={300} />
+              </div>
+            </FormularioDesplegable>
+          </div>
         </Seccion>
       )}
 

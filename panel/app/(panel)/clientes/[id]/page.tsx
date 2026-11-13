@@ -52,52 +52,52 @@ export default async function PaginaCliente({ params, searchParams }: { params: 
             </>
           ) : (
             <>
-            <section className="rounded-xl border border-borde bg-superficie p-4">
-              <div className="flex items-start justify-between gap-3">
-                <h1 className="min-w-0 text-2xl font-semibold break-words">{c.nombre ?? 'Sin nombre'}</h1>
-                {esDueno && (
-                  <Link
-                    href={`/clientes/${c.id}/editar`}
-                    className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
-                  >
-                    <Pencil aria-hidden className="size-4" />
-                    Editar
-                  </Link>
-                )}
+            <section className="flex flex-col gap-3 rounded-xl border border-borde bg-superficie p-4">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <h1 className="min-w-0 text-2xl font-semibold break-words">{c.nombre ?? 'Sin nombre'}</h1>
+                  {esDueno && (
+                    <Link
+                      href={`/clientes/${c.id}/editar`}
+                      className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-borde px-3 text-sm font-medium hover:bg-fondo"
+                    >
+                      <Pencil aria-hidden className="size-4" />
+                      Editar
+                    </Link>
+                  )}
+                </div>
+                {c.telefono && <p className="text-lg tabular-nums">{telefonoLegible(c.telefono)}</p>}
+                <p className="text-sm text-suave">Cliente desde el {fechaLarga(fechaDe(c.createdAt, zona))}</p>
               </div>
-              <p className="mb-4 text-sm text-suave">Cliente desde el {fechaLarga(fechaDe(c.createdAt, zona))}</p>
 
               {c.telefono && (
-                <>
-                  <p className="mb-2 text-lg tabular-nums">{telefonoLegible(c.telefono)}</p>
-                  <div className="mb-4 grid grid-cols-2 gap-2">
-                    <a href={`tel:+${c.telefono}`} className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-borde font-medium hover:bg-fondo">
-                      <Phone aria-hidden className="size-4" />
-                      Llamar
-                    </a>
-                    <a
-                      href={`https://wa.me/${c.telefono}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-borde font-medium hover:bg-fondo"
-                    >
-                      <MessageCircle aria-hidden className="size-4" />
-                      WhatsApp
-                    </a>
-                    {/* Solo viaja el id: el teléfono lo busca el servidor de Nueva cita. */}
-                    <Link
-                      href={`/citas/nueva?cliente=${c.id}`}
-                      className="col-span-2 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-marca font-semibold text-white hover:bg-marca-oscura"
-                    >
-                      <CalendarPlus aria-hidden className="size-4" />
-                      Agendar una cita
-                    </Link>
-                  </div>
-                </>
+                <div className="grid grid-cols-2 gap-2">
+                  <a href={`tel:+${c.telefono}`} className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-borde font-medium hover:bg-fondo">
+                    <Phone aria-hidden className="size-4" />
+                    Llamar
+                  </a>
+                  <a
+                    href={`https://wa.me/${c.telefono}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-borde font-medium hover:bg-fondo"
+                  >
+                    <MessageCircle aria-hidden className="size-4" />
+                    WhatsApp
+                  </a>
+                  {/* Solo viaja el id: el teléfono lo busca el servidor de Nueva cita. */}
+                  <Link
+                    href={`/citas/nueva?cliente=${c.id}`}
+                    className="col-span-2 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-marca font-semibold text-white hover:bg-marca-oscura"
+                  >
+                    <CalendarPlus aria-hidden className="size-4" />
+                    Agendar una cita
+                  </Link>
+                </div>
               )}
 
               {c.notas && (
-                <div className="mb-4">
+                <div>
                   <h2 className="text-sm text-suave">Notas</h2>
                   <p className="whitespace-pre-line">{c.notas}</p>
                 </div>

@@ -2,7 +2,7 @@ import { ChevronRight, Scissors } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Campo } from '@/componentes/formulario';
-import { FormularioConEstado } from '@/componentes/formulario-con-estado';
+import { FormularioDesplegable } from '@/componentes/formulario-desplegable';
 import { barberos as leerBarberos, usuarios as leerUsuarios } from '@/lib/datos';
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
@@ -31,10 +31,11 @@ export default async function PaginaEquipo() {
         <ul className="mb-6 divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie">
           {ordenados.map((b) => (
             <li key={b.id}>
-              <Link href={`/equipo/${b.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate font-medium ${b.activo ? '' : 'text-suave'}`}>{b.nombre}</span>
-                  <span className="block truncate text-sm text-suave">
+              <Link href={`/equipo/${b.id}`} className="flex min-h-12 items-center gap-3 px-4 py-2 transition-colors duration-150 hover:bg-fondo">
+                {/* Desde 640 px, nombre y acceso en una sola línea. */}
+                <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-4">
+                  <span className={`truncate font-medium sm:flex-1 ${b.activo ? '' : 'text-suave'}`}>{b.nombre}</span>
+                  <span className="truncate text-sm text-suave sm:shrink-0 sm:text-right">
                     {b.activo ? (b.usuarioId ? `Entra al panel: ${nombreDeUsuario.get(b.usuarioId) ?? 'usuario'}` : 'Sin acceso al panel') : 'Inactivo: no recibe citas'}
                   </span>
                 </span>
@@ -45,14 +46,9 @@ export default async function PaginaEquipo() {
         </ul>
       )}
 
-      <section aria-labelledby="nuevo-barbero" className="rounded-xl border border-borde bg-superficie p-4">
-        <h2 id="nuevo-barbero" className="mb-3 font-semibold">
-          Agregar barbero
-        </h2>
-        <FormularioConEstado accion={crearBarbero} boton="Agregar barbero" enviando="Agregando…">
-          <Campo id="nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" ayuda="Como lo verán los clientes en WhatsApp." />
-        </FormularioConEstado>
-      </section>
+      <FormularioDesplegable abrir="Nuevo barbero" titulo="Agregar barbero" nivel={2} abierto={ordenados.length === 0} accion={crearBarbero} boton="Agregar barbero" enviando="Agregando…">
+        <Campo id="nombre" name="nombre" etiqueta="Nombre" required maxLength={100} autoComplete="off" ayuda="Como lo verán los clientes en WhatsApp." />
+      </FormularioDesplegable>
     </div>
   );
 }
