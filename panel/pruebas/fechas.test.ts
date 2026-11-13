@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diaRelativo, esFechaValida, fechaDe, fechaLarga, finDelDia, horaLocal, hoyEn, limitesDelDia, sumarDias, tiempoRestante } from '@/lib/fechas';
+import { diaRelativo, diasDeLaSemana, rangoDeFechas, esFechaValida, fechaDe, fechaLarga, finDelDia, horaLocal, hoyEn, limitesDelDia, sumarDias, tiempoRestante } from '@/lib/fechas';
 
 const BOGOTA = 'America/Bogota';
 
@@ -47,5 +47,21 @@ describe('fin del día', () => {
     const fin = finDelDia('2026-12-10', 'America/Bogota');
     expect(fin).toBe('2026-12-10T23:59:59.999-05:00');
     expect(fechaDe(fin, 'America/Bogota')).toBe('2026-12-10');
+  });
+});
+
+describe('días de la semana', () => {
+  it('de lunes a domingo, aunque la fecha sea domingo o cruce de mes y de año', () => {
+    expect(diasDeLaSemana('2026-11-12')).toEqual(['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14', '2026-11-15']);
+    expect(diasDeLaSemana('2026-11-15')[0]).toBe('2026-11-09');
+    expect(diasDeLaSemana('2026-11-16')[0]).toBe('2026-11-16');
+    expect(diasDeLaSemana('2027-01-01')).toEqual(['2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02', '2027-01-03']);
+  });
+});
+
+describe('rango de fechas', () => {
+  it('el mes una vez si no cambia; los dos si cruza', () => {
+    expect(rangoDeFechas('2026-11-09', '2026-11-15')).toBe('9 al 15 de noviembre');
+    expect(rangoDeFechas('2026-11-30', '2026-12-06')).toBe('30 de noviembre al 6 de diciembre');
   });
 });

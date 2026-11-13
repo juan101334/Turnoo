@@ -31,6 +31,20 @@ export function diasDeLaTira(seleccionada: string, hoy: string, dias: number): s
   return Array.from({ length: dias }, (_, i) => sumarDias(inicio, i));
 }
 
+/** Los 7 días de la semana de `fecha`, de lunes a domingo (como el horario de los barberos). */
+export function diasDeLaSemana(fecha: string): string[] {
+  const lunes = DateTime.fromISO(fecha).startOf('week');
+  return Array.from({ length: 7 }, (_, i) => lunes.plus({ days: i }).toISODate()!);
+}
+
+/** '9 al 15 de noviembre', o '30 de noviembre al 6 de diciembre' si cruza de mes. */
+export function rangoDeFechas(desde: string, hasta: string): string {
+  const a = DateTime.fromISO(desde).setLocale(LOCALE);
+  const b = DateTime.fromISO(hasta).setLocale(LOCALE);
+  const fin = b.toFormat("d 'de' LLLL");
+  return a.month === b.month ? `${a.day} al ${fin}` : `${a.toFormat("d 'de' LLLL")} al ${fin}`;
+}
+
 /** Desde las 00:00 del día hasta las 00:00 del siguiente, en la zona del negocio (el backend excluye "hasta"). */
 export function limitesDelDia(fecha: string, zona: string): { desde: string; hasta: string } {
   const inicio = DateTime.fromISO(fecha, { zone: zona }).startOf('day');

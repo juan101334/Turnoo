@@ -52,6 +52,14 @@ for (const modo of ['light', 'dark'] as const) {
       }
     });
 
+    test('la semana del barbero', async ({ page }, info) => {
+      test.skip(info.project.name === 'celular', 'La semana es solo del PC');
+      await entrarYEsperar(page, datos().empleado);
+      const ruta = `/agenda?fecha=${datos().vista.fecha}&vista=semana`;
+      await page.goto(ruta);
+      await revisar(page, ruta);
+    });
+
     test('pantallas del superadmin', async ({ page }) => {
       await entrarYEsperar(page, datos().superadmin, '/superadmin');
       await revisar(page, '/superadmin');

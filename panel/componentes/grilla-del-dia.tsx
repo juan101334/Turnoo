@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CitaEnLaGrilla, type CitaDeLaGrilla } from './cita-en-la-grilla';
 import { HuecoDeLaGrilla, type MarcaDelHueco } from './hueco-de-la-grilla';
 import { LlevarAAhora } from './llevar-a-ahora';
@@ -21,6 +22,8 @@ export interface ColumnaDeBarbero {
   huecos: { clave: string; tramo: Tramo; etiqueta: string; marcas: MarcaDelHueco[] }[];
   /** No trabaja ese día: su columna se esconde hasta "Mostrar todos" (ver BarberosSinTurno). */
   sinTurno?: boolean;
+  /** En la semana: el encabezado (el día) lleva a la vista de ese día; `actual` lo marca. */
+  encabezado?: { href: string; actual: boolean; etiqueta: string };
 }
 
 /**
@@ -42,14 +45,17 @@ export function GrillaDelDia({
   horas,
   ahora,
   seleccionada,
+  anchoMinimo = '10rem',
 }: {
   columnas: ColumnaDeBarbero[];
   rango: Tramo;
   /** Etiquetas del costado: una por hora entera del rango. */
   horas: { minuto: number; texto: string }[];
-  /** Minuto del día de "ahora", solo en el día de hoy. */
-  ahora?: { minuto: number; texto: string } | undefined;
+  /** Minuto del día de "ahora", solo en el día de hoy. En la semana, `columna` es la de hoy. */
+  ahora?: { minuto: number; texto: string; columna?: string } | undefined;
   seleccionada?: string | undefined;
+  /** Ancho mínimo de cada columna: en la semana son 7 y van más angostas. */
+  anchoMinimo?: string;
 }) {
   const alto = px(rango.fin - rango.inicio);
   const arriba = (minuto: number) => px(minuto - rango.inicio);
@@ -64,11 +70,23 @@ export function GrillaDelDia({
     <div id="grilla-del-dia" className="max-h-[calc(100dvh-13rem)] min-h-96 overflow-auto rounded-xl border border-borde bg-superficie">
       {ahoraVisible && <LlevarAAhora contenedor="grilla-del-dia" linea="grilla-ahora" />}
       {/* --columnas la pone BarberosSinTurno: cuántas se ven ahora. Las escondidas no ocupan lugar. */}
-      <div className="grid" style={{ gridTemplateColumns: `4.5rem repeat(var(--columnas, ${columnas.length}), minmax(10rem, 1fr))` }}>
+      <div className="grid" style={{ gridTemplateColumns: `4.5rem repeat(var(--columnas, ${columnas.length}), minmax(${anchoMinimo}, 1fr))` }}>
         <div className="sticky top-0 z-20 border-b border-borde bg-superficie" />
         {columnas.map((c) => (
-          <div key={c.id} className={`sticky top-0 z-20 border-b border-l border-borde bg-superficie px-3 py-2.5 text-sm font-semibold break-words ${oculta(c)}`}>
-            {c.nombre}
+          <div key={c.id} className={`sticky top-0 z-20 border-b border-l border-borde bg-superficie text-sm font-semibold break-words ${c.encabezado ? '' : 'px-3 py-2.5'} ${oculta(c)}`}>
+            {c.encabezado ? (
+              <Link
+                href={c.encabezado.href}
+                aria-current={c.encabezado.actual ? 'date' : undefined}
+                className={`flex min-h-11 items-center px-3 capitalize transition-colors duration-150 hover:bg-fondo ${c.encabezado.actual ? 'text-marca underline decoration-2 underline-offset-4' : ''}`}
+              >
+                {c.nombre}
+                {/* El nombre empieza con lo que se ve ("lun 16") y sigue con la fecha completa. */}
+                <span className="sr-only">, {c.encabezado.etiqueta}</span>
+              </Link>
+            ) : (
+              c.nombre
+            )}
           </div>
         ))}
 
@@ -90,7 +108,7 @@ export function GrillaDelDia({
         </div>
 
         {columnas.map((c) => (
-          <div key={c.id} role="group" aria-label={`Agenda de ${c.nombre}`} className={`relative border-l border-borde bg-hundido ${oculta(c)}`} style={{ height: alto }}>
+          <div key={c.id} role="group" aria-label={c.encabezado ? `Agenda del ${c.encabezado.etiqueta}` : `Agenda de ${c.nombre}`} className={`relative border-l border-borde bg-hundido ${oculta(c)}`} style={{ height: alto }}>
             {c.trabajo.map((t) => (
               <div key={`t${t.inicio}`} aria-hidden className="absolute inset-x-0 bg-superficie" style={{ top: arriba(t.inicio), height: px(t.fin - t.inicio) }} />
             ))}
@@ -127,7 +145,9 @@ export function GrillaDelDia({
               return <CitaEnLaGrilla key={cita.id} cita={cita} elegida={cita.id === seleccionada} arriba={arriba(cita.tramo.inicio)} alto={alto} lineas={lineas} />;
             })}
 
-            {ahoraVisible && <div aria-hidden className="pointer-events-none absolute inset-x-0 z-[2] h-0.5 bg-marca" style={{ top: arriba(ahoraVisible.minuto) }} />}
+            {ahoraVisible && (ahoraVisible.columna === undefined || ahoraVisible.columna === c.id) && (
+              <div aria-hidden className="pointer-events-none absolute inset-x-0 z-[2] h-0.5 bg-marca" style={{ top: arriba(ahoraVisible.minuto) }} />
+            )}
           </div>
         ))}
       </div>
