@@ -171,10 +171,11 @@ const enTresDias = ahora.plus({ days: 3 }).startOf('day');
 const citaAprobar = await cita(barberoE2E, corte, enTresDias.set({ hour: 10 }), 'Cliente Aprobar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 2 }) });
 await cita(barberoDos, corteDos, enTresDias.set({ hour: 11 }), 'Cliente Rechazar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ minutes: 30 }) });
 // Para "Aprobar todas": vencen después de las dos de arriba, así que van al final de la lista y la
-// prueba del lote corre cuando las otras ya se aprobaron o rechazaron.
-const enCuatroDias = ahora.plus({ days: 4 }).startOf('day');
-await cita(barberoE2E, corte, enCuatroDias.set({ hour: 10 }), 'Cliente Lote Aprobar Uno', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 5 }) });
-await cita(barberoDos, corteDos, enCuatroDias.set({ hour: 11 }), 'Cliente Lote Aprobar Dos', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 6 }) });
+// prueba del lote corre cuando las otras ya se aprobaron o rechazaron. En un día y una hora que
+// ninguna otra prueba usa (Nueva cita agenda a las 10:00 dentro de 4 días).
+const enVeinticincoDias = ahora.plus({ days: 25 }).startOf('day');
+await cita(barberoE2E, corte, enVeinticincoDias.set({ hour: 15 }), 'Cliente Lote Aprobar Uno', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 5 }) });
+await cita(barberoDos, corteDos, enVeinticincoDias.set({ hour: 16 }), 'Cliente Lote Aprobar Dos', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 6 }) });
 
 // Historial de "Cliente Aprobar": vino 3 veces y faltó 1, hace más de un mes (no aparece en la
 // agenda de ninguna prueba). Con el Barbero Lote, que no tiene horario.

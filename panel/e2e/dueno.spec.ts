@@ -133,7 +133,7 @@ test.describe.serial('citas por aprobar', () => {
     const lista = dialogo.getByRole('list', { name: 'Citas que se aprueban' });
     await expect(lista.getByRole('listitem')).toHaveCount(2);
     // Como en la tarjeta: el día con mayúscula, "·", la hora, el cliente, el barbero y su historial.
-    await expect(lista.getByRole('listitem').nth(0)).toContainText(/^[A-ZÁÉÍÓÚ].* · 10:00\sa\.\sm\. · Cliente Lote Aprobar Uno · Barbero E2E\s*Cliente nuevo$/);
+    await expect(lista.getByRole('listitem').nth(0)).toContainText(/^[A-ZÁÉÍÓÚ].* · 3:00\sp\.\sm\. · Cliente Lote Aprobar Uno · Barbero E2E\s*Cliente nuevo$/);
     await expect(lista.getByRole('listitem').nth(1)).toContainText('Cliente Lote Aprobar Dos · Barbero Dos');
     await expect(dialogo).toContainText('Cada cliente recibe por WhatsApp');
     await dialogo.getByRole('button', { name: 'Cancelar' }).click();
