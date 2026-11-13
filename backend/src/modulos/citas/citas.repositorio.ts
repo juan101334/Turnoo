@@ -2,6 +2,7 @@ import type { Transaccion } from '../../db/contexto.js';
 import {
   ESTADOS_ACTIVOS,
   type Cita,
+  type CitaDeLista,
   type CitaDetalle,
   type EstadoCita,
   type FiltroCitas,
@@ -427,17 +428,34 @@ function aDetalle(f: FilaDetalle): CitaDetalle {
 
 export const LIMITE_LISTA_CITAS = 500;
 
-export async function listarCitas(tx: Transaccion, f: FiltroCitas): Promise<CitaDetalle[]> {
-  const { rows } = await tx.consultar<FilaDetalle>(
-    `${DETALLE_SQL}
-      WHERE c.inicio >= $1 AND c.inicio < $2
-        AND ($3::uuid IS NULL OR c.profesional_id = $3)
-        AND ($4::text[] IS NULL OR c.estado = ANY($4))
-      ORDER BY c.inicio, c.id
-      LIMIT ${LIMITE_LISTA_CITAS}`,
-    [f.desde, f.hasta, f.profesionalId ?? null, f.estados ?? null],
+export async function listarCitas(tx: Transaccion, f: FiltroCitas): Promise<CitaDeLista[]> {
+  // El historial va en un LATERAL: usa citas_cliente_inicio_idx y cuenta TODAS las citas del
+  // cliente, no solo las del rango listado. Sin historial, $5 es false y no se calcula nada.
+  const { rows } = await tx.consultar<FilaDetalle & { completadas: number | null; inasistencias: number | null }>(
+    `SELECT d.*, h.completadas, h.inasistencias
+       FROM (${DETALLE_SQL}
+              WHERE c.inicio >= $1 AND c.inicio < $2
+                AND ($3::uuid IS NULL OR c.profesional_id = $3)
+                AND ($4::text[] IS NULL OR c.estado = ANY($4))
+              ORDER BY c.inicio, c.id
+              LIMIT ${LIMITE_LISTA_CITAS}) d
+       LEFT JOIN LATERAL (
+         SELECT count(*) FILTER (WHERE x.estado = 'completada')::int AS completadas,
+                count(*) FILTER (WHERE x.estado = 'no_asistio')::int AS inasistencias
+           FROM citas x
+          WHERE x.cliente_id = d.cliente_id AND ($6::uuid IS NULL OR x.profesional_id = $6)
+       ) h ON $5
+      ORDER BY d.inicio, d.id`,
+    [f.desde, f.hasta, f.profesionalId ?? null, f.estados ?? null, f.historial !== undefined, f.historial?.profesionalId ?? null],
   );
-  return rows.map(aDetalle);
+  return rows.map((fila) => {
+    const cita: CitaDeLista = aDetalle(fila);
+    if (f.historial) {
+      cita.clienteCitasCompletadas = fila.completadas ?? 0;
+      cita.clienteInasistencias = fila.inasistencias ?? 0;
+    }
+    return cita;
+  });
 }
 
 /** Citas activas de un cliente que aún no terminan, de la más próxima a la más lejana. */

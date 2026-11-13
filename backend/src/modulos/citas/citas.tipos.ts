@@ -124,4 +124,19 @@ export interface FiltroCitas {
   hasta: Date;
   profesionalId?: string;
   estados?: EstadoCita[];
+  /**
+   * Si viene, cada cita trae el historial de su cliente (para decidir al aprobar). `profesionalId`
+   * null = todo el negocio (dueño); con valor = solo las citas con ese barbero (empleado), igual
+   * que el resumen de la lista de clientes.
+   */
+  historial?: { profesionalId: string | null };
 }
+
+/** Lo que el cliente ya hizo en el negocio, contado en la base (no se limita a las citas listadas). */
+export interface HistorialDelCliente {
+  clienteCitasCompletadas: number;
+  clienteInasistencias: number;
+}
+
+/** Cita de la lista; con `historial` en el filtro trae además los contadores del cliente. */
+export type CitaDeLista = CitaDetalle & Partial<HistorialDelCliente>;
