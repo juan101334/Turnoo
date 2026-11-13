@@ -3,7 +3,9 @@ import { alerta, datos, entrarYEsperar } from './datos';
 
 /**
  * Vista del dueño: agenda del equipo, citas por aprobar y cambios a clientes (ver sembrar.ts).
- * "Cliente Aprobar" (Barbero E2E) vence en 2 h; "Cliente Rechazar" (Barbero Dos), en 30 min.
+ * "Cliente Aprobar" (Barbero E2E) vence en 2 h y ya vino 3 veces y faltó 1; "Cliente Rechazar"
+ * (Barbero Dos), en 30 min, es nuevo. "Cliente Lote Aprobar Uno" y "Dos" vencen en 5 y 6 h: son para
+ * "Aprobar todas", que va al final.
  */
 
 const tarjeta = (page: Page, cliente: string) => page.getByRole('link', { name: new RegExp(cliente) });
@@ -51,16 +53,27 @@ test.describe('agenda del equipo', () => {
 test.describe.serial('citas por aprobar', () => {
   test('la barra muestra cuántas hay y la lista pone primero la que vence antes', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
-    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 2 pendientes');
+    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 4 pendientes');
     await porAprobarEnLaBarra(page).click();
     await expect(page.getByRole('heading', { name: 'Por aprobar' })).toBeVisible();
 
-    const tarjetas = page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Aprobar' }) });
-    await expect(tarjetas).toHaveCount(2);
+    const tarjetas = page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Aprobar', exact: true }) });
+    await expect(tarjetas).toHaveCount(4);
     await expect(tarjetas.nth(0)).toContainText('Cliente Rechazar');
     await expect(tarjetas.nth(0)).toContainText(/Vence en \d{1,2} min/);
     await expect(tarjetas.nth(1)).toContainText('Cliente Aprobar');
     await expect(tarjetas.nth(1)).toContainText(/Vence en 1 h \d{1,2} min|Vence en 2 h/);
+  });
+
+  test('cada tarjeta dice si el cliente es nuevo o cuántas veces vino y faltó', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/por-aprobar');
+    const rechazar = page.getByRole('listitem').filter({ hasText: 'Cliente Rechazar' });
+    await expect(rechazar).toContainText('Cliente nuevo');
+    await expect(rechazar).not.toContainText('No vino');
+    const aprobar = page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' });
+    await expect(aprobar).toContainText('Ha venido 3 veces');
+    await expect(aprobar).toContainText('No vino 1 vez');
   });
 
   test('aprobar se puede deshacer: la cita vuelve y el backend no la aprueba', async ({ page }) => {
@@ -80,7 +93,7 @@ test.describe.serial('citas por aprobar', () => {
     await page.clock.resume();
     await page.reload();
     await expect(page.getByRole('listitem').filter({ hasText: 'Cliente Aprobar' })).toHaveCount(1);
-    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 2 pendientes');
+    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 4 pendientes');
   });
 
   test('aprobar la quita de la lista al instante y, al acabar el aviso, baja el contador', async ({ page }) => {
@@ -94,10 +107,10 @@ test.describe.serial('citas por aprobar', () => {
     const guardado = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/por-aprobar'));
     await page.clock.fastForward('00:08');
     expect((await guardado).ok()).toBe(true);
-    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 1 pendiente');
+    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 3 pendientes');
   });
 
-  test('rechazar pide confirmación; sin pendientes, la lista y el contador quedan vacíos', async ({ page }) => {
+  test('rechazar pide confirmación', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/por-aprobar');
     const rechazar = page.getByRole('listitem').filter({ hasText: 'Cliente Rechazar' });
@@ -105,6 +118,31 @@ test.describe.serial('citas por aprobar', () => {
     await expect(rechazar.getByText('¿Rechazar esta cita?')).toBeVisible();
     await rechazar.getByRole('button', { name: 'Sí, rechazar' }).click();
 
+    await expect(rechazar).toHaveCount(0);
+    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 2 pendientes');
+  });
+
+  test('"Aprobar todas" lista lo que aprueba con su historial; al confirmar, la lista y el contador quedan vacíos', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/por-aprobar');
+    await expect(page.getByText(/2 citas\s*esperan tu aprobación/)).toBeVisible();
+
+    // Cancelar no aprueba nada.
+    await page.getByRole('button', { name: 'Aprobar todas' }).click();
+    const dialogo = page.getByRole('alertdialog', { name: '¿Aprobar 2 citas?' });
+    const lista = dialogo.getByRole('list', { name: 'Citas que se aprueban' });
+    await expect(lista.getByRole('listitem')).toHaveCount(2);
+    // Como en la tarjeta: el día con mayúscula, "·", la hora, el cliente, el barbero y su historial.
+    await expect(lista.getByRole('listitem').nth(0)).toContainText(/^[A-ZÁÉÍÓÚ].* · 3:00\sp\.\sm\. · Cliente Lote Aprobar Uno · Barbero E2E\s*Cliente nuevo$/);
+    await expect(lista.getByRole('listitem').nth(1)).toContainText('Cliente Lote Aprobar Dos · Barbero Dos');
+    await expect(dialogo).toContainText('Cada cliente recibe por WhatsApp');
+    await dialogo.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(dialogo).toBeHidden();
+    await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar, 2 pendientes');
+
+    await page.getByRole('button', { name: 'Aprobar todas' }).click();
+    await dialogo.getByRole('button', { name: 'Aprobar', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '2 citas aprobadas.' })).toBeVisible();
     await expect(page.getByText('No hay citas esperando tu aprobación.')).toBeVisible();
     await expect(porAprobarEnLaBarra(page)).toHaveAccessibleName('Por aprobar');
   });

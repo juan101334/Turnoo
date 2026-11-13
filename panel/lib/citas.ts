@@ -30,6 +30,34 @@ export interface Cita {
   servicios: ServicioDeCita[];
 }
 
+/** Con `incluir=historial`: lo que el cliente ya hizo en el negocio (el empleado, solo con su barbero). */
+export interface CitaConHistorial extends Cita {
+  clienteCitasCompletadas: number;
+  clienteInasistencias: number;
+}
+
+/** Citas que se mandan de una vez en una acción por lotes: más que un día lleno de un local, no hace falta. */
+export const MAXIMO_POR_LOTE = 50;
+
+const veces = (n: number) => (n === 1 ? '1 vez' : `${n} veces`);
+
+/**
+ * El historial en palabras, para decidir si aprobar: "Cliente nuevo" (nunca ha venido) o "Ha venido
+ * 3 veces", y "No vino 1 vez" solo si alguna vez faltó. Se cuentan citas, no días.
+ */
+export function historialDelCliente(c: Pick<CitaConHistorial, 'clienteCitasCompletadas' | 'clienteInasistencias'>): {
+  visitas: string;
+  nuevo: boolean;
+  inasistencias: string | null;
+} {
+  const nuevo = c.clienteCitasCompletadas === 0;
+  return {
+    visitas: nuevo ? 'Cliente nuevo' : `Ha venido ${veces(c.clienteCitasCompletadas)}`,
+    nuevo,
+    inasistencias: c.clienteInasistencias > 0 ? `No vino ${veces(c.clienteInasistencias)}` : null,
+  };
+}
+
 /** `clases`: la insignia; `franja`: el borde izquierdo de la tarjeta o el bloque (color del estado). */
 /** `texto`: color del ícono y del nombre del estado cuando van sin fondo (en la grilla del PC). */
 export const ESTADOS: Record<EstadoCita, { etiqueta: string; clases: string; franja: string; texto: string }> = {

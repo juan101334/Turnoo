@@ -7,7 +7,7 @@ import type { Bloqueo } from './bloqueos';
 import type { BaseDeConocimiento, EntradaConocimiento } from './conocimiento';
 import type { Conversacion, Mensaje } from './conversaciones';
 import type { EstadoNegocio, UsoDelMes } from './plan';
-import type { Cita, EstadoCita } from './citas';
+import type { Cita, CitaConHistorial, EstadoCita } from './citas';
 import { limitesDelDia } from './fechas';
 import { exigirUsuario } from './sesion';
 
@@ -56,23 +56,45 @@ export async function citasDelDia(fecha: string, zona: string, filtro: FiltroDeC
   return citasEntre(desde, hasta, filtro);
 }
 
-/** Citas que empiezan entre `desde` (incluido) y `hasta` (excluido). El backend admite hasta 62 días. */
-export async function citasEntre(desde: string, hasta: string, { profesionalId, estados }: FiltroDeCitas = {}): Promise<Cita[]> {
+function consultaDeCitas(desde: string, hasta: string, { profesionalId, estados }: FiltroDeCitas): URLSearchParams {
   const consulta = new URLSearchParams({ desde, hasta });
   if (profesionalId && esId(profesionalId)) consulta.set('profesionalId', profesionalId);
   if (estados?.length) consulta.set('estado', estados.join(','));
-  return (await leer<{ citas: Cita[] }>(`/citas?${consulta}`)).citas;
+  return consulta;
+}
+
+/** Citas que empiezan entre `desde` (incluido) y `hasta` (excluido). El backend admite hasta 62 días. */
+export async function citasEntre(desde: string, hasta: string, filtro: FiltroDeCitas = {}): Promise<Cita[]> {
+  return (await leer<{ citas: Cita[] }>(`/citas?${consultaDeCitas(desde, hasta, filtro)}`)).citas;
 }
 
 /** Hasta dónde se buscan citas por aprobar: el backend lista como mucho 62 días por consulta. */
 export const DIAS_POR_APROBAR = 60;
 
-/** Citas por aprobar que aún no empiezan, la que vence primero arriba. */
-export async function citasPorAprobar(ahora: Date = new Date()): Promise<Cita[]> {
+function consultaPorAprobar(ahora: Date): URLSearchParams {
   const hasta = new Date(ahora.getTime() + DIAS_POR_APROBAR * 86_400_000);
-  const citas = await citasEntre(ahora.toISOString(), hasta.toISOString(), { estados: ['por_aprobar'] });
+  return consultaDeCitas(ahora.toISOString(), hasta.toISOString(), { estados: ['por_aprobar'] });
+}
+
+/** La que vence primero arriba. */
+function porVencimiento<T extends Cita>(citas: T[]): T[] {
   const vence = (c: Cita) => (c.aprobacionExpiraEn ? Date.parse(c.aprobacionExpiraEn) : Date.parse(c.inicio));
   return citas.sort((a, b) => vence(a) - vence(b));
+}
+
+/** Citas por aprobar que aún no empiezan, la que vence primero arriba. Para el contador de la barra. */
+export async function citasPorAprobar(ahora: Date = new Date()): Promise<Cita[]> {
+  return porVencimiento((await leer<{ citas: Cita[] }>(`/citas?${consultaPorAprobar(ahora)}`)).citas);
+}
+
+/**
+ * Las mismas, con lo que cada cliente ya hizo en el negocio (completadas e inasistencias), para
+ * decidir antes de aprobar. Aparte de citasPorAprobar: el contador de la barra no paga ese conteo.
+ */
+export async function citasPorAprobarConHistorial(ahora: Date = new Date()): Promise<CitaConHistorial[]> {
+  const consulta = consultaPorAprobar(ahora);
+  consulta.set('incluir', 'historial');
+  return porVencimiento((await leer<{ citas: CitaConHistorial[] }>(`/citas?${consulta}`)).citas);
 }
 
 /** Bloqueos que se cruzan con el rango (el backend admite hasta 62 días). Al barbero, los suyos y los del negocio. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accionesPosibles, nombresDeServicios, pesos, telefonoLegible, type EstadoCita } from '@/lib/citas';
+import { accionesPosibles, historialDelCliente, nombresDeServicios, pesos, telefonoLegible, type EstadoCita } from '@/lib/citas';
 
 const ahora = new Date('2026-11-08T15:00:00Z');
 const cita = (estado: EstadoCita, inicio: string, aprobacionExpiraEn: string | null = null) => ({ estado, inicio, aprobacionExpiraEn });
@@ -45,5 +45,19 @@ describe('textos de la cita', () => {
   it('teléfono legible', () => {
     expect(telefonoLegible('573001234567')).toBe('+57 300 123 4567');
     expect(telefonoLegible('14155550100')).toBe('+14155550100');
+  });
+});
+
+describe('historialDelCliente', () => {
+  const h = (clienteCitasCompletadas: number, clienteInasistencias: number) => historialDelCliente({ clienteCitasCompletadas, clienteInasistencias });
+
+  it('sin citas completadas es cliente nuevo, aunque haya faltado', () => {
+    expect(h(0, 0)).toEqual({ visitas: 'Cliente nuevo', nuevo: true, inasistencias: null });
+    expect(h(0, 2)).toEqual({ visitas: 'Cliente nuevo', nuevo: true, inasistencias: 'No vino 2 veces' });
+  });
+
+  it('cuenta las visitas y las faltas en singular y plural', () => {
+    expect(h(1, 1)).toEqual({ visitas: 'Ha venido 1 vez', nuevo: false, inasistencias: 'No vino 1 vez' });
+    expect(h(12, 0)).toEqual({ visitas: 'Ha venido 12 veces', nuevo: false, inasistencias: null });
   });
 });

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { ErrorDelBackend, llamarAlBackend } from '@/lib/backend';
-import type { Accion, Cita } from '@/lib/citas';
+import { MAXIMO_POR_LOTE, type Accion, type Cita } from '@/lib/citas';
 import { esId } from '@/lib/datos';
 
 /**
@@ -62,25 +62,32 @@ export async function completarCita(citaId: string): Promise<EstadoAccion> {
   return { listo: RUTAS.completar.listo };
 }
 
-/** Lo que se puede mandar de una vez: más que un día lleno de un local, no hace falta. */
-const MAXIMO_POR_LOTE = 50;
-
 /**
- * "Marcar pasadas como completadas" en Hoy. El backend no tiene un endpoint por lotes: se marcan
- * de una en una, en orden, y se devuelven las que fallaron con su motivo para reintentar solo esas.
- * Una cita que falla no detiene a las demás. Se revalida una sola vez al final.
+ * Una acción sobre varias citas. El backend no tiene endpoints por lotes: se mandan de una en una,
+ * en orden, y se devuelven las que fallaron con su motivo para reintentar solo esas. Una cita que
+ * falla no detiene a las demás. Se revalida una sola vez al final.
  */
-export async function completarCitas(citaIds: string[]): Promise<{ fallidas: { id: string; error: string }[] }> {
+async function enLote(citaIds: string[], ruta: string, cuerpo: object): Promise<{ fallidas: { id: string; error: string }[] }> {
   if (!Array.isArray(citaIds) || citaIds.length === 0 || citaIds.length > MAXIMO_POR_LOTE || !citaIds.every(esId)) {
     return { fallidas: (Array.isArray(citaIds) ? citaIds : []).map((id) => ({ id: String(id), error: 'Acción no válida.' })) };
   }
   const fallidas: { id: string; error: string }[] = [];
   for (const id of new Set(citaIds)) {
-    const resultado = await pedir<Cita>(`/citas/${id}/marcar`, RUTAS.completar.cuerpo);
+    const resultado = await pedir<Cita>(`/citas/${id}/${ruta}`, cuerpo);
     if ('error' in resultado) fallidas.push({ id, error: resultado.error });
   }
   revalidatePath('/', 'layout');
   return { fallidas };
+}
+
+/** "Marcar pasadas como completadas" en Hoy. */
+export async function completarCitas(citaIds: string[]) {
+  return enLote(citaIds, 'marcar', RUTAS.completar.cuerpo);
+}
+
+/** "Aprobar todas" en Por aprobar. Cada cliente recibe el aviso de su cita aprobada. */
+export async function aprobarCitas(citaIds: string[]) {
+  return enLote(citaIds, 'aprobar', RUTAS.aprobar.cuerpo);
 }
 
 /** "Aprobar" desde la lista de por aprobar, cuando se acaba el tiempo para deshacer. */

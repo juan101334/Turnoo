@@ -3,13 +3,15 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CuentaRegresiva } from '@/componentes/cuenta-regresiva';
 import { RefrescoAutomatico } from '@/componentes/refresco-automatico';
-import { accionesPosibles, nombresDeServicios, pesos } from '@/lib/citas';
-import { citasPorAprobar, DIAS_POR_APROBAR } from '@/lib/datos';
+import { accionesPosibles, MAXIMO_POR_LOTE, nombresDeServicios, pesos } from '@/lib/citas';
+import { citasPorAprobarConHistorial, DIAS_POR_APROBAR } from '@/lib/datos';
 import { diaRelativo, fechaDe, fechaLarga, horaLocal, hoyEn } from '@/lib/fechas';
 import { SECCIONES } from '@/lib/navegacion';
 import { exigirUsuario } from '@/lib/sesion';
 import { AccionesCita } from '@/componentes/acciones-cita';
 import { ProveedorDeAprobacion } from '@/componentes/acciones-con-deshacer';
+import { AprobarTodas, type CitaParaAprobar } from '@/componentes/aprobar-todas';
+import { HistorialDelCliente } from '@/componentes/historial-del-cliente';
 import { BotonAprobar, TarjetaPorAprobar } from '@/componentes/por-aprobar-con-deshacer';
 
 export const metadata: Metadata = { title: SECCIONES.porAprobar.etiqueta };
@@ -18,12 +20,29 @@ export const metadata: Metadata = { title: SECCIONES.porAprobar.etiqueta };
  * Citas que pidió un cliente y esperan el visto bueno del dueño. Si nadie responde a tiempo, el
  * sistema las cancela y el horario queda libre: por eso la que vence primero va arriba.
  */
+const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
+
 export default async function PaginaPorAprobar() {
   const usuario = await exigirUsuario('porAprobar');
   const zona = usuario.negocio.zonaHoraria;
   const ahora = new Date();
   const hoy = hoyEn(zona, ahora);
-  const citas = await citasPorAprobar(ahora);
+  const citas = await citasPorAprobarConHistorial(ahora);
+  const diaDe = (inicio: string) => {
+    const fecha = fechaDe(inicio, zona);
+    return diaRelativo(fecha, hoy) ?? fechaLarga(fecha);
+  };
+  const nombreDelCliente = (c: (typeof citas)[number]) => c.clienteNombre ?? 'Cliente sin nombre';
+  // "Aprobar todas" lleva las que aún se pueden aprobar, en el mismo orden (la que vence primero).
+  // Más de las que caben en un lote es raro: se mandan las primeras y el botón lo dice.
+  const aprobables = citas.filter((c) => accionesPosibles(c, ahora).includes('aprobar'));
+  const lote: CitaParaAprobar[] = aprobables.slice(0, MAXIMO_POR_LOTE).map((c) => ({
+    id: c.id,
+    // Como en la tarjeta: "Mañana · 10:00 a. m.", con mayúscula inicial.
+    nombre: `${mayuscula(diaDe(c.inicio))} · ${horaLocal(c.inicio, zona)} · ${nombreDelCliente(c)} · ${c.profesionalNombre}`,
+    clienteCitasCompletadas: c.clienteCitasCompletadas,
+    clienteInasistencias: c.clienteInasistencias,
+  }));
 
   return (
     <div className="ancho-lista">
@@ -43,12 +62,12 @@ export default async function PaginaPorAprobar() {
         </div>
       ) : (
         <ProveedorDeAprobacion>
+          <AprobarTodas citas={lote} soloLasPrimeras={aprobables.length > lote.length} />
           <ul className="flex flex-col gap-3">
             {citas.map((c) => {
-              const fecha = fechaDe(c.inicio, zona);
-              const dia = diaRelativo(fecha, hoy) ?? fechaLarga(fecha);
+              const dia = diaDe(c.inicio);
               const acciones = accionesPosibles(c, ahora);
-              const cliente = c.clienteNombre ?? 'Cliente sin nombre';
+              const cliente = nombreDelCliente(c);
               return (
                 <TarjetaPorAprobar key={c.id} citaId={c.id}>
                   <div className="mb-3 flex flex-col-reverse items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
@@ -57,6 +76,7 @@ export default async function PaginaPorAprobar() {
                         {dia} · <span className="whitespace-nowrap tabular-nums">{horaLocal(c.inicio, zona)}</span>
                       </p>
                       <p className="truncate">{cliente}</p>
+                      <HistorialDelCliente cita={c} className="my-1" />
                       <p className="text-sm text-suave">
                         {nombresDeServicios(c.servicios)} · {c.profesionalNombre} · <span className="tabular-nums">{pesos(c.precioTotalCop)}</span>
                       </p>
@@ -65,10 +85,11 @@ export default async function PaginaPorAprobar() {
                   </div>
                   {acciones.includes('aprobar') ? (
                     // Aprobar se puede deshacer unos segundos (aún no se le avisó al cliente); rechazar pide confirmación.
+                    // key: AccionesCita lo pone junto a una lista de botones; sin ella, React avisa al llegar navegando.
                     <AccionesCita
                       citaId={c.id}
                       acciones={acciones.filter((a) => a !== 'aprobar')}
-                      antes={<BotonAprobar citaId={c.id} cliente={cliente} />}
+                      antes={<BotonAprobar key="aprobar" citaId={c.id} cliente={cliente} />}
                     />
                   ) : (
                     <p className="text-sm text-suave">Ya no se puede aprobar: el sistema la cancelará en unos minutos.</p>
