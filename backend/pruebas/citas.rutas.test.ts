@@ -233,6 +233,71 @@ describe('rutas de citas', () => {
     });
   });
 
+  describe('conteo por día (GET /citas/conteo)', () => {
+    // Tres semanas después del LUNES: ninguna otra prueba pone citas en esos días.
+    const DIA = LUNES.plus({ days: 21 });
+    const fechaDe = (d: DateTime) => d.toFormat('yyyy-MM-dd');
+    const poner = (n: NegocioDePrueba, profesionalId: string, clienteId: string, inicio: DateTime, estado: 'pendiente' | 'cancelada' | 'por_aprobar' | 'completada' = 'pendiente') =>
+      insertarCita(n, { profesionalId, clienteId, inicio: inicio.toJSDate(), fin: inicio.plus({ minutes: 30 }).toJSDate(), estado });
+    const conteo = (token: string, desde: DateTime, hasta: DateTime, extra = '') =>
+      api(token, 'GET', `/citas/conteo?desde=${fechaDe(desde)}&hasta=${fechaDe(hasta)}${extra}`);
+
+    it('cuenta por día local del negocio, sin las canceladas, y filtra por barbero', async () => {
+      const uno = await barbero();
+      const otro = await barbero();
+      const cliente = await crearCliente(a);
+      await poner(a, uno.profesionalId, cliente, DIA.set({ hour: 0 })); // primer minuto del día
+      await poner(a, uno.profesionalId, cliente, DIA.set({ hour: 23, minute: 30 })); // en UTC ya es el día siguiente
+      await poner(a, uno.profesionalId, cliente, DIA.set({ hour: 12 }), 'cancelada');
+      await poner(a, otro.profesionalId, cliente, DIA.set({ hour: 9 }), 'por_aprobar');
+      await poner(a, otro.profesionalId, cliente, DIA.plus({ days: 1 }).set({ hour: 9 }), 'completada');
+      await poner(a, uno.profesionalId, cliente, DIA.plus({ days: 2 }).set({ hour: 0 })); // fuera del rango
+
+      const todos = await conteo(tokens.duenoA, DIA, DIA.plus({ days: 1 }));
+      expect(todos.status).toBe(200);
+      expect(todos.json).toEqual({
+        zonaHoraria: 'America/Bogota',
+        dias: [
+          { fecha: fechaDe(DIA), citas: 3 },
+          { fecha: fechaDe(DIA.plus({ days: 1 })), citas: 1 },
+        ],
+      });
+      const deUno = await conteo(tokens.duenoA, DIA, DIA.plus({ days: 1 }), `&profesionalId=${uno.profesionalId}`);
+      expect(deUno.json.dias).toEqual([{ fecha: fechaDe(DIA), citas: 2 }]);
+      // Otro negocio no ve nada de A.
+      expect((await conteo(tokens.duenoB, DIA, DIA.plus({ days: 1 }))).json.dias).toEqual([]);
+    });
+
+    it('el empleado cuenta solo las de su barbero y no puede pedir las de otro', async () => {
+      const suyo = await barbero();
+      const ajeno = await barbero();
+      const token = await usuario(a, 'empleado', suyo.profesionalId);
+      const cliente = await crearCliente(a);
+      const dia = DIA.plus({ days: 7 });
+      await poner(a, suyo.profesionalId, cliente, dia.set({ hour: 9 }));
+      await poner(a, ajeno.profesionalId, cliente, dia.set({ hour: 10 }));
+
+      expect((await conteo(token, dia, dia)).json.dias).toEqual([{ fecha: fechaDe(dia), citas: 1 }]);
+      expect((await conteo(token, dia, dia, `&profesionalId=${ajeno.profesionalId}`)).status).toBe(403);
+    });
+
+    it('responde 400 a fechas mal formadas, al revés, de más de 62 días o con un barbero inválido', async () => {
+      const casos = [
+        '/citas/conteo?desde=2030-01-01',
+        '/citas/conteo?desde=2030-1-1&hasta=2030-01-02',
+        '/citas/conteo?desde=2030-02-30&hasta=2030-03-01',
+        '/citas/conteo?desde=2030-01-10&hasta=2030-01-09',
+        '/citas/conteo?desde=2030-01-01&hasta=2030-03-04',
+        '/citas/conteo?desde=2030-01-01&hasta=2030-01-02&profesionalId=../negocio',
+      ];
+      for (const ruta of casos) {
+        expect([ruta, (await api(tokens.duenoA, 'GET', ruta)).status]).toEqual([ruta, 400]);
+      }
+      // 62 días justos sí se pueden.
+      expect((await api(tokens.duenoA, 'GET', '/citas/conteo?desde=2030-01-01&hasta=2030-03-03')).status).toBe(200);
+    });
+  });
+
   describe('empleado', () => {
     it('solo ve y maneja las citas de su barbero', async () => {
       const suyo = await barbero();

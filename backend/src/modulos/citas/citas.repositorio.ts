@@ -458,6 +458,27 @@ export async function listarCitas(tx: Transaccion, f: FiltroCitas): Promise<Cita
   });
 }
 
+/**
+ * Citas por día local del negocio entre dos instantes, sin las canceladas. Agrupa en la base (usa
+ * citas_negocio_inicio_idx con el negocio de la RLS) y no tiene el LIMIT de la lista: es un número
+ * por día, no las citas.
+ */
+export async function contarCitasPorDia(
+  tx: Transaccion,
+  f: { desde: Date; hasta: Date; zonaHoraria: string; profesionalId: string | null },
+): Promise<{ fecha: string; citas: number }[]> {
+  const { rows } = await tx.consultar<{ fecha: string; citas: number }>(
+    `SELECT to_char(c.inicio AT TIME ZONE $3, 'YYYY-MM-DD') AS fecha, count(*)::int AS citas
+       FROM citas c
+      WHERE c.inicio >= $1 AND c.inicio < $2 AND c.estado <> 'cancelada'
+        AND ($4::uuid IS NULL OR c.profesional_id = $4)
+      GROUP BY 1
+      ORDER BY 1`,
+    [f.desde, f.hasta, f.zonaHoraria, f.profesionalId],
+  );
+  return rows;
+}
+
 /** Citas activas de un cliente que aún no terminan, de la más próxima a la más lejana. */
 export async function listarActivasDelCliente(tx: Transaccion, clienteId: string, ahora: Date): Promise<CitaDetalle[]> {
   const { rows } = await tx.consultar<FilaDetalle>(

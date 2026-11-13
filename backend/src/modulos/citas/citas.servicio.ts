@@ -32,11 +32,13 @@ import {
   type CitaDeLista,
   type CitaDetalle,
   type ConsultaDisponibilidad,
+  type ConteoDeCitas,
   type DiaDisponible,
   type Disponibilidad,
   type EntradaCita,
   type EstadoCita,
   type FiltroCitas,
+  type FiltroConteo,
   type ReglasDeAgenda,
 } from './citas.tipos.js';
 
@@ -467,6 +469,37 @@ export async function listarCitas(negocioId: string, filtro: FiltroCitas): Promi
     throw new DatosInvalidos('Alguno de los estados no es válido');
   }
   return conNegocio(negocioId, (tx) => repositorio.listarCitas(tx, filtro));
+}
+
+/** Lo que cabe en una consulta de conteo: un mes con las semanas de los bordes, con margen. */
+const MAX_DIAS_CONTEO = 62;
+
+/**
+ * Cuántas citas (sin las canceladas) hay cada día local del negocio entre dos fechas. Para marcar
+ * los días con citas en el calendario con una sola consulta, sin traer las citas.
+ */
+export async function contarCitasPorDia(negocioId: string, filtro: FiltroConteo): Promise<ConteoDeCitas> {
+  if (!esFechaLocal(filtro.desde) || !esFechaLocal(filtro.hasta)) {
+    throw new DatosInvalidos('Las fechas deben tener el formato AAAA-MM-DD');
+  }
+  if (filtro.hasta < filtro.desde) throw new DatosInvalidos('La fecha final no puede ser anterior a la inicial');
+  if (fechasEntre(filtro.desde, filtro.hasta).length > MAX_DIAS_CONTEO) {
+    throw new DatosInvalidos(`Puedes consultar hasta ${MAX_DIAS_CONTEO} días a la vez`);
+  }
+  if (filtro.profesionalId !== undefined && !esUuid(filtro.profesionalId)) {
+    throw new DatosInvalidos('El barbero indicado no es válido');
+  }
+  return conNegocio(negocioId, async (tx) => {
+    const reglas = await repositorio.obtenerReglasDeAgenda(tx, negocioId);
+    if (!reglas) throw new NoEncontrado('El negocio');
+    const dias = await repositorio.contarCitasPorDia(tx, {
+      desde: inicioDelDia(filtro.desde, reglas.zonaHoraria),
+      hasta: inicioDelDia(sumarDias(filtro.hasta, 1), reglas.zonaHoraria),
+      zonaHoraria: reglas.zonaHoraria,
+      profesionalId: filtro.profesionalId ?? null,
+    });
+    return { zonaHoraria: reglas.zonaHoraria, dias };
+  });
 }
 
 /** Las citas activas y futuras de un cliente. Lo usa la IA para responder "mis citas". */

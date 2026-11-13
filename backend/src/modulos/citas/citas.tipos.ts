@@ -140,3 +140,18 @@ export interface HistorialDelCliente {
 
 /** Cita de la lista; con `historial` en el filtro trae además los contadores del cliente. */
 export type CitaDeLista = CitaDetalle & Partial<HistorialDelCliente>;
+
+/** Para los puntos bajo los días del calendario: cuántas citas hay cada día, sin traerlas. */
+export interface FiltroConteo {
+  /** Fechas locales del negocio, 'AAAA-MM-DD', ambas incluidas. */
+  desde: string;
+  hasta: string;
+  /** Solo las de ese barbero. */
+  profesionalId?: string;
+}
+
+export interface ConteoDeCitas {
+  zonaHoraria: string;
+  /** Solo los días con al menos una cita, en orden. No cuenta las canceladas. */
+  dias: { fecha: string; citas: number }[];
+}
