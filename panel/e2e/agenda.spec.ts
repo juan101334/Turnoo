@@ -381,6 +381,87 @@ test.describe('agenda en el escritorio', () => {
   });
 });
 
+/** El día de la tira (por su enlace): su nombre dice cuántas citas tiene, el punto solo se ve. */
+const diaDeLaTira = (page: Page, fecha: string) => page.getByRole('navigation', { name: 'Días' }).locator(`a[href*="fecha=${fecha}"]`);
+
+test.describe('puntos bajo los días', () => {
+  test('el día con citas lo dice en su nombre; con un barbero, cuenta solo las suyas', async ({ page }) => {
+    const { fecha } = datos().vista;
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/agenda');
+    // Una cita por barbero a las 9:00 (ver sembrar.ts).
+    await expect(diaDeLaTira(page, fecha)).toHaveAccessibleName(/^\S+ \d+, 2 citas$/);
+    await page.getByRole('navigation', { name: 'Barbero' }).getByRole('link', { name: 'Barbero Dos' }).click();
+    await expect(page).toHaveURL(/barbero=/);
+    await expect(diaDeLaTira(page, fecha)).toHaveAccessibleName(/^\S+ \d+, 1 cita$/);
+  });
+});
+
+test.describe('semana en el escritorio', () => {
+  test.beforeEach(({}, info) => test.skip(esCelular(info.project.name), 'La semana es solo del PC'));
+
+  test('pide elegir un barbero; con uno, una columna por día y cada cita en su día', async ({ page }) => {
+    const { fecha } = datos().vista;
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/agenda?fecha=${fecha}`);
+    await page.getByRole('navigation', { name: 'Vista' }).getByRole('link', { name: 'Semana' }).click();
+    await expect(page).toHaveURL(/vista=semana/);
+    await expect(page.getByText('La semana se ve por barbero: elige uno arriba.')).toBeVisible();
+    // En el PC la semana es de un barbero: "Todos" no se ofrece.
+    await expect(page.getByRole('navigation', { name: 'Barbero' }).getByRole('link', { name: 'Todos' })).toBeHidden();
+
+    await page.getByRole('navigation', { name: 'Barbero' }).getByRole('link', { name: 'Barbero E2E' }).click();
+    await expect(page).toHaveURL(/barbero=.*vista=semana/);
+    const dias = page.getByRole('group', { name: /^Agenda del / });
+    await expect(dias).toHaveCount(7);
+    await expect(dias.first()).toHaveAccessibleName(/^Agenda del lunes /);
+    const elDia = dias.filter({ has: page.getByRole('link', { name: /Cliente Vista Uno, Confirmada/ }) });
+    await expect(elDia).toHaveCount(1);
+    await expect(elDia.getByText('Almuerzo')).toBeVisible();
+    // Solo las del Barbero E2E.
+    await expect(page.getByRole('link', { name: /Cliente Vista Dos/ })).toHaveCount(0);
+  });
+
+  test('la cita se abre al lado sin dejar la semana; el día del encabezado lleva a la vista de día', async ({ page }) => {
+    const { fecha } = datos().vista;
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/agenda?fecha=${fecha}`);
+    const barbero = await idDe(page, 'Barbero E2E');
+    await page.goto(`/agenda?fecha=${fecha}&barbero=${barbero}&vista=semana`);
+
+    await page.getByRole('link', { name: /Cliente Vista Uno/ }).click();
+    await expect(page).toHaveURL(new RegExp(`vista=semana&cita=[0-9a-f-]{36}$`));
+    await expect(page.getByRole('complementary', { name: /9:00/ })).toContainText('Barbero E2E');
+    await expect(page.getByRole('group', { name: /^Agenda del / })).toHaveCount(7);
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(`/agenda?fecha=${fecha}&barbero=${barbero}&vista=semana`);
+
+    // El día elegido va marcado en el encabezado; tocarlo vuelve a la vista de día de ese barbero.
+    await page.locator('#grilla-del-dia a[aria-current="date"]').click();
+    await expect(page).toHaveURL(`/agenda?fecha=${fecha}&barbero=${barbero}`);
+    await expect(page.getByRole('group', { name: 'Agenda de Barbero E2E' })).toBeVisible();
+  });
+
+  test('el barbero ve su semana sin elegir nada', async ({ page }) => {
+    await entrarYEsperar(page, datos().empleado);
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}&vista=semana`);
+    await expect(page.getByRole('group', { name: /^Agenda del / })).toHaveCount(7);
+    await expect(page.getByRole('link', { name: /Cliente Vista Uno/ })).toBeVisible();
+  });
+});
+
+test.describe('semana en el celular', () => {
+  test.beforeEach(({}, info) => test.skip(!esCelular(info.project.name), 'Lista del celular'));
+
+  test('no hay vista de semana: con ?vista=semana se ve la lista del día', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto(`/agenda?fecha=${datos().vista.fecha}&vista=semana`);
+    await expect(page.getByRole('navigation', { name: 'Vista' })).toBeHidden();
+    await expect(tarjeta(page, 'Cliente Vista Uno')).toBeVisible();
+    await expect(page.getByRole('group', { name: /^Agenda del / })).toBeHidden();
+  });
+});
+
 /** '2026-11-20' → '2026-11-21' (a mediodía UTC: sin líos de zona). */
 const diaSiguiente = (fecha: string) => new Date(Date.parse(`${fecha}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 

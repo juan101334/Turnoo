@@ -68,6 +68,18 @@ export async function citasEntre(desde: string, hasta: string, filtro: FiltroDeC
   return (await leer<{ citas: Cita[] }>(`/citas?${consultaDeCitas(desde, hasta, filtro)}`)).citas;
 }
 
+/**
+ * Cuántas citas (sin las canceladas) hay cada día entre dos fechas locales, ambas incluidas: los
+ * puntos de la tira de días, en una sola consulta (el backend admite hasta 62 días). Al barbero,
+ * el backend le cuenta solo las suyas.
+ */
+export async function citasPorDia(desde: string, hasta: string, profesionalId?: string): Promise<Record<string, number>> {
+  const consulta = new URLSearchParams({ desde, hasta });
+  if (profesionalId && esId(profesionalId)) consulta.set('profesionalId', profesionalId);
+  const { dias } = await leer<{ dias: { fecha: string; citas: number }[] }>(`/citas/conteo?${consulta}`);
+  return Object.fromEntries(dias.map((d) => [d.fecha, d.citas]));
+}
+
 /** Hasta dónde se buscan citas por aprobar: el backend lista como mucho 62 días por consulta. */
 export const DIAS_POR_APROBAR = 60;
 
