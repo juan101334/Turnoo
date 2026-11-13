@@ -168,8 +168,28 @@ await conNegocio(negocio.negocioId, (tx) =>
 // Por aprobar, en otro día para no cambiar la agenda de pasado mañana. La de Rechazar vence antes:
 // va primero en la lista y se marca como urgente (menos de una hora).
 const enTresDias = ahora.plus({ days: 3 }).startOf('day');
-await cita(barberoE2E, corte, enTresDias.set({ hour: 10 }), 'Cliente Aprobar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 2 }) });
+const citaAprobar = await cita(barberoE2E, corte, enTresDias.set({ hour: 10 }), 'Cliente Aprobar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 2 }) });
 await cita(barberoDos, corteDos, enTresDias.set({ hour: 11 }), 'Cliente Rechazar', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ minutes: 30 }) });
+// Para "Aprobar todas": vencen después de las dos de arriba, así que van al final de la lista y la
+// prueba del lote corre cuando las otras ya se aprobaron o rechazaron.
+const enCuatroDias = ahora.plus({ days: 4 }).startOf('day');
+await cita(barberoE2E, corte, enCuatroDias.set({ hour: 10 }), 'Cliente Lote Aprobar Uno', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 5 }) });
+await cita(barberoDos, corteDos, enCuatroDias.set({ hour: 11 }), 'Cliente Lote Aprobar Dos', { estado: 'por_aprobar', aprobacionExpiraEn: ahora.plus({ hours: 6 }) });
+
+// Historial de "Cliente Aprobar": vino 3 veces y faltó 1, hace más de un mes (no aparece en la
+// agenda de ninguna prueba). Con el Barbero Lote, que no tiene horario.
+await conNegocio(negocio.negocioId, async (tx) => {
+  const { rows } = await tx.consultar<{ cliente_id: string }>('SELECT cliente_id FROM citas WHERE id = $1', [citaAprobar]);
+  const estados = ['completada', 'completada', 'completada', 'no_asistio'];
+  for (const [i, estado] of estados.entries()) {
+    const inicio = ahora.minus({ days: 40 + i * 7 }).startOf('day').set({ hour: 9 });
+    await tx.consultar(
+      `INSERT INTO citas (negocio_id, sede_id, profesional_id, cliente_id, inicio, fin, estado, precio_total_cop, origen)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 25000, 'panel')`,
+      [negocio.negocioId, negocio.sedeId, barberoLote, rows[0]!.cliente_id, inicio.toJSDate(), inicio.plus({ minutes: 30 }).toJSDate(), estado],
+    );
+  }
+});
 
 // Clientes sin citas, para editarlos y anonimizarlos.
 async function clienteSinCitas(nombre: string | null, telefono = '573' + String(Math.floor(Math.random() * 1e9)).padStart(9, '0')) {
