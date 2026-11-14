@@ -245,7 +245,10 @@ describe('enviarRecordatorios', () => {
       servicios: 'Corte clásico',
     });
     expect(await recordatorio(e, citaId)).toMatchObject({ recordatorio_resultado: 'enviado', recordatorio_enviado_en: MOMENTO });
-    expect((await sql<{ p: number }>(e, `SELECT plantillas_enviadas AS p FROM uso_mensual WHERE periodo = '2035-03-01'`))[0]!.p).toBe(1);
+    // Cuenta como plantilla, no como conversación de IA: no gasta el cupo del plan.
+    expect(await sql(e, `SELECT plantillas_enviadas, conversaciones_ia FROM uso_mensual WHERE periodo = '2035-03-01'`)).toEqual([
+      { plantillas_enviadas: 1, conversaciones_ia: 0 },
+    ]);
 
     const otra = metaFalso();
     await enviarRecordatorios(new Date(MOMENTO.getTime() + MIN), { pedir: otra.pedir });

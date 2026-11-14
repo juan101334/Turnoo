@@ -154,6 +154,20 @@ describe('uso del plan: conversaciones de IA y tokens', () => {
     });
   });
 
+  it('la migración 016 deja cargados los tres planes', async () => {
+    const { rows } = await conSistema((tx) =>
+      tx.consultar(
+        `SELECT nombre, precio_mensual_cop, max_profesionales, max_conversaciones_ia_mes, max_citas_mes, activo
+           FROM planes WHERE nombre IN ('Independiente', 'Barbería', 'Pro') ORDER BY precio_mensual_cop`,
+      ),
+    );
+    expect(rows).toEqual([
+      { nombre: 'Independiente', precio_mensual_cop: 39900, max_profesionales: 1, max_conversaciones_ia_mes: 300, max_citas_mes: null, activo: true },
+      { nombre: 'Barbería', precio_mensual_cop: 89900, max_profesionales: 4, max_conversaciones_ia_mes: 1000, max_citas_mes: null, activo: true },
+      { nombre: 'Pro', precio_mensual_cop: 149900, max_profesionales: 10, max_conversaciones_ia_mes: 2500, max_citas_mes: null, activo: true },
+    ]);
+  });
+
   describe('límite del plan', () => {
     it('al llegar al límite, una conversación nueva no pasa por la IA: se deriva y se avisa al cliente', async () => {
       const e = await escena(1);

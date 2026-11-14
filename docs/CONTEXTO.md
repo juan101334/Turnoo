@@ -329,7 +329,7 @@ Decisiones ya tomadas para estos puntos:
 
 ## 7. Pendientes por decidir
 
-- Planes: nombres, precios y límites concretos (la tabla `planes` está vacía a propósito).
+- Planes: definidos y cargados con la migración 016 (precio en COP al mes; las citas del mes no tienen límite en ningún plan): **Independiente** $39.900, 1 barbero, 300 conversaciones de IA al mes; **Barbería** $89.900, hasta 4 barberos, 1.000 conversaciones; **Pro** $149.900, hasta 10 barberos, 2.500 conversaciones.
 - Cómo se factura WhatsApp a Meta para que lo pague Turnoo (por defecto Meta le cobra al dueño de cada cuenta) y cómo se da de alta cada negocio (manual al inicio; el registro integrado de Meta exige verificación de la empresa).
 - Servicio de envío de correos (invitaciones y recuperación de contraseña).
 - Política de retención de mensajes y audios.
