@@ -138,7 +138,10 @@ describe('avisos al dueño', () => {
       expect(propios[0]!.cuerpo).toMatchObject({ to: DUENO, type: 'template', template: { name: PLANTILLA_DERIVACION, language: { code: 'es_CO' } } });
       expect(meta.parametros(meta.enviados.indexOf(propios[0]!))).toMatchObject({ cliente: 'Laura', motivo: 'Pidió hablar con una persona', detalle: 'Quiere hablar con alguien', horas: '2' });
       expect(await aviso(e, c.conversacionId)).toMatchObject({ aviso_resultado: 'enviado', avisada_en: T });
-      expect((await sql<{ p: number }>(e, `SELECT plantillas_enviadas AS p FROM uso_mensual WHERE periodo = '2035-03-01'`))[0]!.p).toBe(1);
+      // Cuenta como plantilla, no como conversación de IA: no gasta el cupo del plan.
+      expect(await sql(e, `SELECT plantillas_enviadas, conversaciones_ia FROM uso_mensual WHERE periodo = '2035-03-01'`)).toEqual([
+        { plantillas_enviadas: 1, conversaciones_ia: 0 },
+      ]);
 
       const otra = metaFalso();
       await avisarDerivaciones(new Date(T.getTime() + 60_000), { pedir: otra.pedir });
@@ -258,6 +261,10 @@ describe('avisos al dueño', () => {
       expect(propios).toHaveLength(1);
       expect(propios[0]!.cuerpo).toMatchObject({ to: DUENO, template: { name: PLANTILLA_LIMITE } });
       expect(meta.parametros(meta.enviados.indexOf(propios[0]!))).toEqual({ negocio: 'Barbería La 70', usadas: '8', limite: '10' });
+      // El aviso cuenta como plantilla; las conversaciones de IA siguen en las 8 usadas.
+      expect(await sql(e, `SELECT plantillas_enviadas, conversaciones_ia FROM uso_mensual WHERE periodo = '2035-03-01'`)).toEqual([
+        { plantillas_enviadas: 1, conversaciones_ia: 8 },
+      ]);
 
       await usar(e, 9);
       await avisarLimitesDelPlan(T, { pedir: meta.pedir });
