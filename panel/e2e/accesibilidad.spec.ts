@@ -52,6 +52,19 @@ for (const modo of ['light', 'dark'] as const) {
       }
     });
 
+    test('ficha de un barbero, con los formularios para agregar abiertos', async ({ page }) => {
+      await entrarYEsperar(page, datos().dueno);
+      await page.goto('/equipo');
+      await page.getByRole('button', { name: 'Nuevo barbero' }).click();
+      await revisar(page, '/equipo con "Nuevo barbero" abierto');
+      await page.getByRole('link', { name: /^Barbero Dos/ }).click();
+      await page.getByRole('button', { name: 'Nuevo servicio' }).click();
+      await revisar(page, 'servicios del barbero');
+      await page.getByRole('navigation', { name: 'Secciones del barbero' }).getByRole('link', { name: 'Horario' }).click();
+      await page.getByRole('button', { name: 'Nuevo horario' }).click();
+      await revisar(page, 'horario del barbero');
+    });
+
     test('la semana del barbero', async ({ page }, info) => {
       test.skip(info.project.name === 'celular', 'La semana es solo del PC');
       await entrarYEsperar(page, datos().empleado);

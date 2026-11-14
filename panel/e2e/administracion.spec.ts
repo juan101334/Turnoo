@@ -32,6 +32,15 @@ async function marcarDia(horario: Locator, dia: string) {
   await expect(casilla).toBeChecked();
 }
 
+/**
+ * Abre un formulario plegado ("Nuevo servicio", "Nuevo horario"). Con la lista vacía ya viene
+ * abierto, y entonces no hay botón: se deja así.
+ */
+async function abrirFormulario(zona: Page | Locator, boton: string) {
+  const abrir = zona.getByRole('button', { name: boton });
+  if ((await abrir.count()) > 0) await abrir.click();
+}
+
 /** Abre el menú "Acciones" de un usuario (si ya está abierto, lo deja así). */
 async function abrirAcciones(fila: Locator) {
   const menu = fila.locator('details');
@@ -42,6 +51,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
   test('agregar un barbero lleva a su ficha', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
     await page.goto('/equipo');
+    await page.getByRole('button', { name: 'Nuevo barbero' }).click();
     await page.getByLabel('Nombre').fill('Barbero Admin');
     await page.getByRole('button', { name: 'Agregar barbero' }).click();
     await expect(page).toHaveURL(/\/equipo\/[0-9a-f-]{36}\?listo=creado$/);
@@ -49,11 +59,36 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await expect(page.getByText('Barbero agregado.')).toBeVisible();
   });
 
+  test('con la lista llena, los formularios para agregar van plegados: "Nuevo …" abre y "Cancelar" cierra', async ({ page }) => {
+    await entrarYEsperar(page, datos().dueno);
+    await page.goto('/equipo');
+    const nuevoBarbero = page.getByRole('button', { name: 'Nuevo barbero' });
+    await expect(nuevoBarbero).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByLabel('Nombre')).toHaveCount(0);
+
+    await abrirBarbero(page, 'Barbero Dos');
+    const servicios = seccion(page, 'Servicios y precios');
+    await expect(servicios.getByLabel('Nombre')).toHaveCount(0);
+    await servicios.getByRole('button', { name: 'Nuevo servicio' }).click();
+    const formulario = servicios.getByRole('group', { name: 'Agregar servicio' });
+    await expect(formulario.getByLabel('Nombre')).toBeFocused();
+    await formulario.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(servicios.getByLabel('Nombre')).toHaveCount(0);
+    await expect(servicios.getByRole('button', { name: 'Nuevo servicio' })).toBeFocused();
+
+    await page.getByRole('navigation', { name: 'Secciones del barbero' }).getByRole('link', { name: 'Horario' }).click();
+    const horario = seccion(page, 'Horario semanal');
+    await expect(horario.getByRole('button', { name: 'Nuevo horario' })).toBeVisible();
+    await expect(horario.getByLabel('Desde')).toHaveCount(0);
+  });
+
   test('servicios: agregar, validar, editar el precio y dejar de ofrecer', async ({ page }) => {
     await entrarYEsperar(page, datos().dueno);
     await abrirBarbero(page, 'Barbero Admin');
     const servicios = seccion(page, 'Servicios y precios');
 
+    // Sin servicios, el formulario viene abierto: no hay nada más que hacer.
+    await expect(servicios.getByRole('button', { name: 'Nuevo servicio' })).toHaveCount(0);
     await servicios.getByLabel('Nombre').fill('Cerquillo');
     await servicios.getByLabel('Duración (min)').fill('0');
     await servicios.getByLabel('Precio ($)').fill('18.000');
@@ -86,6 +121,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await abrirBarbero(page, 'Barbero Admin', 'Horario');
     const horario = seccion(page, 'Horario semanal');
 
+    await abrirFormulario(horario, 'Nuevo horario');
     await marcarDia(horario, 'Lunes');
     await horario.getByLabel('Desde').fill('12:00');
     await horario.getByLabel('Hasta').fill('08:00');
@@ -112,6 +148,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await entrarYEsperar(page, datos().dueno);
     await abrirBarbero(page, 'Barbero Admin', 'Horario');
     const horario = seccion(page, 'Horario semanal');
+    await abrirFormulario(horario, 'Nuevo horario');
     await horario.getByRole('button', { name: 'De lunes a viernes' }).click();
     for (const dia of DIAS.slice(0, 5)) await expect(horario.getByRole('checkbox', { name: dia })).toBeChecked();
     await expect(horario.getByRole('checkbox', { name: 'Sábado' })).not.toBeChecked();
@@ -135,6 +172,7 @@ test.describe.serial('barberos, servicios y horarios', () => {
     await expect(horario.getByRole('link', { name: /10:00 a\. m\. · Cliente De Otro/ })).toBeVisible();
 
     // Se devuelve el horario para no cambiar la agenda que usan las otras pruebas.
+    await abrirFormulario(horario, 'Nuevo horario');
     await marcarDia(horario, dia);
     await horario.getByLabel('Desde').fill('08:00');
     await horario.getByLabel('Hasta').fill('20:00');

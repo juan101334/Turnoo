@@ -72,17 +72,17 @@ export default async function PaginaClientes({
               const nombre = nombreEnLista(c);
               return (
                 <tr key={c.id} className="transition-colors duration-150 hover:bg-fondo">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5">
                     <Link href={`/clientes/${c.id}`} className={`font-medium hover:text-marca hover:underline ${c.nombre ? 'break-words' : 'tabular-nums'}`}>
                       {nombre.principal}
                     </Link>
                     {!c.nombre && !c.anonimizadoEn && c.telefono && <span className="block text-sm text-suave">Sin nombre</span>}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-suave tabular-nums">{c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-suave first-letter:uppercase">{c.ultimaVisita ? dia(c.ultimaVisita) : <Ninguna />}</td>
-                  <td className="px-4 py-3 whitespace-nowrap first-letter:uppercase">{c.proximaCita ? proxima(c.proximaCita) : <Ninguna />}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{c.totalCitas}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-1.5 whitespace-nowrap text-suave tabular-nums">{c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}</td>
+                  <td className="px-4 py-1.5 whitespace-nowrap text-suave first-letter:uppercase">{c.ultimaVisita ? dia(c.ultimaVisita) : <Ninguna />}</td>
+                  <td className="px-4 py-1.5 whitespace-nowrap first-letter:uppercase">{c.proximaCita ? proxima(c.proximaCita) : <Ninguna />}</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{c.totalCitas}</td>
+                  <td className="px-4 py-1.5 text-right">
                     {!c.anonimizadoEn && c.telefono && (
                       <Link href={`/citas/nueva?cliente=${c.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold whitespace-nowrap text-marca hover:bg-marca-suave">
                         <CalendarPlus aria-hidden className="size-4" />
