@@ -182,7 +182,7 @@ describe('rutas de negocios', () => {
       expect(await sinPlan.json()).toMatchObject({ estado: 'activo', planId: null });
     });
 
-    it('al volver a prueba sin fecha la deja en 30 días; si ya estaba en prueba, no la toca', async () => {
+    it('al volver a prueba sin fecha la deja en 15 días; si ya estaba en prueba, no la toca', async () => {
       const { datos } = await crearPorRuta();
       const ruta = `/negocios/${datos.id}`;
       const deCreacion = datos.pruebaHasta;
@@ -194,8 +194,8 @@ describe('rutas de negocios', () => {
       const vuelta = await (await pedir(ruta, tokens.superadmin, 'PATCH', { estado: 'prueba' })).json();
       expect(vuelta.estado).toBe('prueba');
       const dias = (new Date(vuelta.pruebaHasta).getTime() - antes) / DIA_MS;
-      expect(dias).toBeGreaterThanOrEqual(30);
-      expect(dias).toBeLessThan(30.01);
+      expect(dias).toBeGreaterThanOrEqual(15);
+      expect(dias).toBeLessThan(15.01);
     });
 
     it('el superadmin fija el fin de la prueba: al pasar a prueba o después, siempre futuro', async () => {

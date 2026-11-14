@@ -15,9 +15,8 @@ import type {
   NegocioDeLaLista,
 } from './negocios.tipos.js';
 
+/** Al crear un negocio, y al volver a ponerlo en prueba sin indicar hasta cuándo. */
 const DIAS_DE_PRUEBA = 15;
-/** Al volver a poner en prueba un negocio que no lo estaba, sin indicar hasta cuándo. */
-const DIAS_AL_PONER_EN_PRUEBA = 30;
 /** Tope para la fecha que escribe el superadmin: evita una prueba "para siempre" por un error de año. */
 const DIAS_MAXIMOS_DE_PRUEBA = 365;
 const MINUTOS_POR_DIA = 24 * 60;
@@ -85,7 +84,7 @@ export async function obtenerNegocio(negocioId: string): Promise<Negocio> {
 
 /**
  * Plan, estado y fin de la prueba. Reglas de la prueba:
- * - pasar a "prueba" desde otro estado sin decir hasta cuándo la deja en 30 días desde ahora
+ * - pasar a "prueba" desde otro estado sin decir hasta cuándo la deja en 15 días desde ahora
  *   (si no, quedaría sin fecha o con una ya vencida); si ya estaba en prueba, la fecha no cambia;
  * - `pruebaHasta` lo fija el superadmin: debe ser futura, a lo sumo en un año, y solo si el
  *   negocio queda en prueba (en un negocio activo no significaría nada).
@@ -112,7 +111,7 @@ export async function cambiarPlanYEstado(
     }
     const pruebaHasta =
       cambios.pruebaHasta ??
-      (cambios.estado === 'prueba' && actual.estado !== 'prueba' ? sumarMinutos(ahora, DIAS_AL_PONER_EN_PRUEBA * MINUTOS_POR_DIA) : undefined);
+      (cambios.estado === 'prueba' && actual.estado !== 'prueba' ? sumarMinutos(ahora, DIAS_DE_PRUEBA * MINUTOS_POR_DIA) : undefined);
     return repositorio.actualizarPlanYEstado(tx, negocioId, { ...cambios, pruebaHasta });
   });
   if (!negocio) throw new NoEncontrado('El negocio');

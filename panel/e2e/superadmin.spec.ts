@@ -52,7 +52,7 @@ test.describe.serial('superadmin', () => {
     await expect(seccion(page, 'WhatsApp')).toContainText('Sin número conectado');
   });
 
-  test('el fin de la prueba se cambia con la fecha; volver a prueba la deja en 30 días', async ({ page }) => {
+  test('el fin de la prueba se cambia con la fecha; volver a prueba la deja en 15 días', async ({ page }) => {
     await abrirNegocio(page, nombre);
     const estado = seccion(page, 'Estado');
     await page.waitForLoadState('networkidle');
@@ -64,9 +64,9 @@ test.describe.serial('superadmin', () => {
     await estado.getByRole('button', { name: 'Activar' }).click();
     await expect(page.getByText('Activo', { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel('Último día de la prueba')).toHaveCount(0);
-    await estado.getByRole('button', { name: 'Poner en prueba por 30 días' }).click();
+    await estado.getByRole('button', { name: 'Poner en prueba por 15 días' }).click();
     await expect(page.getByText('En prueba', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('Último día de la prueba')).toHaveValue(enDias(30));
+    await expect(page.getByLabel('Último día de la prueba')).toHaveValue(enDias(15));
   });
 
   test('conectar el WhatsApp: valida los ids y el token no se vuelve a mostrar', async ({ page }) => {

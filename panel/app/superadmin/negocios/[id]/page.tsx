@@ -49,7 +49,7 @@ function detalleDeEstado(estado: EstadoNegocio, pruebaHasta: string | null, fech
 /** Activar o poner en prueba van en "Estado"; suspender, aparte, en la zona de peligro. */
 const CAMBIOS_DE_ESTADO: { estado: Exclude<EstadoNegocio, 'suspendido'>; boton: string }[] = [
   { estado: 'activo', boton: 'Activar' },
-  { estado: 'prueba', boton: 'Poner en prueba por 30 días' },
+  { estado: 'prueba', boton: 'Poner en prueba por 15 días' },
 ];
 
 function Seccion({

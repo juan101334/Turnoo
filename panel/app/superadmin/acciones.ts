@@ -53,7 +53,7 @@ export async function cambiarEstado(negocioId: string, estado: EstadoNegocio): P
   const r = await pedir(`/negocios/${negocioId}`, 'PATCH', { estado });
   if ('error' in r) return r;
   refrescar();
-  return { listo: estado === 'suspendido' ? 'Negocio suspendido.' : estado === 'activo' ? 'Negocio activo.' : 'Negocio en prueba por 30 días.' };
+  return { listo: estado === 'suspendido' ? 'Negocio suspendido.' : estado === 'activo' ? 'Negocio activo.' : 'Negocio en prueba por 15 días.' };
 }
 
 /**
