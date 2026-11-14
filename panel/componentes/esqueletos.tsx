@@ -149,6 +149,10 @@ export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
           ) : (
             <Linea t="sm" ancho="w-44" />
           )}
+          {/* El resumen del día, una línea bajo la fecha (solo en el escritorio). */}
+          <div className="mt-1 hidden lg:block">
+            <Linea t="sm" ancho="w-72" />
+          </div>
         </div>
         <Boton className="hidden w-36 shrink-0 md:block" />
       </div>
@@ -195,10 +199,10 @@ export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
         </div>
       </div>
 
-      {/* Escritorio: lo que sigue, el resumen y la grilla con la columna de horas. */}
+      {/* Escritorio: lo que sigue y la grilla con la columna de horas. */}
       <div className="hidden lg:block">
-        <div className="mb-4 flex items-stretch gap-4">
-          <Tarjeta className="min-w-0 flex-1 p-4">
+        <div className="mb-4">
+          <Tarjeta className="p-4">
             <Linea t="sm" ancho="w-44" className="mb-1" />
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -209,19 +213,6 @@ export function EsqueletoAgenda({ conTira = true }: { conTira?: boolean }) {
                 <Boton className="w-24" />
                 <Boton className="w-24" />
               </div>
-            </div>
-          </Tarjeta>
-          <Tarjeta className="p-4">
-            <Linea t="sm" ancho="w-32" className="mb-2" />
-            <div className="flex gap-x-8">
-              {['w-20', 'w-24', 'w-20'].map((ancho, i) => (
-                <div key={i}>
-                  <div className="flex h-[1.875rem] items-center">
-                    <Bloque className="h-6 w-6" />
-                  </div>
-                  <Linea t="sm" ancho={ancho} />
-                </div>
-              ))}
             </div>
           </Tarjeta>
         </div>
