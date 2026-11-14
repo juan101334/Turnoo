@@ -214,7 +214,6 @@ Aprobaciones vencidas, autocompletar y limpieza ya corren, con un temporizador d
 
 ## 13. Pendientes por decidir
 
-- Planes: nombres, precios y límites concretos.
 - Cómo se factura WhatsApp a Meta para que lo pague Turnoo (por defecto Meta le cobra al dueño de cada cuenta) y cómo se da de alta cada negocio (manual al inicio).
 - Servicio de transcripción de audio. El proveedor de IA ya está decidido (OpenAI); el modelo exacto se elige con las conversaciones de prueba.
 - Servicio de envío de correos (invitaciones y recuperación de contraseña).

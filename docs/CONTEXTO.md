@@ -135,7 +135,7 @@ La tabla completa de decisiones de producto está en ARQUITECTURA.md, sección 3
 - Del webhook falta: descarga de audios e imágenes y estados de entrega (los `statuses` de Meta).
 - Del envío falta: plantillas (fuera de la ventana de 24 h) y la prueba con WhatsApp real.
 - Tareas con WhatsApp: recordatorios, avisos de derivación y avisos al cliente.
-- Creación de planes: la tabla `planes` sigue vacía a propósito (sección 7), así que hoy solo se puede asignar un plan creado con SQL.
+- Creación de planes desde el panel: los tres planes se cargan con la migración 016 y el superadmin solo los asigna; cambiar un precio o un límite es otra migración.
 - CORS en `app.ts`: no hace falta. El navegador nunca llama al backend; lo llama el servidor del panel.
 
 **Huecos conocidos del código actual** (los corrige el plan de la sección 6.1, salvo que se indique otra cosa):
