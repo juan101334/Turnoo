@@ -71,7 +71,7 @@ test.describe('nueva cita: el cliente primero', () => {
   test('desde un hueco de la agenda, la hora queda marcada y el resumen fijo la muestra', async ({ page }) => {
     await entrarYEsperar(page, datos().empleado);
     await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
-    await page.getByRole('link', { name: /^Agendar, libre de 9:30/ }).click();
+    await page.getByRole('link', { name: /^Libre · 9:30/ }).click();
     await page.getByRole('link', { name: 'Cliente nuevo', exact: true }).click();
     await page.getByRole('checkbox', { name: /Corte/ }).check();
     await page.getByRole('button', { name: 'Ver horas libres' }).click();
