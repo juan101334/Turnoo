@@ -217,7 +217,7 @@ export async function VistaDeAgenda({
     for (const h of huecos) {
       conMinuto.push({
         minuto: h.inicio,
-        elemento: { tipo: 'hueco', clave: `h${h.inicio}`, horas: horas(h), href: nuevaCita(b.id, h.inicio), etiqueta: `Agendar, libre de ${horas(h)}` },
+        elemento: { tipo: 'hueco', clave: `h${h.inicio}`, horas: horas(h), href: nuevaCita(b.id, h.inicio) },
       });
     }
   }
@@ -366,6 +366,7 @@ export async function VistaDeAgenda({
             ) : (
               <p className="text-sm text-suave first-letter:uppercase">{fechaLarga(fecha)}</p>
             )}
+            {!enSemana && <ResumenDelDia {...resumen} enlacePorAprobar={esDueno ? '/por-aprobar' : undefined} className="mt-1 hidden lg:block" />}
           </div>
           <div className="flex shrink-0 items-center gap-3">
             {/* Sin filtro de barberos (el barbero, o un solo barbero), Día o Semana va aquí arriba. */}
@@ -405,9 +406,9 @@ export async function VistaDeAgenda({
           <ListaDelDia elementos={elementos} vacia={<p>{sinCitas}</p>} />
         </div>
 
-        {/* En el escritorio, lo de ahora y el día en números, arriba de la grilla. */}
-        <div className={`mb-4 hidden items-stretch gap-4 ${enSemana ? '' : 'lg:flex'}`}>
-          {sigue && (
+        {/* En el escritorio, lo de ahora arriba de la grilla, a todo el ancho (el resumen va en el encabezado). */}
+        {sigue && !enSemana && (
+          <div className="mb-4 hidden lg:block">
             <BloqueSigue
               cita={sigue.cita}
               enCurso={sigue.enCurso}
@@ -415,12 +416,11 @@ export async function VistaDeAgenda({
               conBarbero={esDueno && !unSoloBarbero}
               ahora={ahora}
               href={enlace({ cita: sigue.cita.id })}
-              className="min-w-0 flex-1"
+              className=""
               id="sigue-escritorio"
             />
-          )}
-          <ResumenDelDia {...resumen} enlacePorAprobar={esDueno ? '/por-aprobar' : undefined} />
-        </div>
+          </div>
+        )}
 
         <div className="hidden gap-6 lg:flex">
           <div className="min-w-0 flex-1">

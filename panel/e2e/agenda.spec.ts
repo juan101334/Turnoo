@@ -69,11 +69,11 @@ test.describe('agenda en el celular', () => {
     await expect(tarjeta(page, 'Cliente Vista Uno')).toContainText('Confirmada');
     await expect(page.getByRole('listitem').filter({ hasText: 'Almuerzo' })).toContainText(/1:00.*– 2:00/);
 
-    const hueco = page.getByRole('link', { name: /^Agendar, libre de 8:00/ });
+    const hueco = page.getByRole('link', { name: /^Libre · 8:00/ });
     await expect(hueco).toHaveAttribute('href', new RegExp(`^/citas/nueva\\?fecha=${fecha}&barbero=[0-9a-f-]{36}&hora=`));
     // De 9:30 a 13:00 libre; el almuerzo parte la tarde.
-    await expect(page.getByRole('link', { name: /^Agendar, libre de 9:30.*– 1:00/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /^Agendar, libre de 2:00/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Libre · 9:30.*– 1:00/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Libre · 2:00/ })).toBeVisible();
   });
 
   test('el calendario junto a la tira cambia de día al elegir, sin otro botón', async ({ page }) => {
@@ -297,13 +297,13 @@ test.describe('agenda en el escritorio', () => {
     await expect(sigue).toBeVisible();
     await expect(sigue.getByRole('link', { name: 'Ver cita' })).toHaveAttribute('href', /^\/hoy\?cita=[0-9a-f-]{36}$/);
     const resumen = page.getByRole('region', { name: 'Resumen del día' });
-    await expect(resumen).toContainText(/Citas\s*\d+/);
+    await expect(resumen).toContainText(/\d+ citas?/);
     await expect(resumen).not.toContainText('$');
 
-    // Un día que no es hoy: solo el resumen, sin "Sigue".
+    // Un día que no es hoy: sin "Sigue"; el resumen sigue en el encabezado.
     await page.goto(`/agenda?fecha=${datos().vista.fecha}`);
     await expect(page.getByRole('region', { name: /^(Sigue|En curso)/ })).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Resumen del día' })).toContainText(/Citas\s*2.*Completadas\s*0.*Por aprobar\s*0/);
+    await expect(page.getByRole('region', { name: 'Resumen del día' })).toContainText(/2 citas\s*·\s*0 completadas\s*·\s*0 por aprobar/);
   });
 
   test('los barberos que no trabajan ese día se esconden hasta "Mostrar todos"', async ({ page }) => {

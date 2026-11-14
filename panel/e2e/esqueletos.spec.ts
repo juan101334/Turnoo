@@ -28,7 +28,9 @@ const CASOS: Caso[] = [
     api: '/citas',
     titulo: 'Por aprobar',
     // Otras pruebas aprueban o rechazan las sembradas: puede tocar el aviso de "no hay".
-    contenido: (m) => m.locator('ul, div.border-dashed').first(),
+    // Con 2 o más, lo primero es la franja de "Aprobar todas" (div.rounded-xl); su lista de
+    // confirmación está en la página, escondida: solo cuenta lo visible.
+    contenido: (m) => m.locator('ul, div.border-dashed, div.rounded-xl').locator('visible=true').first(),
   },
   { ruta: '/mensajes', api: '/conversaciones', titulo: 'Mensajes', contenido: (m) => m.locator('nav[aria-label="Filtro de conversaciones"]') },
   { ruta: '/clientes', api: '/clientes', contenido: (m) => m.locator('table, ul').locator('visible=true').first() },
