@@ -72,7 +72,7 @@ async function procesarAudio(
   const segundos = transcripcion.segundos || Math.ceil(duracion ?? 0);
   await conNegocio(negocioId, async (tx) => {
     await repositorio.guardarTranscripcion(tx, mensajeId, transcripcion.texto);
-    if (segundos > 0) await sumarSegundosDeAudio(tx, negocioId, primerDiaDelMes(ahora, zonaHoraria), segundos);
+    if (segundos > 0) await sumarSegundosDeAudio(tx, negocioId, primerDiaDelMes(ahora, zonaHoraria), segundos, ahora, transcripcion.modelo);
   });
   return null;
 }

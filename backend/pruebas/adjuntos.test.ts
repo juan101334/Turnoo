@@ -238,6 +238,10 @@ describe('notas de voz e imágenes', () => {
       expect(await fila(id)).toMatchObject({ transcripcion: 'quiero un corte', archivo_ruta: null, adjunto_error: null });
       const [uso] = await sql<{ s: number }>(`SELECT segundos_audio_transcritos AS s FROM uso_mensual WHERE periodo = '2035-03-01'`);
       expect(uso!.s).toBeGreaterThanOrEqual(5);
+      // El registro de consumo lleva lo mismo, fila por fila, con el modelo de audio.
+      expect(await sql('SELECT tipo, modelo, sum(segundos_audio)::int AS s FROM consumos GROUP BY tipo, modelo')).toEqual([
+        { tipo: 'audio', modelo: 'gpt-transcribe', s: uso!.s },
+      ]);
     });
 
     it(`una nota de más de ${MAX_SEGUNDOS_AUDIO} segundos no se transcribe (ni se paga)`, async () => {

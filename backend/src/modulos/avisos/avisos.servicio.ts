@@ -4,6 +4,7 @@ import { conNegocio, conSistema } from '../../db/contexto.js';
 import { sumarPlantilla } from '../uso/uso.repositorio.js';
 import type { Plantilla } from '../whatsapp/whatsapp.meta.js';
 import {
+  CATEGORIA_PLANTILLAS,
   enviarPlantilla as enviar,
   IDIOMA_PLANTILLAS,
   parametro,
@@ -85,7 +86,7 @@ export async function avisarDerivaciones(ahora: Date, deps: DependenciasAvisos =
     await conNegocio(negocioId, async (tx) => {
       if (respuesta.ok) {
         await repositorio.marcarAvisada(tx, id, ahora);
-        await sumarPlantilla(tx, negocioId, primerDiaDelMes(ahora, datos.zonaHoraria));
+        await sumarPlantilla(tx, negocioId, primerDiaDelMes(ahora, datos.zonaHoraria), ahora, CATEGORIA_PLANTILLAS);
       } else {
         await repositorio.registrarFalloDeAviso(tx, id, !respuesta.reintentable, MAX_INTENTOS_AVISO);
       }
@@ -112,7 +113,7 @@ export async function avisarLimitesDelPlan(ahora: Date, deps: DependenciasAvisos
         : { ok: false, reintentable: false, detalle: 'Sin cuenta activa o sin teléfono de avisos' };
 
     await conNegocio(l.negocioId, async (tx) => {
-      if (respuesta.ok) await sumarPlantilla(tx, l.negocioId, l.periodo);
+      if (respuesta.ok) await sumarPlantilla(tx, l.negocioId, l.periodo, ahora, CATEGORIA_PLANTILLAS);
       // Pasajero: se reintenta en la vuelta siguiente. Definitivo: queda marcado y solo se registra.
       else if (respuesta.reintentable) await repositorio.liberarAvisoDeLimite(tx, l.negocioId, l.periodo);
     });

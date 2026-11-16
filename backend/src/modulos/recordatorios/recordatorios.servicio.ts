@@ -11,7 +11,7 @@ import { conNegocio, conSistema } from '../../db/contexto.js';
 import { fechaEnPalabras } from '../ia/ia.instrucciones.js';
 import { sumarPlantilla } from '../uso/uso.repositorio.js';
 import type { Plantilla } from '../whatsapp/whatsapp.meta.js';
-import { enviarPlantilla, IDIOMA_PLANTILLAS, parametro, type DependenciasPlantillas } from '../whatsapp/whatsapp.plantillas.js';
+import { CATEGORIA_PLANTILLAS, enviarPlantilla, IDIOMA_PLANTILLAS, parametro, type DependenciasPlantillas } from '../whatsapp/whatsapp.plantillas.js';
 import type { RespuestaMeta } from '../whatsapp/whatsapp.tipos.js';
 import * as repositorio from './recordatorios.repositorio.js';
 
@@ -108,7 +108,7 @@ export async function enviarRecordatorios(ahora: Date, deps: DependenciasRecorda
     await conNegocio(negocioId, async (tx) => {
       if (respuesta.ok) {
         await repositorio.marcarEnviado(tx, id, ahora);
-        await sumarPlantilla(tx, negocioId, primerDiaDelMes(ahora, datos.zonaHoraria));
+        await sumarPlantilla(tx, negocioId, primerDiaDelMes(ahora, datos.zonaHoraria), ahora, CATEGORIA_PLANTILLAS);
       } else {
         await repositorio.registrarFallo(tx, id, !respuesta.reintentable, MAX_INTENTOS_RECORDATORIO);
       }

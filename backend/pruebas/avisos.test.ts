@@ -142,6 +142,9 @@ describe('avisos al dueño', () => {
       expect(await sql(e, `SELECT plantillas_enviadas, conversaciones_ia FROM uso_mensual WHERE periodo = '2035-03-01'`)).toEqual([
         { plantillas_enviadas: 1, conversaciones_ia: 0 },
       ]);
+      expect(await sql(e, 'SELECT tipo, categoria_plantilla, creado_en FROM consumos')).toEqual([
+        { tipo: 'plantilla', categoria_plantilla: 'utilidad', creado_en: T },
+      ]);
 
       const otra = metaFalso();
       await avisarDerivaciones(new Date(T.getTime() + 60_000), { pedir: otra.pedir });
@@ -265,6 +268,7 @@ describe('avisos al dueño', () => {
       expect(await sql(e, `SELECT plantillas_enviadas, conversaciones_ia FROM uso_mensual WHERE periodo = '2035-03-01'`)).toEqual([
         { plantillas_enviadas: 1, conversaciones_ia: 8 },
       ]);
+      expect(await sql(e, 'SELECT tipo, categoria_plantilla FROM consumos')).toEqual([{ tipo: 'plantilla', categoria_plantilla: 'utilidad' }]);
 
       await usar(e, 9);
       await avisarLimitesDelPlan(T, { pedir: meta.pedir });

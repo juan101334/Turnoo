@@ -56,6 +56,8 @@ export interface RespuestaDelModelo {
   /** El texto para el cliente; vacío si el modelo solo pidió funciones. */
   texto: string;
   uso: UsoDeTokens;
+  /** El modelo que se pidió: queda en el registro de consumo. */
+  modelo: string;
 }
 
 export interface PeticionAlModelo {
@@ -188,7 +190,7 @@ export async function llamarModelo(
       }
     }
   }
-  return { salida, llamadas, texto: textos.join('\n').trim(), uso: leerUso(datos) };
+  return { salida, llamadas, texto: textos.join('\n').trim(), uso: leerUso(datos), modelo };
 }
 
 // ---------------------------------------------------------------------
@@ -202,6 +204,8 @@ export interface Transcripcion {
   texto: string;
   /** Lo que factura OpenAI (usage.seconds). 0 si no lo informa. */
   segundos: number;
+  /** El modelo que se pidió: queda en el registro de consumo. */
+  modelo: string;
 }
 
 export interface DependenciasAudio {
@@ -241,6 +245,6 @@ export async function transcribirAudio(
   }
   const datos = (cuerpo ?? {}) as { text?: unknown; usage?: { seconds?: unknown } };
   if (typeof datos.text !== 'string') throw new ErrorDelModelo('OpenAI respondió sin texto de transcripción', true);
-  return { texto: datos.text.trim(), segundos: Math.ceil(numero(datos.usage?.seconds)) };
+  return { texto: datos.text.trim(), segundos: Math.ceil(numero(datos.usage?.seconds)), modelo };
 }
 

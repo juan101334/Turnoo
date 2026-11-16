@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { entorno } from '../src/config/entorno.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
 import { crearAtender, TEXTO_LIMITE_DEL_PLAN } from '../src/modulos/ia/ia.servicio.js';
 import { reservarConversacionIA } from '../src/modulos/uso/uso.servicio.js';
@@ -141,6 +142,13 @@ describe('uso del plan: conversaciones de IA y tokens', () => {
       await atender(e, c, { pedir: modelo(1200, 80) });
       await atender(e, c, { pedir: modelo(800, 20) });
       expect(await uso(e)).toMatchObject([{ periodo: MARZO, tokens_entrada: 2000, tokens_salida: 100 }]);
+      // Cada atención deja además su fila en el registro de consumo, con el modelo que se usó.
+      expect(
+        await sql(e, 'SELECT tipo, tokens_entrada, tokens_salida, modelo, creado_en FROM consumos ORDER BY tokens_entrada DESC', []),
+      ).toEqual([
+        { tipo: 'ia_texto', tokens_entrada: 1200, tokens_salida: 80, modelo: entorno.OPENAI_MODELO, creado_en: T },
+        { tipo: 'ia_texto', tokens_entrada: 800, tokens_salida: 20, modelo: entorno.OPENAI_MODELO, creado_en: T },
+      ]);
     });
 
     it('anota los tokens aunque la atención falle', async () => {

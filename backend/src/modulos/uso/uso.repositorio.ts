@@ -2,6 +2,35 @@ import type { Transaccion } from '../../db/contexto.js';
 
 /** Único lugar con SQL de los contadores de uso del plan. */
 
+export type CategoriaPlantilla = 'utilidad' | 'marketing' | 'autenticacion';
+
+type Consumo =
+  | { tipo: 'ia_texto'; tokensEntrada: number; tokensSalida: number; modelo: string }
+  | { tipo: 'audio'; segundosAudio: number; modelo: string }
+  | { tipo: 'plantilla'; categoriaPlantilla: CategoriaPlantilla };
+
+/**
+ * El detalle de cada gasto (tabla `consumos`), para el panel del superadmin. Lo llaman las
+ * funciones que suman en `uso_mensual`, con la misma transacción: el total del mes y el detalle
+ * no pueden quedar distintos. Solo cantidades: nunca texto ni datos de un cliente.
+ */
+async function anotarConsumo(tx: Transaccion, negocioId: string, ahora: Date, c: Consumo): Promise<void> {
+  await tx.consultar(
+    `INSERT INTO consumos (negocio_id, creado_en, tipo, tokens_entrada, tokens_salida, segundos_audio, categoria_plantilla, modelo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      negocioId,
+      ahora,
+      c.tipo,
+      c.tipo === 'ia_texto' ? c.tokensEntrada : null,
+      c.tipo === 'ia_texto' ? c.tokensSalida : null,
+      c.tipo === 'audio' ? c.segundosAudio : null,
+      c.tipo === 'plantilla' ? c.categoriaPlantilla : null,
+      c.tipo === 'plantilla' ? null : c.modelo,
+    ],
+  );
+}
+
 /** Período en que ya se contó la conversación, bloqueándola para que dos atenciones no cuenten dos veces. */
 export async function periodoContado(tx: Transaccion, conversacionId: string): Promise<string | null | undefined> {
   const { rows } = await tx.consultar<{ periodo: string | null }>(
@@ -57,6 +86,8 @@ export async function sumarTokens(
   periodo: string,
   entrada: number,
   salida: number,
+  ahora: Date,
+  modelo: string,
 ): Promise<void> {
   await tx.consultar(
     `INSERT INTO uso_mensual (negocio_id, periodo, tokens_entrada, tokens_salida) VALUES ($1, $2::date, $3, $4)
@@ -65,24 +96,40 @@ export async function sumarTokens(
                    tokens_salida  = uso_mensual.tokens_salida  + EXCLUDED.tokens_salida`,
     [negocioId, periodo, entrada, salida],
   );
+  await anotarConsumo(tx, negocioId, ahora, { tipo: 'ia_texto', tokensEntrada: entrada, tokensSalida: salida, modelo });
 }
 
-export async function sumarSegundosDeAudio(tx: Transaccion, negocioId: string, periodo: string, segundos: number): Promise<void> {
+export async function sumarSegundosDeAudio(
+  tx: Transaccion,
+  negocioId: string,
+  periodo: string,
+  segundos: number,
+  ahora: Date,
+  modelo: string,
+): Promise<void> {
   await tx.consultar(
     `INSERT INTO uso_mensual (negocio_id, periodo, segundos_audio_transcritos) VALUES ($1, $2::date, $3)
      ON CONFLICT (negocio_id, periodo)
      DO UPDATE SET segundos_audio_transcritos = uso_mensual.segundos_audio_transcritos + EXCLUDED.segundos_audio_transcritos`,
     [negocioId, periodo, segundos],
   );
+  await anotarConsumo(tx, negocioId, ahora, { tipo: 'audio', segundosAudio: segundos, modelo });
 }
 
 /** Una plantilla enviada (aviso al dueño o recordatorio): Meta la cobra. */
-export async function sumarPlantilla(tx: Transaccion, negocioId: string, periodo: string): Promise<void> {
+export async function sumarPlantilla(
+  tx: Transaccion,
+  negocioId: string,
+  periodo: string,
+  ahora: Date,
+  categoria: CategoriaPlantilla,
+): Promise<void> {
   await tx.consultar(
     `INSERT INTO uso_mensual (negocio_id, periodo, plantillas_enviadas) VALUES ($1, $2::date, 1)
      ON CONFLICT (negocio_id, periodo) DO UPDATE SET plantillas_enviadas = uso_mensual.plantillas_enviadas + 1`,
     [negocioId, periodo],
   );
+  await anotarConsumo(tx, negocioId, ahora, { tipo: 'plantilla', categoriaPlantilla: categoria });
 }
 
 export interface PlanDelNegocio {

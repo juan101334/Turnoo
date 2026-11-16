@@ -13,6 +13,7 @@ import type { DependenciasEnvio } from './modulos/whatsapp/whatsapp.envio.js';
 import { rutasMiNegocio, rutasNegocios } from './modulos/negocios/negocios.rutas.js';
 import { rutasBloqueos } from './modulos/profesionales/agenda.rutas.js';
 import { rutasProfesionales } from './modulos/profesionales/profesionales.rutas.js';
+import { rutasConsumo } from './modulos/uso/consumo.rutas.js';
 import { crearRutasWhatsapp } from './modulos/whatsapp/whatsapp.rutas.js';
 import type { ConfiguracionWebhook } from './modulos/whatsapp/whatsapp.tipos.js';
 
@@ -54,6 +55,7 @@ export function crearApp({
   app.use('/negocio', rutasMiNegocio);
   app.use('/profesionales', rutasProfesionales);
   app.use('/bloqueos', rutasBloqueos);
+  app.use('/consumo', rutasConsumo);
 
   app.use((_req, res) => {
     res.status(404).json({

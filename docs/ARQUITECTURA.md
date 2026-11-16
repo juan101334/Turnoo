@@ -98,7 +98,7 @@ Migraciones en `db/migrations/`. Resumen por áreas:
 
 | Área | Tablas |
 |---|---|
-| Plataforma | `planes`, `negocios`, `configuracion_negocio`, `uso_mensual`, `pagos` |
+| Plataforma | `planes`, `negocios`, `configuracion_negocio`, `uso_mensual`, `consumos`, `pagos` |
 | Acceso | `usuarios`, `tokens_usuario`, `sesiones` |
 | Operación | `sedes`, `profesionales`, `horarios_trabajo`, `bloqueos`, `servicios` |
 | Citas | `clientes`, `citas`, `cita_servicios` |
@@ -200,6 +200,7 @@ Aprobaciones vencidas, autocompletar y limpieza ya corren, con un temporizador d
 - Los recordatorios y avisos al dueño casi siempre salen fuera de esa ventana, por lo que son **plantillas de utilidad con costo**.
 - La IA y la transcripción de audio se pagan por uso.
 - `uso_mensual` cuenta citas, conversaciones de IA, plantillas, segundos de audio y tokens por negocio, para aplicar los límites y calcular el costo real.
+- `consumos` guarda el detalle: una fila por atención de la IA, por audio transcrito y por plantilla enviada (fecha, tokens, segundos, categoría de la plantilla y modelo), sin datos de clientes. Se escribe en la misma transacción que suma en `uso_mensual`.
 - Al 80% del límite se avisa al dueño con la plantilla `turnoo_limite_plan`, una vez por mes. Al 100%, las conversaciones nuevas del mes no pasan por la IA: se derivan con motivo `limite_plan`. Las que ya se contaron ese mes siguen atendidas, para no cortarle la conversación a nadie a mitad de camino.
 - Una conversación de IA cuenta una vez por mes, la primera vez que la IA la atiende. Los tokens se suman en cada atención, aunque falle.
 
