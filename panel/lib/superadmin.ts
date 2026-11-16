@@ -2,13 +2,14 @@ import 'server-only';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import type { UsuarioDelNegocio as UsuarioDeNegocio } from './administracion';
+import type { ConsumoDeNegocio, DetalleDeConsumo, ResumenDeConsumo } from './consumo';
 import { esId, leer } from './datos';
 import type { EstadoNegocio } from './plan';
 
 /**
  * Lo que el superadmin ve de la plataforma, con las rutas que ya tiene el backend
- * (GET /negocios, /negocios/:id, /negocios/:id/whatsapp y /auth/usuarios?negocioId=).
- * Sin planes, uso ni pagos: el cobro todavía no está diseñado.
+ * (GET /negocios, /negocios/:id, /negocios/:id/whatsapp, /auth/usuarios?negocioId= y /consumo).
+ * Sin pagos: el cobro todavía no está diseñado.
  */
 
 export interface NegocioDeLaPlataforma {
@@ -52,4 +53,18 @@ export async function cuentasWhatsapp(negocioId: string): Promise<CuentaWhatsapp
 export async function usuariosDe(negocioId: string): Promise<UsuarioDeNegocio[]> {
   if (!esId(negocioId)) notFound();
   return (await leer<{ usuarios: UsuarioDeNegocio[] }>(`/auth/usuarios?${new URLSearchParams({ negocioId })}`)).usuarios;
+}
+
+/** Uso de toda la plataforma en un mes ('AAAA-MM'), con las alertas de hoy. */
+export async function resumenDeConsumo(mes: string): Promise<ResumenDeConsumo> {
+  return leer<ResumenDeConsumo>(`/consumo?${new URLSearchParams({ mes })}`);
+}
+
+export async function consumoPorNegocio(mes: string): Promise<ConsumoDeNegocio[]> {
+  return (await leer<{ negocios: ConsumoDeNegocio[] }>(`/consumo/negocios?${new URLSearchParams({ mes })}`)).negocios;
+}
+
+export async function consumoDeNegocio(negocioId: string, mes: string): Promise<DetalleDeConsumo> {
+  if (!esId(negocioId)) notFound();
+  return leer<DetalleDeConsumo>(`/consumo/negocios/${negocioId}?${new URLSearchParams({ mes })}`);
 }

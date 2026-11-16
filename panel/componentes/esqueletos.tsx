@@ -809,3 +809,105 @@ export function EsqueletoNegocio() {
     </Cargando>
   );
 }
+
+/** Barras del gráfico diario: título, pastillas, el dibujo y el enlace a la tabla. */
+function EsqueletoGraficoDiario() {
+  return (
+    <Tarjeta className="p-4 lg:p-6">
+      <Linea ancho="w-20" />
+      <Linea t="sm" ancho="w-32" />
+      <div className="mt-4 mb-4 flex gap-1.5 overflow-hidden">
+        {['w-48', 'w-44', 'w-32'].map((ancho, i) => (
+          <Bloque key={i} className={`h-11 shrink-0 rounded-full ${ancho}`} />
+        ))}
+      </div>
+      <Bloque className="h-40 w-full" />
+      <Linea t="xs" ancho="w-full" className="mt-1" />
+      <Linea t="sm" ancho="w-48" className="mt-3 h-11" />
+    </Tarjeta>
+  );
+}
+
+/** Superadmin, Uso: mes, totales, alertas, gráfico diario y la lista por negocio. */
+export function EsqueletoUso() {
+  return (
+    <Cargando ancho="ancho-completo">
+      <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Titulo texto="Uso" />
+        <Boton className="w-full sm:w-64" />
+      </div>
+      <Linea t="sm" ancho="w-72 max-w-full" className="mb-4" />
+      <div data-esqueleto="contenido" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Tarjeta key={i} className="p-4">
+            <Linea t="sm" ancho="w-3/4" />
+            <Linea t="2xl" ancho="w-1/2" />
+            <Linea t="sm" ancho="w-full" />
+            <Linea t="sm" ancho="w-2/3" />
+          </Tarjeta>
+        ))}
+      </div>
+      <Tarjeta className="mb-4 p-4 lg:p-6">
+        <Linea ancho="w-40" />
+        <Linea t="sm" ancho="w-full" />
+        <div className="mt-3 divide-y divide-borde border-y border-borde">
+          {Array.from({ length: 2 }, (_, i) => (
+            <div key={i} className="py-2.5">
+              <Linea t="sm" ancho="w-40" />
+              <Linea t="sm" ancho="w-4/5" />
+            </div>
+          ))}
+        </div>
+      </Tarjeta>
+      <div className="mb-4">
+        <EsqueletoGraficoDiario />
+      </div>
+      <Linea ancho="w-28" className="mb-2" />
+      <FilasDeLista filas={3} />
+    </Cargando>
+  );
+}
+
+/** Superadmin, uso de un negocio: asistente y citas arriba, derivaciones y envíos, costo y gráfico. */
+export function EsqueletoUsoDeNegocio() {
+  const seccion = (filas: number) => (
+    <Tarjeta className="p-4 lg:p-6">
+      <Linea ancho="w-36" />
+      <Linea t="sm" ancho="w-4/5" />
+      <div className="mt-4">
+        <Linea t="2xl" ancho="w-40" className="mb-1.5" />
+        <div className="divide-y divide-borde border-t border-borde">
+          {Array.from({ length: filas }, (_, i) => (
+            <div key={i} className="flex items-center justify-between py-1.5">
+              <Linea t="sm" ancho="w-32" className="w-full" />
+              <Bloque className="h-3.5 w-12 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Tarjeta>
+  );
+  return (
+    <Cargando ancho="ancho-completo">
+      <Volver ancho="w-10" />
+      <div className="mb-1 flex items-center gap-3">
+        <Linea t="2xl" ancho="w-48" />
+        <Bloque className="h-5 w-20 rounded-full" />
+      </div>
+      {/* Plan, fin de la prueba y el enlace a la ficha: en el celular suelen ser dos líneas. */}
+      <Descripcion lineas={2} enPc={1} className="mb-3" />
+      <Boton className="mb-4 w-full sm:w-64" />
+      <div data-esqueleto="contenido" className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+        {seccion(4)}
+        {seccion(4)}
+        {seccion(2)}
+        {seccion(4)}
+        <div className="lg:col-span-2">{seccion(3)}</div>
+        <div className="lg:col-span-2">
+          <EsqueletoGraficoDiario />
+        </div>
+      </div>
+    </Cargando>
+  );
+}
+
