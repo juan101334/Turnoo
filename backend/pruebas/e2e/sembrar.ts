@@ -26,6 +26,8 @@ await conSistema(async (tx) => {
   await tx.consultar('DELETE FROM negocios WHERE nombre = $1', [NEGOCIO]);
   // Los que crea el superadmin en e2e/superadmin.spec.ts.
   await tx.consultar("DELETE FROM negocios WHERE nombre LIKE 'Barbería Superadmin %'");
+  // Los de la pantalla Uso del superadmin (más abajo).
+  await tx.consultar("DELETE FROM negocios WHERE nombre LIKE 'Uso E2E %'");
   await tx.consultar('DELETE FROM usuarios WHERE email LIKE $1', [`%@${DOMINIO}`]);
   await tx.consultar('DELETE FROM intentos_login');
 });
@@ -282,6 +284,9 @@ const conversaciones = {
   ]),
 };
 
+const usoPrueba = await crearNegocio('Uso E2E Prueba');
+const usoActiva = await crearNegocio('Uso E2E Activa');
+
 // Plan con límites y uso del mes: 42 de 50 conversaciones (84%, en zona de aviso).
 // Sin tope de barberos, para no frenar las pruebas que agregan uno.
 await conSistema(async (tx) => {
@@ -293,8 +298,31 @@ await conSistema(async (tx) => {
   );
   await tx.consultar('UPDATE negocios SET plan_id = $1 WHERE id = $2', [planes[0]!.id, negocio.negocioId]);
   await tx.consultar(
-    `INSERT INTO uso_mensual (negocio_id, periodo, conversaciones_ia, citas_creadas, plantillas_enviadas) VALUES ($1, $2::date, 42, 12, 3)`,
+    `INSERT INTO uso_mensual (negocio_id, periodo, conversaciones_ia, citas_creadas, plantillas_enviadas, tokens_entrada, tokens_salida, segundos_audio_transcritos)
+     VALUES ($1, $2::date, 42, 12, 3, 1000000, 500000, 90)`,
     [negocio.negocioId, ahora.startOf('month').toISODate()],
+  );
+  // El detalle de hoy de ese mismo uso, para el gráfico diario de Uso (superadmin).
+  await tx.consultar(
+    `INSERT INTO consumos (negocio_id, tipo, tokens_entrada, tokens_salida, segundos_audio, categoria_plantilla, modelo) VALUES
+       ($1, 'ia_texto', 600000, 300000, NULL, NULL, 'modelo-e2e'),
+       ($1, 'ia_texto', 400000, 200000, NULL, NULL, 'modelo-e2e'),
+       ($1, 'audio', NULL, NULL, 90, NULL, 'audio-e2e'),
+       ($1, 'plantilla', NULL, NULL, NULL, 'utilidad', NULL),
+       ($1, 'plantilla', NULL, NULL, NULL, 'utilidad', NULL),
+       ($1, 'plantilla', NULL, NULL, NULL, 'utilidad', NULL)`,
+    [negocio.negocioId],
+  );
+
+  // Dos negocios más para las alertas de Uso, creados hace 20 días y sin citas: uno en prueba que
+  // vence en 3 días y sin plan; otro activo con plan (el único que suma al ingreso contratado).
+  await tx.consultar(
+    `UPDATE negocios SET created_at = now() - interval '20 days', prueba_hasta = now() + interval '3 days' WHERE id = $1`,
+    [usoPrueba.negocioId],
+  );
+  await tx.consultar(
+    `UPDATE negocios SET created_at = now() - interval '20 days', estado = 'activo', plan_id = $2 WHERE id = $1`,
+    [usoActiva.negocioId, planes[0]!.id],
   );
 });
 

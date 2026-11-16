@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const ENLACES = [
   { href: '/superadmin', nombre: 'Negocios', activo: (ruta: string) => ruta === '/superadmin' || ruta.startsWith('/superadmin/negocios') },
+  { href: '/superadmin/uso', nombre: 'Uso', activo: (ruta: string) => ruta.startsWith('/superadmin/uso') },
   { href: '/superadmin/cuenta', nombre: 'Cuenta', activo: (ruta: string) => ruta.startsWith('/superadmin/cuenta') },
 ];
 

@@ -79,6 +79,15 @@ for (const modo of ['light', 'dark'] as const) {
       await page.getByRole('list', { name: 'Negocios' }).getByRole('link', { name: /Barbería E2E/ }).click();
       await expect(page.getByRole('heading', { level: 1, name: 'Barbería E2E' })).toBeVisible();
       await revisar(page, 'ficha del negocio');
+      await page.goto('/superadmin/uso');
+      await expect(page.getByRole('heading', { level: 1, name: 'Uso' })).toBeVisible();
+      await revisar(page, '/superadmin/uso');
+      // Con la tabla de los días abierta, para revisarla también.
+      await page.getByText('Ver los números de cada día').click();
+      await revisar(page, '/superadmin/uso con la tabla por día');
+      await page.getByRole('list', { name: 'Alertas' }).getByRole('link', { name: /Barbería E2E/ }).click();
+      await expect(page.getByRole('region', { name: 'Asistente' })).toBeVisible();
+      await revisar(page, 'uso de un negocio');
     });
   });
 }

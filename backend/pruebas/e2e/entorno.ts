@@ -31,4 +31,10 @@ Object.assign(process.env, {
   SALTOS_PROXY: '1',
   WHATSAPP_APP_SECRET: '',
   WHATSAPP_VERIFY_TOKEN: '',
+  // Tarifas FICTICIAS y redondas, solo para que Uso (superadmin) muestre pesos en las pruebas.
+  // No son tarifas reales. Con E2E_SIN_TARIFAS=1 quedan vacías, para mirar la pantalla sin costo.
+  TARIFA_IA_ENTRADA_COP_MILLON: process.env.E2E_SIN_TARIFAS ? '' : '1000',
+  TARIFA_IA_SALIDA_COP_MILLON: process.env.E2E_SIN_TARIFAS ? '' : '2000',
+  TARIFA_AUDIO_COP_MINUTO: process.env.E2E_SIN_TARIFAS ? '' : '60',
+  TARIFA_PLANTILLA_UTILIDAD_COP: process.env.E2E_SIN_TARIFAS ? '' : '10',
 });

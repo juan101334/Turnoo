@@ -81,8 +81,8 @@ function Seccion({
 
 /**
  * Ficha de un negocio para el superadmin: datos y estado, números de WhatsApp conectados y
- * usuarios (invitar al dueño, darle un enlace de contraseña nueva, desactivar). Sin planes, uso
- * ni pagos: el cobro todavía no está diseñado.
+ * usuarios (invitar al dueño, darle un enlace de contraseña nueva, desactivar). El uso del mes
+ * está en /superadmin/uso/[id]. Sin pagos: el cobro todavía no está diseñado.
  */
 export default async function PaginaNegocioSuperadmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ listo?: string }> }) {
   await exigirSuperadmin();
@@ -106,7 +106,10 @@ export default async function PaginaNegocioSuperadmin({ params, searchParams }: 
       <p className="mb-4 text-sm text-suave">
         Desde el {fecha(n.createdAt)}
         {n.estado === 'prueba' && n.pruebaHasta && ` · prueba hasta el ${fecha(n.pruebaHasta)}`} · {zona.replaceAll('_', ' ')}
-        {n.telefonoAvisos && ` · avisos a ${telefonoLegible(n.telefonoAvisos)}`}
+        {n.telefonoAvisos && ` · avisos a ${telefonoLegible(n.telefonoAvisos)}`} ·{' '}
+        <Link href={`/superadmin/uso/${n.id}`} className="font-medium text-marca underline decoration-1 underline-offset-4 hover:decoration-2">
+          Uso del mes
+        </Link>
       </p>
       <AvisoDeLaUrl mensaje={listo ? LISTO[listo] : undefined} />
 
