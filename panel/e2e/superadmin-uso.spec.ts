@@ -184,5 +184,8 @@ test.describe('uso de la plataforma (superadmin)', () => {
     await expect(page).toHaveURL('/hoy');
     await page.goto('/superadmin/uso/00000000-0000-4000-8000-000000000000');
     await expect(page).toHaveURL('/hoy');
+    // La ficha del negocio tampoco: sale antes de pedirle nada al backend.
+    await page.goto('/superadmin/negocios/00000000-0000-4000-8000-000000000000');
+    await expect(page).toHaveURL('/hoy');
   });
 });
