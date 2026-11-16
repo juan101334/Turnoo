@@ -10,6 +10,8 @@ import type { RespuestaMeta } from './whatsapp.tipos.js';
  * "Spanish (COL)" (es_CO). Con otro idioma, aunque sea 'es', responde 132001.
  */
 export const IDIOMA_PLANTILLAS = 'es_CO';
+/** Las plantillas de Turnoo (avisos al dueño y recordatorio) se crean en la categoría Utilidad. */
+export const CATEGORIA_PLANTILLAS = 'utilidad';
 
 /**
  * Meta rechaza parámetros con saltos de línea, tabulaciones o muchos espacios seguidos, y uno

@@ -249,6 +249,9 @@ describe('enviarRecordatorios', () => {
     expect(await sql(e, `SELECT plantillas_enviadas, conversaciones_ia FROM uso_mensual WHERE periodo = '2035-03-01'`)).toEqual([
       { plantillas_enviadas: 1, conversaciones_ia: 0 },
     ]);
+    expect(await sql(e, 'SELECT tipo, categoria_plantilla, creado_en FROM consumos')).toEqual([
+      { tipo: 'plantilla', categoria_plantilla: 'utilidad', creado_en: MOMENTO },
+    ]);
 
     const otra = metaFalso();
     await enviarRecordatorios(new Date(MOMENTO.getTime() + MIN), { pedir: otra.pedir });

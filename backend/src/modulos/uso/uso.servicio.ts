@@ -39,10 +39,11 @@ export async function registrarTokens(
   zonaHoraria: string,
   ahora: Date,
   tokens: { entrada: number; salida: number },
+  modelo: string,
 ): Promise<void> {
   if (tokens.entrada <= 0 && tokens.salida <= 0) return;
   const periodo = primerDiaDelMes(ahora, zonaHoraria);
-  await conNegocio(negocioId, (tx) => repositorio.sumarTokens(tx, negocioId, periodo, tokens.entrada, tokens.salida));
+  await conNegocio(negocioId, (tx) => repositorio.sumarTokens(tx, negocioId, periodo, tokens.entrada, tokens.salida, ahora, modelo));
 }
 
 export interface UsoDelMes {

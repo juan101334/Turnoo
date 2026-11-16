@@ -5,6 +5,9 @@ import { z } from 'zod';
  * Si falta alguna o es inválida, el programa se detiene con un mensaje claro.
  * Cuando agregues una variable, agrégala también a backend/.env.example.
  */
+/** Tarifa opcional en pesos; puede llevar decimales. Vacía cuenta como no definida. */
+const tarifa = z.preprocess((valor) => (valor === '' ? undefined : valor), z.coerce.number().min(0).optional());
+
 const esquema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -39,6 +42,12 @@ const esquema = z.object({
   ARCHIVOS_DIR: z.string().min(1).default('archivos'),
   // Cuánto razona el modelo antes de responder. Más esfuerzo, más tokens de salida y más demora.
   OPENAI_ESFUERZO: z.enum(['none', 'low', 'medium', 'high']).default('low'),
+  // Tarifas para estimar el costo de cada negocio en el panel del superadmin, en pesos colombianos.
+  // Los valores van solo aquí, en el entorno. Si falta alguna, el panel muestra unidades y no pesos.
+  TARIFA_IA_ENTRADA_COP_MILLON: tarifa,
+  TARIFA_IA_SALIDA_COP_MILLON: tarifa,
+  TARIFA_AUDIO_COP_MINUTO: tarifa,
+  TARIFA_PLANTILLA_UTILIDAD_COP: tarifa,
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
   // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),

@@ -149,6 +149,7 @@ export function crearAtender({ modelo = {}, envio = {}, adjuntos = {}, reloj = (
     const herramienta = { negocioId, conversacionId, clienteId, zonaHoraria: zona, ahora };
     let uso: UsoDeTokens = { entrada: 0, entradaEnCache: 0, salida: 0, razonamiento: 0 };
     let texto = '';
+    let modeloUsado = '';
     const funciones: string[] = [];
     const pasos: Omit<PasoDeIA, 'creadoEn' | 'orden'>[] = [];
 
@@ -156,6 +157,7 @@ export function crearAtender({ modelo = {}, envio = {}, adjuntos = {}, reloj = (
       for (let llamada = 0; llamada < MAX_LLAMADAS && !texto; llamada += 1) {
         const respuesta = await llamarModelo({ instrucciones, entrada, herramientas: HERRAMIENTAS, identificador: clienteId }, modelo);
         uso = sumar(uso, respuesta.uso);
+        modeloUsado = respuesta.modelo;
         if (respuesta.llamadas.length === 0) {
           texto = respuesta.texto;
           if (!texto) throw new ErrorDelModelo('El modelo no respondió texto ni pidió funciones', true);
@@ -172,7 +174,7 @@ export function crearAtender({ modelo = {}, envio = {}, adjuntos = {}, reloj = (
       }
     } finally {
       // Los tokens se gastaron aunque la atención falle. Si no se pueden anotar, no se pierde la respuesta.
-      await registrarTokens(negocioId, zona, ahora, uso).catch((error: unknown) =>
+      await registrarTokens(negocioId, zona, ahora, uso, modeloUsado).catch((error: unknown) =>
         logger.error({ negocioId, fallo: errorParaLog(error) }, 'No se pudieron anotar los tokens de la IA'),
       );
       // Solo conteos y nombres de funciones: nunca el texto de la conversación.
