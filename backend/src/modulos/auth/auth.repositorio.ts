@@ -54,17 +54,18 @@ export async function revocarSesionesDeUsuario(
   );
 }
 
-/** Cierra las demás sesiones del usuario y deja abierta la que tiene `tokenHashActual`. */
+/** Cierra las demás sesiones del usuario y deja abierta la que tiene `tokenHashActual`. Devuelve cuántas cerró. */
 export async function revocarOtrasSesiones(
   tx: Transaccion,
   usuarioId: string,
   tokenHashActual: string,
   ahora: Date,
-): Promise<void> {
-  await tx.consultar(
-    'UPDATE sesiones SET revocada_en = $3 WHERE usuario_id = $1 AND token_hash <> $2 AND revocada_en IS NULL',
+): Promise<number> {
+  const { rowCount } = await tx.consultar(
+    'UPDATE sesiones SET revocada_en = $3 WHERE usuario_id = $1 AND token_hash <> $2 AND revocada_en IS NULL AND expira_en > $3',
     [usuarioId, tokenHashActual, ahora],
   );
+  return rowCount ?? 0;
 }
 
 /** Hash de la contraseña de un usuario activo, con la fila bloqueada: dos cambios a la vez no se pisan. */
@@ -274,4 +275,16 @@ export async function negocioDeLaSesion(tx: Transaccion, negocioId: string): Pro
     [negocioId],
   );
   return rows[0] ? { nombre: rows[0].nombre, zonaHoraria: rows[0].zona_horaria } : null;
+}
+
+/** El correo del usuario, para mostrarlo en Cuenta (no se edita). */
+export async function emailDeUsuario(tx: Transaccion, usuarioId: string): Promise<string | null> {
+  const { rows } = await tx.consultar<{ email: string }>('SELECT email FROM usuarios WHERE id = $1', [usuarioId]);
+  return rows[0]?.email ?? null;
+}
+
+/** Cambia el nombre de la cuenta. No toca el del barbero: ese es el que ven los clientes y lo decide el dueño. */
+export async function cambiarNombre(tx: Transaccion, usuarioId: string, nombre: string): Promise<boolean> {
+  const { rowCount } = await tx.consultar('UPDATE usuarios SET nombre = $2, updated_at = now() WHERE id = $1 AND activo', [usuarioId, nombre]);
+  return (rowCount ?? 0) > 0;
 }

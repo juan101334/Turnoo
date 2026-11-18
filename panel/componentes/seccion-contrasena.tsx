@@ -1,9 +1,9 @@
 'use client';
 
 import { KeyRound } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import type { EstadoFormulario } from '@/lib/acciones';
 import { CLAVE_MIN } from '@/lib/claves';
+import { ESTILO_BOTON_CAMBIAR, useEdicionEnLinea } from './edicion-en-linea';
 import { CampoContrasena } from './formulario';
 import { FormularioConEstado } from './formulario-con-estado';
 
@@ -19,19 +19,7 @@ export function SeccionContrasena({
   accion: (previo: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
   ayuda: string;
 }) {
-  const [abierta, setAbierta] = useState(false);
-  const boton = useRef<HTMLButtonElement>(null);
-  const volverAlBoton = useRef(false);
-  const cerrar = () => {
-    volverAlBoton.current = true;
-    setAbierta(false);
-  };
-  // Ya pintada la fila otra vez, el foco vuelve al botón que abrió el formulario.
-  useEffect(() => {
-    if (abierta || !volverAlBoton.current) return;
-    volverAlBoton.current = false;
-    boton.current?.focus();
-  }, [abierta]);
+  const { abierta, abrir, cerrar, boton } = useEdicionEnLinea();
   return (
     <section aria-labelledby="titulo-contrasena" className="mb-4 rounded-xl border border-borde bg-superficie p-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -47,11 +35,11 @@ export function SeccionContrasena({
             <button
               ref={boton}
               type="button"
-              onClick={() => setAbierta(true)}
+              onClick={abrir}
               aria-expanded={false}
               aria-controls="formulario-contrasena"
               aria-label="Cambiar contraseña"
-              className="ml-auto min-h-11 cursor-pointer rounded-lg px-3 font-semibold text-marca transition-colors duration-150 hover:bg-marca-suave"
+              className={ESTILO_BOTON_CAMBIAR}
             >
               Cambiar
             </button>

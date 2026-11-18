@@ -59,6 +59,9 @@ async function usuario(rol: 'dueno' | 'empleado', nombre: string, profesionalId?
 const dueno = await usuario('dueno', 'Dueño E2E');
 // Solo para cambiar su contraseña (e2e/cuenta.spec.ts): así no cambia la de los demás.
 const cuentaPropia = await usuario('dueno', 'Dueña Cuenta');
+// Para cambiar su nombre y cerrar sus otras sesiones (e2e/cuenta.spec.ts), sin tocar a los demás.
+const perfil = await usuario('dueno', 'Dueña Perfil');
+const sesiones = await usuario('dueno', 'Dueña Sesiones');
 const barberoE2E = await crearProfesional(negocio, 'Barbero E2E');
 const empleado = await usuario('empleado', 'Barbero E2E', barberoE2E);
 const barberoDos = await crearProfesional(negocio, 'Barbero Dos');
@@ -342,6 +345,8 @@ console.log(
     vista: { fecha: diaDeVista.toISODate() },
     lote: { barbero: barberoLote },
     cuenta: cuentaPropia.email,
+    perfil: perfil.email,
+    sesiones: sesiones.email,
     clientes: { editable: clienteEditable, borrable: clienteBorrable, telefonoSinNombre },
     conversaciones,
   }),

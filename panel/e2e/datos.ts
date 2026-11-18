@@ -17,6 +17,9 @@ export interface Datos {
   lote: { barbero: string };
   /** Dueña solo para cambiar su contraseña (cuenta.spec.ts). */
   cuenta: string;
+  /** Dueñas solo para cambiar el nombre y para cerrar sus otras sesiones (cuenta.spec.ts). */
+  perfil: string;
+  sesiones: string;
   /** Clientes sin citas (ver sembrar.ts). */
   clientes: { editable: string; borrable: string; telefonoSinNombre: string };
   /** Conversaciones de WhatsApp: derivada hace 11 min, vieja (cliente escribió hace 30 h) y otra con el asistente. */

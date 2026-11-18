@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { datos, entrarYEsperar } from './datos';
 
 /**
- * Tema Sistema / Claro / Oscuro: se elige en Cuenta, en el menú lateral, en Más (celular) y en la
- * barra del superadmin; se guarda en la cookie turnoo_tema y el servidor lo pinta desde el primer
+ * Tema Sistema / Claro / Oscuro: se elige en Cuenta, en el menú lateral y en Más (celular); el
+ * superadmin, en su Cuenta. Se guarda en la cookie turnoo_tema y el servidor lo pinta desde el primer
  * HTML, sin destello.
  */
 
@@ -104,13 +104,17 @@ test.describe('tema', () => {
     expect(await cookieTema(page)).toBe('oscuro');
   });
 
-  test('el superadmin lo cambia con el botón de la barra', async ({ page }) => {
+  test('el superadmin lo cambia en su Cuenta; la barra de arriba no lleva botón de tema', async ({ page }) => {
     await entrarYEsperar(page, datos().superadmin, '/superadmin');
-    await page.getByRole('button', { name: 'Tema: Sistema. Cambiar a claro' }).click();
+    await expect(page.getByRole('banner').getByRole('button', { name: /^Tema:/ })).toHaveCount(0);
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Cuenta' }).click();
+    const apariencia = page.getByRole('region', { name: 'Apariencia' });
+    await apariencia.getByText('Claro', { exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-tema', 'claro');
-    await page.getByRole('button', { name: 'Tema: Claro. Cambiar a oscuro' }).click();
+    await apariencia.getByText('Oscuro', { exact: true }).click();
     await expect.poll(() => fondo(page)).toBe(OSCURO);
-    await page.getByRole('button', { name: 'Tema: Oscuro. Cambiar a sistema' }).click();
+    expect(await cookieTema(page)).toBe('oscuro');
+    await apariencia.getByText('Sistema', { exact: true }).click();
     await expect(page.locator('html')).not.toHaveAttribute('data-tema');
   });
 });
