@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, Banknote, Bot, CalendarCheck, CalendarX, ChevronRight, CircleCheck, Coins, Hourglass, Mic, Send, TrendingUp, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Banknote, Bot, CalendarCheck, CalendarX, ChevronRight, CircleCheck, Coins, Hourglass, MessageSquare, Mic, Send, TrendingUp, type LucideIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -13,6 +13,7 @@ import {
   ordenar,
   ORDEN_INICIAL,
   porcentaje,
+  seCobran,
   siguienteOrden,
   tokens,
   ZONA_DEL_PANEL,
@@ -100,13 +101,19 @@ export default async function PaginaUso({ searchParams }: { searchParams: Promis
         />
         <Cifra titulo="Citas del mes" Icono={CalendarCheck} valor={cantidad(uso.citas)} detalle="Por su fecha, en cualquier estado." />
         <Cifra titulo="Mensajes automáticos" Icono={Send} valor={cantidad(uso.plantillas)} detalle="Recordatorios y avisos al dueño." />
+        <Cifra
+          titulo="Mensajes de servicio"
+          Icono={MessageSquare}
+          valor={cantidad(uso.mensajesServicio.total)}
+          detalle={`Respuestas del asistente y del panel: ${cantidad(uso.mensajesServicio.gratis)} gratis · ${seCobran(uso.mensajesServicio.cobrados)}.`}
+        />
         <Cifra titulo="Audio transcrito" Icono={Mic} valor={minutosDeAudio(uso.segundosAudio)} detalle="Notas de voz de los clientes." />
         {costo ? (
           <Cifra
             titulo="Costo estimado"
             Icono={Coins}
             valor={pesos(costo.totalCop)}
-            detalle={`Asistente ${pesos(costo.iaCop)} · audio ${pesos(costo.audioCop)} · mensajes ${pesos(costo.plantillasCop)}. Queda ${pesos(resumen.mrrContratadoCop - costo.totalCop)} del ingreso contratado.`}
+            detalle={`Asistente ${pesos(costo.iaCop)} · audio ${pesos(costo.audioCop)} · automáticos ${pesos(costo.plantillasCop)} · servicio ${pesos(costo.servicioCop)}. Queda ${pesos(resumen.mrrContratadoCop - costo.totalCop)} del ingreso contratado.`}
           />
         ) : (
           <Cifra titulo="Costo estimado" Icono={Coins} valor="Sin tarifas" detalle="Faltan las tarifas en el servidor (variables TARIFA_*): por ahora solo hay unidades." />
@@ -160,7 +167,12 @@ export default async function PaginaUso({ searchParams }: { searchParams: Promis
                     </td>
                     <td className="cifras px-4 py-2 text-right">{cantidad(n.citas)}</td>
                     <td className="cifras px-4 py-2 text-right">{n.porcentajeNoAsistio === null ? <SinDato /> : porcentaje(n.porcentajeNoAsistio)}</td>
-                    <td className="cifras px-4 py-2 text-right">{cantidad(n.plantillas)}</td>
+                    {/* Una sola columna: con otra más, la tabla no cabe en el ancho del superadmin. */}
+                    <td className="cifras px-4 py-2 text-right text-sm">
+                      <span className="block whitespace-nowrap">{cantidad(n.plantillas)} automáticos</span>
+                      <span className="block whitespace-nowrap">{cantidad(n.mensajesServicio.total)} de servicio</span>
+                      {n.mensajesServicio.cobrados > 0 && <span className="block whitespace-nowrap text-suave">{seCobran(n.mensajesServicio.cobrados)}</span>}
+                    </td>
                     <td className={`cifras px-4 py-2 text-right ${n.fallosDeEnvio > 0 ? 'font-semibold text-peligro' : ''}`}>{cantidad(n.fallosDeEnvio)}</td>
                     <td className="px-4 py-2 text-right text-sm whitespace-nowrap text-suave">{haceDias(n.diasSinActividad)}</td>
                     {costo && <td className="cifras px-4 py-2 text-right whitespace-nowrap">{n.costo ? pesos(n.costo.totalCop) : <SinDato />}</td>}
@@ -217,7 +229,8 @@ export default async function PaginaUso({ searchParams }: { searchParams: Promis
                         {n.plan ? n.plan.nombre : 'Sin plan'} · Asistente <UsoDeIa n={n} />
                       </span>
                       <span className="block text-sm text-suave">
-                        {cantidad(n.citas)} {n.citas === 1 ? 'cita' : 'citas'} · {cantidad(n.plantillas)} {n.plantillas === 1 ? 'mensaje' : 'mensajes'}
+                        {cantidad(n.citas)} {n.citas === 1 ? 'cita' : 'citas'} · {cantidad(n.plantillas)} {n.plantillas === 1 ? 'automático' : 'automáticos'} · {cantidad(n.mensajesServicio.total)} de servicio
+                        {n.mensajesServicio.cobrados > 0 && ` (${seCobran(n.mensajesServicio.cobrados)})`}
                         {n.fallosDeEnvio > 0 && (
                           <span className="font-semibold text-peligro">
                             {' '}

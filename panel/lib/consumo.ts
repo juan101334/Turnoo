@@ -13,7 +13,19 @@ export interface Costo {
   iaCop: number;
   audioCop: number;
   plantillasCop: number;
+  /** Mensajes de servicio que pasan de los gratis del mes. */
+  servicioCop: number;
   totalCop: number;
+}
+
+/**
+ * Mensajes de servicio: las respuestas de texto libre por la API (asistente, panel y avisos del
+ * sistema) que WhatsApp aceptó. Los gratis se separan número por número en el servidor.
+ */
+export interface MensajesDeServicio {
+  total: number;
+  gratis: number;
+  cobrados: number;
 }
 
 export interface UsoDelDia {
@@ -35,6 +47,7 @@ export interface ConsumoDeNegocio {
   /** Frente al límite del plan; null sin plan o sin límite. */
   porcentajeIa: number | null;
   plantillas: number;
+  mensajesServicio: MensajesDeServicio;
   segundosAudio: number;
   tokensEntrada: number;
   tokensSalida: number;
@@ -77,13 +90,16 @@ export interface ResumenDeConsumo {
   negocios: { activos: number; enPrueba: number; suspendidos: number };
   /** Suma del plan de los negocios activos: lo contratado hoy, no lo cobrado. */
   mrrContratadoCop: number;
-  uso: { conversacionesIa: number; plantillas: number; segundosAudio: number; tokensEntrada: number; tokensSalida: number; citas: number };
+  uso: { conversacionesIa: number; plantillas: number; mensajesServicio: MensajesDeServicio; segundosAudio: number; tokensEntrada: number; tokensSalida: number; citas: number };
   costo: Costo | null;
   diario: UsoDelDia[];
   /** Primer día con detalle por día de IA, audio y plantillas; null si aún no hay ninguno. */
   detallePorDiaDesde: string | null;
   alertas: Alertas;
 }
+
+/** "1 se cobra", "3 se cobran". */
+export const seCobran = (n: number) => `${cantidad(n)} ${n === 1 ? 'se cobra' : 'se cobran'}`;
 
 // ---------------------------------------------------------------------
 // Mes
@@ -119,7 +135,8 @@ export const COLUMNAS = {
   ia: (n: ConsumoDeNegocio) => n.porcentajeIa,
   citas: (n: ConsumoDeNegocio) => n.citas,
   inasistencia: (n: ConsumoDeNegocio) => n.porcentajeNoAsistio,
-  mensajes: (n: ConsumoDeNegocio) => n.plantillas,
+  /** Automáticos y de servicio juntos: van en la misma columna. */
+  mensajes: (n: ConsumoDeNegocio) => n.plantillas + n.mensajesServicio.total,
   fallos: (n: ConsumoDeNegocio) => n.fallosDeEnvio,
   inactividad: (n: ConsumoDeNegocio) => n.diasSinActividad,
   costo: (n: ConsumoDeNegocio) => n.costo?.totalCop ?? null,

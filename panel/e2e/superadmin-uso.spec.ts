@@ -32,10 +32,12 @@ test.describe('uso de la plataforma (superadmin)', () => {
     await expect(t).toContainText('Conversaciones con el asistente42');
     await expect(t).toContainText('1 M tokens de entrada · 500 mil de salida');
     await expect(t).toContainText('Mensajes automáticos3');
+    // Las respuestas que mandan otras pruebas varían; con 1.000 gratis por número, ninguna se cobra.
+    await expect(t).toContainText(/Mensajes de servicio\d+Respuestas del asistente y del panel: \d+ gratis · 0 se cobran\./);
     await expect(t).toContainText('Audio transcrito1,5 min');
     // Tarifas ficticias: 1 M x 1000 + 0,5 M x 2000 = 2000; 1,5 min x 60 = 90; 3 x 10 = 30.
     await expect(t).toContainText('Costo estimado$2.120');
-    await expect(t).toContainText('Queda $47.880 del ingreso contratado.');
+    await expect(t).toContainText('servicio $0. Queda $47.880 del ingreso contratado.');
   });
 
   test('las alertas dicen qué negocio pide atención y por qué', async ({ page }) => {
@@ -106,6 +108,7 @@ test.describe('uso de la plataforma (superadmin)', () => {
     await expect(fila('Barbería E2E')).toContainText('$47.880');
     await expect(fila('Uso E2E Prueba')).toContainText('Sin plan');
     await expect(fila('Uso E2E Activa')).toContainText('Nunca');
+    await expect(fila('Barbería E2E')).toContainText(/3 automáticos\d+ de servicio/);
 
     await tabla.getByRole('link', { name: 'Asistente' }).click();
     await expect(page).toHaveURL(/orden=ia&dir=desc/);
@@ -146,7 +149,11 @@ test.describe('uso de la plataforma (superadmin)', () => {
     await expect(derivaciones).not.toContainText('Quiere hablar con una persona');
 
     const costo = page.getByRole('region', { name: 'Actividad y costo' });
+    await expect(costo).toContainText('Mensajes de servicio$0');
     await expect(costo).toContainText('Costo estimado del mes$2.120');
+    const envios = page.getByRole('region', { name: 'Mensajes de WhatsApp y entregas' });
+    await expect(envios).toContainText(/Mensajes de servicio enviados\d+/);
+    await expect(envios).toContainText('De servicio, se cobran0');
     await expect(costo).toContainText('Margen frente al plan ($50.000)$47.880');
 
     // De vuelta al resumen y a la ficha del negocio.

@@ -18,6 +18,12 @@ export interface UsoDeNegocio {
   plan: { nombre: string; precioMensualCop: number; maxConversacionesIa: number | null } | null;
   conversacionesIa: number;
   plantillas: number;
+  /**
+   * Mensajes de servicio del mes por cada número de WhatsApp del negocio: los de texto libre que
+   * salieron por la API (asistente, panel y sistema) y que Meta aceptó. Los fallidos no cuentan.
+   * Un número por posición; los que no enviaron nada no aparecen.
+   */
+  mensajesServicioPorNumero: number[];
   segundosAudio: number;
   tokensEntrada: number;
   tokensSalida: number;
@@ -40,6 +46,7 @@ interface FilaUso {
   max_conversaciones_ia_mes: number | null;
   conversaciones_ia: number;
   plantillas: number;
+  servicio_por_numero: number[];
   segundos_audio: number;
   tokens_entrada: string;
   tokens_salida: string;
@@ -71,7 +78,7 @@ export async function usoPorNegocio(tx: Transaccion, periodo: string, negocioId:
             COALESCE(u.tokens_salida, 0) AS tokens_salida,
             c.por_aprobar, c.pendientes, c.confirmadas, c.completadas, c.canceladas, c.no_asistio,
             c.canceladas_cliente, c.canceladas_negocio, c.canceladas_sistema, c.recordatorios_fallidos,
-            d.derivaciones, d.avisos_fallidos, m.mensajes_fallidos,
+            d.derivaciones, d.avisos_fallidos, m.mensajes_fallidos, s.servicio_por_numero,
             GREATEST(
               (SELECT max(ultimo_mensaje_cliente_en) FROM conversaciones WHERE negocio_id = n.id),
               (SELECT max(created_at) FROM citas WHERE negocio_id = n.id)
@@ -109,6 +116,20 @@ export async function usoPorNegocio(tx: Transaccion, periodo: string, negocioId:
          WHERE negocio_id = n.id AND direccion = 'saliente' AND estado_entrega = 'fallido'
            AND creado_en >= mes.desde AND creado_en < mes.hasta
       ) m
+      -- Mensajes de servicio por número (la conversación dice de qué número salió). Meta da los
+      -- gratis por número, así que no se suman antes de separar los gratis.
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(array_agg(por_numero.cantidad ORDER BY por_numero.cantidad DESC), '{}') AS servicio_por_numero
+          FROM (
+            SELECT count(*)::int AS cantidad
+              FROM mensajes me
+              JOIN conversaciones co ON co.negocio_id = me.negocio_id AND co.id = me.conversacion_id
+             WHERE me.negocio_id = n.id AND me.direccion = 'saliente' AND me.tipo = 'texto'
+               AND me.estado_entrega IN ('enviado', 'entregado', 'leido')
+               AND me.creado_en >= mes.desde AND me.creado_en < mes.hasta
+             GROUP BY co.whatsapp_cuenta_id
+          ) por_numero
+      ) s
       WHERE $2::uuid IS NULL OR n.id = $2::uuid
       ORDER BY lower(n.nombre), n.id`,
     [periodo, negocioId],
@@ -124,6 +145,7 @@ export async function usoPorNegocio(tx: Transaccion, periodo: string, negocioId:
         : { nombre: f.plan, precioMensualCop: f.precio_mensual_cop, maxConversacionesIa: f.max_conversaciones_ia_mes },
     conversacionesIa: f.conversaciones_ia,
     plantillas: f.plantillas,
+    mensajesServicioPorNumero: f.servicio_por_numero,
     segundosAudio: f.segundos_audio,
     // bigint llega como texto. Los tokens de un mes caben de sobra en un número de JavaScript.
     tokensEntrada: Number(f.tokens_entrada),

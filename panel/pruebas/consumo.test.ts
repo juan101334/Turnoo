@@ -10,6 +10,7 @@ import {
   minutosDeAudio,
   ordenar,
   porcentaje,
+  seCobran,
   siguienteOrden,
   tokens,
   type ConsumoDeNegocio,
@@ -24,6 +25,7 @@ const negocio = (nombre: string, cambios: Partial<ConsumoDeNegocio> = {}): Consu
   conversacionesIa: 0,
   porcentajeIa: null,
   plantillas: 0,
+  mensajesServicio: { total: 0, gratis: 0, cobrados: 0 },
   segundosAudio: 0,
   tokensEntrada: 0,
   tokensSalida: 0,
@@ -137,5 +139,13 @@ describe('gráfico diario', () => {
     expect(faltaDetalle('2026-11', '2026-11-01')).toBe(false);
     expect(faltaDetalle('2026-12', '2026-11-15')).toBe(false);
     expect(faltaDetalle('2026-10', '2026-11-15')).toBe(true);
+  });
+});
+
+describe('seCobran', () => {
+  it('va en singular solo con 1', () => {
+    expect(seCobran(0)).toBe('0 se cobran');
+    expect(seCobran(1)).toBe('1 se cobra');
+    expect(seCobran(1500)).toBe('1.500 se cobran');
   });
 });
