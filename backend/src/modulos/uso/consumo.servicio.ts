@@ -60,24 +60,45 @@ export interface Costo {
   iaCop: number;
   audioCop: number;
   plantillasCop: number;
+  /** Mensajes de servicio que pasan de los gratis del mes, a la tarifa de utilidad. */
+  servicioCop: number;
   totalCop: number;
 }
 
-type Unidades = Pick<UsoDeNegocio, 'tokensEntrada' | 'tokensSalida' | 'segundosAudio' | 'plantillas'>;
+/** Mensajes de servicio del mes: los gratis van número por número, como los da Meta. */
+export interface MensajesDeServicio {
+  total: number;
+  gratis: number;
+  cobrados: number;
+}
+
+export function mensajesDeServicio(porNumero: number[], gratisPorNumero: number): MensajesDeServicio {
+  let gratis = 0;
+  let cobrados = 0;
+  for (const cantidad of porNumero) {
+    gratis += Math.min(cantidad, gratisPorNumero);
+    cobrados += Math.max(0, cantidad - gratisPorNumero);
+  }
+  return { total: gratis + cobrados, gratis, cobrados };
+}
+
+type Unidades = Pick<UsoDeNegocio, 'tokensEntrada' | 'tokensSalida' | 'segundosAudio' | 'plantillas'> & { servicioCobrados: number };
 
 function costoDe(u: Unidades, t: Tarifas | null): Costo | null {
   if (!t) return null;
   const iaCop = Math.round((u.tokensEntrada * t.iaEntradaCopMillon + u.tokensSalida * t.iaSalidaCopMillon) / 1_000_000);
   const audioCop = Math.round((u.segundosAudio / 60) * t.audioCopMinuto);
   const plantillasCop = Math.round(u.plantillas * t.plantillaUtilidadCop);
-  return { iaCop, audioCop, plantillasCop, totalCop: iaCop + audioCop + plantillasCop };
+  const servicioCop = Math.round(u.servicioCobrados * t.plantillaUtilidadCop);
+  return { iaCop, audioCop, plantillasCop, servicioCop, totalCop: iaCop + audioCop + plantillasCop + servicioCop };
 }
 
 // ---------------------------------------------------------------------
 // Por negocio
 // ---------------------------------------------------------------------
 
-export interface ConsumoDeNegocio extends Omit<UsoDeNegocio, 'citas' | 'ultimaActividad'> {
+export interface ConsumoDeNegocio extends Omit<UsoDeNegocio, 'citas' | 'ultimaActividad' | 'mensajesServicioPorNumero'> {
+  mensajesServicio: MensajesDeServicio;
   /** Conversaciones de IA frente al límite del plan; null sin plan o sin límite. */
   porcentajeIa: number | null;
   /** Citas del mes (por su fecha de inicio), en cualquier estado. */
@@ -101,12 +122,14 @@ function porcentaje(parte: number, total: number | null): number | null {
   return total === null || total <= 0 ? null : Math.round((parte / total) * 1000) / 10;
 }
 
-function consumoDe(u: UsoDeNegocio, ahora: Date, tarifas: Tarifas | null): ConsumoDeNegocio {
-  const { citas: e, ultimaActividad, ...resto } = u;
+function consumoDe(u: UsoDeNegocio, ahora: Date, tarifas: Tarifas | null, gratisPorNumero: number): ConsumoDeNegocio {
+  const { citas: e, ultimaActividad, mensajesServicioPorNumero, ...resto } = u;
   const total = e.porAprobar + e.pendientes + e.confirmadas + e.completadas + e.canceladas + e.noAsistio;
-  const costo = costoDe(u, tarifas);
+  const servicio = mensajesDeServicio(mensajesServicioPorNumero, gratisPorNumero);
+  const costo = costoDe({ ...u, servicioCobrados: servicio.cobrados }, tarifas);
   return {
     ...resto,
+    mensajesServicio: servicio,
     porcentajeIa: porcentaje(u.conversacionesIa, u.plan?.maxConversacionesIa ?? null),
     citas: total,
     citasPorEstado: e,
@@ -143,10 +166,11 @@ export async function consumoPorNegocio(
   mes?: string,
   ahora: Date = new Date(),
   tarifas: Tarifas | null = tarifasDelEntorno(),
+  gratisPorNumero: number = entorno.MENSAJES_SERVICIO_GRATIS_MES,
 ): Promise<ConsumoPorNegocio> {
   const pedido = mesPedido(mes, ahora);
   const uso = await conSistema((tx) => repositorio.usoPorNegocio(tx, pedido.periodo));
-  return { mes: pedido.mes, negocios: uso.map((u) => consumoDe(u, ahora, tarifas)) };
+  return { mes: pedido.mes, negocios: uso.map((u) => consumoDe(u, ahora, tarifas, gratisPorNumero)) };
 }
 
 export interface DetalleDeConsumo extends ConsumoDeNegocio {
@@ -162,6 +186,7 @@ export async function consumoDeNegocio(
   mes?: string,
   ahora: Date = new Date(),
   tarifas: Tarifas | null = tarifasDelEntorno(),
+  gratisPorNumero: number = entorno.MENSAJES_SERVICIO_GRATIS_MES,
 ): Promise<DetalleDeConsumo> {
   if (!esUuid(negocioId)) throw new NoEncontrado('El negocio');
   const pedido = mesPedido(mes, ahora);
@@ -170,7 +195,7 @@ export async function consumoDeNegocio(
     if (!uso) throw new NoEncontrado('El negocio');
     return {
       mes: pedido.mes,
-      ...consumoDe(uso, ahora, tarifas),
+      ...consumoDe(uso, ahora, tarifas, gratisPorNumero),
       derivacionesPorMotivo: await repositorio.derivacionesPorMotivo(tx, pedido.periodo, negocioId),
       diario: diasDelMes(pedido.mes, pedido.periodo, await repositorio.usoPorDia(tx, pedido.periodo, negocioId)),
       detallePorDiaDesde: await repositorio.primerDiaConDetalle(tx),
@@ -232,7 +257,15 @@ export interface ResumenDeConsumo {
    * pagan). No cuenta los que están en prueba ni los suspendidos. Es lo contratado hoy, no lo cobrado.
    */
   mrrContratadoCop: number;
-  uso: { conversacionesIa: number; plantillas: number; segundosAudio: number; tokensEntrada: number; tokensSalida: number; citas: number };
+  uso: {
+    conversacionesIa: number;
+    plantillas: number;
+    mensajesServicio: MensajesDeServicio;
+    segundosAudio: number;
+    tokensEntrada: number;
+    tokensSalida: number;
+    citas: number;
+  };
   costo: Costo | null;
   diario: UsoDelDia[];
   detallePorDiaDesde: string | null;
@@ -243,6 +276,7 @@ export async function resumenDeConsumo(
   mes?: string,
   ahora: Date = new Date(),
   tarifas: Tarifas | null = tarifasDelEntorno(),
+  gratisPorNumero: number = entorno.MENSAJES_SERVICIO_GRATIS_MES,
 ): Promise<ResumenDeConsumo> {
   const pedido = mesPedido(mes, ahora);
   const datos = await conSistema(async (tx) => ({
@@ -251,7 +285,7 @@ export async function resumenDeConsumo(
     detallePorDiaDesde: await repositorio.primerDiaConDetalle(tx),
     paraAlertas: await repositorio.negociosParaAlertas(tx, ahora),
   }));
-  const negocios = datos.uso.map((u) => consumoDe(u, ahora, tarifas));
+  const negocios = datos.uso.map((u) => consumoDe(u, ahora, tarifas, gratisPorNumero));
   const suma = (valor: (n: ConsumoDeNegocio) => number) => negocios.reduce((total, n) => total + valor(n), 0);
   const cuantos = (estado: UsoDeNegocio['estado']) => negocios.filter((n) => n.estado === estado).length;
 
@@ -262,6 +296,12 @@ export async function resumenDeConsumo(
     uso: {
       conversacionesIa: suma((n) => n.conversacionesIa),
       plantillas: suma((n) => n.plantillas),
+      // Suma de lo de cada negocio: los gratis ya se separaron número por número.
+      mensajesServicio: {
+        total: suma((n) => n.mensajesServicio.total),
+        gratis: suma((n) => n.mensajesServicio.gratis),
+        cobrados: suma((n) => n.mensajesServicio.cobrados),
+      },
       segundosAudio: suma((n) => n.segundosAudio),
       tokensEntrada: suma((n) => n.tokensEntrada),
       tokensSalida: suma((n) => n.tokensSalida),
@@ -273,6 +313,7 @@ export async function resumenDeConsumo(
           iaCop: suma((n) => n.costo?.iaCop ?? 0),
           audioCop: suma((n) => n.costo?.audioCop ?? 0),
           plantillasCop: suma((n) => n.costo?.plantillasCop ?? 0),
+          servicioCop: suma((n) => n.costo?.servicioCop ?? 0),
           totalCop: suma((n) => n.costo?.totalCop ?? 0),
         }
       : null,

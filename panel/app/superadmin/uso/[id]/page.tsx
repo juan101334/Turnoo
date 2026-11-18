@@ -160,9 +160,16 @@ export default async function PaginaUsoDeNegocio({ params, searchParams }: { par
           )}
         </Seccion>
 
-        <Seccion id="envios" titulo="Mensajes automáticos y entregas" ayuda="Recordatorios de cita y avisos al dueño. WhatsApp los cobra aparte.">
+        <Seccion
+          id="envios"
+          titulo="Mensajes de WhatsApp y entregas"
+          ayuda="Automáticos: recordatorios de cita y avisos al dueño; WhatsApp los cobra todos. De servicio: las respuestas del asistente y del panel; los primeros del mes de cada número son gratis."
+        >
           <dl className="divide-y divide-borde border-y border-borde">
             <Dato nombre="Mensajes automáticos enviados">{cantidad(n.plantillas)}</Dato>
+            <Dato nombre="Mensajes de servicio enviados">{cantidad(n.mensajesServicio.total)}</Dato>
+            <Dato nombre="De servicio, gratis">{cantidad(n.mensajesServicio.gratis)}</Dato>
+            <Dato nombre="De servicio, se cobran">{cantidad(n.mensajesServicio.cobrados)}</Dato>
             {fallos.map((f) => (
               <Dato key={f.nombre} nombre={f.nombre}>
                 <span className={f.valor > 0 ? 'font-semibold text-peligro' : ''}>{cantidad(f.valor)}</span>
@@ -179,6 +186,7 @@ export default async function PaginaUsoDeNegocio({ params, searchParams }: { par
                 <Dato nombre="Asistente">{pesos(n.costo.iaCop)}</Dato>
                 <Dato nombre="Audio">{pesos(n.costo.audioCop)}</Dato>
                 <Dato nombre="Mensajes automáticos">{pesos(n.costo.plantillasCop)}</Dato>
+                <Dato nombre="Mensajes de servicio">{pesos(n.costo.servicioCop)}</Dato>
                 <Dato nombre="Costo estimado del mes" fuerte>
                   {pesos(n.costo.totalCop)}
                 </Dato>

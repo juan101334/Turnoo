@@ -48,6 +48,9 @@ const esquema = z.object({
   TARIFA_IA_SALIDA_COP_MILLON: tarifa,
   TARIFA_AUDIO_COP_MINUTO: tarifa,
   TARIFA_PLANTILLA_UTILIDAD_COP: tarifa,
+  // Mensajes de servicio (texto libre dentro de la ventana de 24 h) que Meta no cobra al mes por
+  // cada número. Desde el siguiente se estiman con TARIFA_PLANTILLA_UTILIDAD_COP. Meta puede cambiarlo.
+  MENSAJES_SERVICIO_GRATIS_MES: z.preprocess((valor) => (valor === '' ? undefined : valor), z.coerce.number().int().min(0).default(1000)),
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
   // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),

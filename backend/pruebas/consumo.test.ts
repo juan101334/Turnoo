@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
 import { primerDiaDelMes } from '../src/compartido/tiempo.js';
 import { conNegocio, conSistema } from '../src/db/contexto.js';
-import { consumoDeNegocio, consumoPorNegocio, resumenDeConsumo, type Tarifas } from '../src/modulos/uso/consumo.servicio.js';
+import { consumoDeNegocio, consumoPorNegocio, mensajesDeServicio, resumenDeConsumo, type Tarifas } from '../src/modulos/uso/consumo.servicio.js';
 import { sumarPlantilla, sumarSegundosDeAudio } from '../src/modulos/uso/uso.repositorio.js';
 import { registrarTokens } from '../src/modulos/uso/uso.servicio.js';
 import { registrarCuenta } from '../src/modulos/whatsapp/whatsapp.cuentas.js';
@@ -24,6 +24,10 @@ const dias = (n: number) => new Date(T.getTime() + n * DIA_MS);
 
 /** Valores FICTICIOS y redondos, solo para comprobar la cuenta. No son tarifas reales de nadie. */
 const TARIFAS_FICTICIAS: Tarifas = { iaEntradaCopMillon: 1000, iaSalidaCopMillon: 2000, audioCopMinuto: 60, plantillaUtilidadCop: 10 };
+/** FICTICIA: 1 peso por mensaje de utilidad y lo demás en 0, para leer el costo como un conteo. */
+const TARIFA_FICTICIA_DE_UNO: Tarifas = { iaEntradaCopMillon: 0, iaSalidaCopMillon: 0, audioCopMinuto: 0, plantillaUtilidadCop: 1 };
+/** Lo que Meta da gratis hoy por número; en las pruebas se pasa explícito. */
+const GRATIS = 1000;
 
 // Datos de clientes que NO deben aparecer en ninguna respuesta.
 const SECRETOS = { nombre: 'Cliente Secreto Zeta', telefono: '573009998877', mensaje: 'contenido-secreto-del-mensaje', detalle: 'detalle-secreto-de-la-derivacion' };
@@ -312,6 +316,8 @@ describe('panel de consumo del superadmin', () => {
       expect(resumen.uso).toEqual({
         conversacionesIa: 15,
         plantillas: 5,
+        // El único saliente de A en mayo falló: no cuenta.
+        mensajesServicio: { total: 0, gratis: 0, cobrados: 0 },
         segundosAudio: 90,
         tokensEntrada: 1_007_000,
         tokensSalida: 500_700,
@@ -351,14 +357,14 @@ describe('panel de consumo del superadmin', () => {
       const { negocios } = await consumoPorNegocio(MES, T, TARIFAS_FICTICIAS);
       const deA = negocios.find((n) => n.negocioId === a.negocioId)!;
       // 1 millón de entrada x 1000 + medio millón de salida x 2000; 1,5 minutos x 60; 4 plantillas x 10.
-      expect(deA.costo).toEqual({ iaCop: 2000, audioCop: 90, plantillasCop: 40, totalCop: 2130 });
+      expect(deA.costo).toEqual({ iaCop: 2000, audioCop: 90, plantillasCop: 40, servicioCop: 0, totalCop: 2130 });
       expect(deA.margenCop).toBe(50000 - 2130);
       const deB = negocios.find((n) => n.negocioId === b.negocioId)!;
       // 7000 x 1000 / 1 millón + 700 x 2000 / 1 millón = 8,4: se redondea al peso.
-      expect(deB.costo).toEqual({ iaCop: 8, audioCop: 0, plantillasCop: 10, totalCop: 18 });
+      expect(deB.costo).toEqual({ iaCop: 8, audioCop: 0, plantillasCop: 10, servicioCop: 0, totalCop: 18 });
 
       const resumen = await resumenDeConsumo(MES, T, TARIFAS_FICTICIAS);
-      expect(resumen.costo).toEqual({ iaCop: 2008, audioCop: 90, plantillasCop: 50, totalCop: 2148 });
+      expect(resumen.costo).toEqual({ iaCop: 2008, audioCop: 90, plantillasCop: 50, servicioCop: 0, totalCop: 2148 });
     });
 
     it('un negocio sin plan tiene costo pero no margen', async () => {
@@ -366,6 +372,130 @@ describe('panel de consumo del superadmin', () => {
       const d = await consumoDeNegocio(b.negocioId, MES, T, TARIFAS_FICTICIAS);
       expect(d).toMatchObject({ plan: null, porcentajeIa: null, margenCop: null, costo: { totalCop: 18 } });
       await fijar(b, 'plan_id = $2', [planId]);
+    });
+  });
+
+  describe('mensajes de servicio', () => {
+    /** Agosto de 2036 en Bogotá: un mes que ninguna otra prueba usa. */
+    const AGOSTO = '2036-08';
+    const T_AGOSTO = new Date('2036-08-16T14:00:00Z');
+    let c: NegocioDePrueba;
+    let d: NegocioDePrueba;
+    /** Conversación de C por cada número, y una de D. */
+    const conv = {} as Record<'cX' | 'cY' | 'd', string>;
+
+    async function conversacion(n: NegocioDePrueba, telefonoDelNumero: string): Promise<string> {
+      const cuenta = await registrarCuenta(n.negocioId, { phoneNumberId: `${Date.now()}${telefonoDelNumero}`, wabaId: '1', numeroVisible: telefonoDelNumero, token: 'EAAtoken-de-prueba-servicio' });
+      const cliente = await crearCliente(n, 'Cliente de prueba');
+      const [fila] = await sistema<{ id: string }>(
+        'INSERT INTO conversaciones (negocio_id, cliente_id, whatsapp_cuenta_id) VALUES ($1, $2, $3) RETURNING id',
+        [n.negocioId, cliente, cuenta.id],
+      );
+      return fila!.id;
+    }
+
+    /** `cantidad` mensajes iguales en una conversación. */
+    const mensajes = (n: NegocioDePrueba, conversacionId: string, cantidad: number, cuando: Date, otros: { estado?: string | null; direccion?: string; emisor?: string; tipo?: string } = {}) =>
+      sistema(
+        `INSERT INTO mensajes (negocio_id, conversacion_id, direccion, emisor, tipo, contenido, estado_entrega, creado_en)
+         SELECT $1, $2, $3, $4, $5, 'texto de prueba', $6, $7 FROM generate_series(1, $8::int)`,
+        [n.negocioId, conversacionId, otros.direccion ?? 'saliente', otros.emisor ?? 'ia', otros.tipo ?? 'texto', otros.estado === undefined ? 'enviado' : otros.estado, cuando, cantidad],
+      );
+
+    const deC = () => consumoDeNegocio(c.negocioId, AGOSTO, T_AGOSTO, TARIFA_FICTICIA_DE_UNO, GRATIS);
+
+    beforeAll(async () => {
+      c = await crearNegocio('Servicio C');
+      d = await crearNegocio('Servicio D');
+      conv.cX = await conversacion(c, '3000000101');
+      conv.cY = await conversacion(c, '3000000102');
+      conv.d = await conversacion(d, '3000000201');
+    });
+
+    it('la cuenta de gratis y cobrados va número por número', () => {
+      expect(mensajesDeServicio([], GRATIS)).toEqual({ total: 0, gratis: 0, cobrados: 0 });
+      expect(mensajesDeServicio([1000], GRATIS)).toEqual({ total: 1000, gratis: 1000, cobrados: 0 });
+      expect(mensajesDeServicio([1001], GRATIS)).toEqual({ total: 1001, gratis: 1000, cobrados: 1 });
+      // Lo que un número no usó no cubre al otro.
+      expect(mensajesDeServicio([1001, 500], GRATIS)).toEqual({ total: 1501, gratis: 1500, cobrados: 1 });
+      expect(mensajesDeServicio([10], 0)).toEqual({ total: 10, gratis: 0, cobrados: 10 });
+    });
+
+    it('1.000 mensajes en un número cuestan 0; el 1.001 cuesta 1 (tarifa ficticia de 1)', async () => {
+      // Asistente, panel y sistema cuentan igual: todos son texto libre por la API.
+      await mensajes(c, conv.cX, 998, T_AGOSTO);
+      await mensajes(c, conv.cX, 1, T_AGOSTO, { emisor: 'humano' });
+      await mensajes(c, conv.cX, 1, T_AGOSTO, { emisor: 'sistema' });
+      let detalle = await deC();
+      expect(detalle.mensajesServicio).toEqual({ total: 1000, gratis: 1000, cobrados: 0 });
+      expect(detalle.costo).toMatchObject({ servicioCop: 0, totalCop: 0 });
+
+      await mensajes(c, conv.cX, 1, T_AGOSTO);
+      detalle = await deC();
+      expect(detalle.mensajesServicio).toEqual({ total: 1001, gratis: 1000, cobrados: 1 });
+      expect(detalle.costo).toMatchObject({ servicioCop: 1, totalCop: 1 });
+      // C no tiene plan: sin margen (con plan, ver la última prueba).
+      expect(detalle.margenCop).toBeNull();
+    });
+
+    it('no cuentan los fallidos, los que no se supo si salieron, los entrantes ni las plantillas', async () => {
+      const antes = (await deC()).mensajesServicio.total;
+      await mensajes(c, conv.cX, 40, T_AGOSTO, { estado: 'fallido' });
+      await mensajes(c, conv.cX, 3, T_AGOSTO, { estado: null });
+      await mensajes(c, conv.cX, 7, T_AGOSTO, { direccion: 'entrante', emisor: 'cliente', estado: null });
+      await mensajes(c, conv.cX, 2, T_AGOSTO, { tipo: 'plantilla' });
+      expect((await deC()).mensajesServicio.total).toBe(antes);
+      // Si algún día se registra la entrega, 'entregado' y 'leido' siguen contando.
+      await mensajes(c, conv.cY, 1, T_AGOSTO, { estado: 'entregado' });
+      await mensajes(c, conv.cY, 1, T_AGOSTO, { estado: 'leido' });
+      expect((await deC()).mensajesServicio.total).toBe(antes + 2);
+    });
+
+    it('cada número tiene sus 1.000 gratis', async () => {
+      // cX va en 1.001 y cY en 2 (prueba anterior): 498 más en cY siguen siendo gratis.
+      await mensajes(c, conv.cY, 498, T_AGOSTO);
+      const detalle = await deC();
+      expect(detalle.mensajesServicio).toEqual({ total: 1501, gratis: 1500, cobrados: 1 });
+      expect(detalle.costo?.servicioCop).toBe(1);
+    });
+
+    it('el mes es el del negocio en Bogotá, también en los bordes', async () => {
+      // 1 de agosto a las 4:59 UTC = 31 de julio, 11:59 p. m. en Bogotá: es de julio.
+      await mensajes(c, conv.cY, 5, new Date('2036-08-01T04:59:00Z'));
+      // 1 de septiembre a las 3:00 UTC = 31 de agosto, 10:00 p. m. en Bogotá: es de agosto.
+      await mensajes(c, conv.cY, 2, new Date('2036-09-01T03:00:00Z'));
+      // 1 de septiembre a las 5:00 UTC = medianoche en Bogotá: ya es de septiembre.
+      await mensajes(c, conv.cY, 4, new Date('2036-09-01T05:00:00Z'));
+      expect((await deC()).mensajesServicio.total).toBe(1503);
+      expect((await consumoDeNegocio(c.negocioId, '2036-07', T_AGOSTO, null, GRATIS)).mensajesServicio.total).toBe(5);
+      expect((await consumoDeNegocio(c.negocioId, '2036-09', T_AGOSTO, null, GRATIS)).mensajesServicio.total).toBe(4);
+    });
+
+    it('el conteo de un negocio no incluye los mensajes de otro', async () => {
+      await mensajes(d, conv.d, 6, T_AGOSTO);
+      const { negocios } = await consumoPorNegocio(AGOSTO, T_AGOSTO, TARIFA_FICTICIA_DE_UNO, GRATIS);
+      expect(negocios.find((n) => n.negocioId === d.negocioId)!.mensajesServicio).toEqual({ total: 6, gratis: 6, cobrados: 0 });
+      expect(negocios.find((n) => n.negocioId === c.negocioId)!.mensajesServicio.total).toBe(1503);
+    });
+
+    it('el resumen suma lo de cada negocio, y el costo del servicio entra en el total', async () => {
+      const resumen = await resumenDeConsumo(AGOSTO, T_AGOSTO, TARIFA_FICTICIA_DE_UNO, GRATIS);
+      // En agosto de 2036 solo hay mensajes de C (cX 1.001, cY 502) y de D (6): solo 1 se cobra.
+      expect(resumen.uso.mensajesServicio).toEqual({ total: 1509, gratis: 1508, cobrados: 1 });
+      expect(resumen.costo).toMatchObject({ servicioCop: 1, totalCop: 1 });
+    });
+
+    it('sin tarifas se ven los mensajes pero no hay costo', async () => {
+      const detalle = await consumoDeNegocio(c.negocioId, AGOSTO, T_AGOSTO, null, GRATIS);
+      expect(detalle.mensajesServicio.cobrados).toBe(1);
+      expect(detalle.costo).toBeNull();
+    });
+
+    it('con un plan, el costo del servicio baja el margen', async () => {
+      await fijar(c, 'plan_id = $2', [planId]);
+      const detalle = await deC();
+      expect(detalle.margenCop).toBe(50000 - 1);
+      await fijar(c, 'plan_id = NULL', []);
     });
   });
 
