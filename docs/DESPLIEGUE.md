@@ -8,7 +8,7 @@ Cómo poner el backend y el panel web en un servidor con HTTPS. Todo corre en Do
 | `herramientas` | Aplica las migraciones pendientes y termina. También corre los scripts del superadmin. |
 | `api` | El backend compilado. Arranca solo si las migraciones terminaron bien. |
 | `panel` | El panel web (Next.js). Habla con la API por la red interna (`api:3000`); el navegador nunca llama a la API. |
-| `caddy` | Recibe el tráfico en los puertos 80 y 443, saca y renueva los certificados de HTTPS y lo pasa a la API o al panel según el dominio. |
+| `caddy` | Recibe el tráfico en los puertos 80 y 443, saca y renueva los certificados de HTTPS y lo pasa a la API o al panel según el dominio. También sirve la landing (`turnooapp.com`), que es un sitio estático metido en su imagen (`landing/Dockerfile`). |
 
 Volúmenes: `pgdata` (la base), `archivos` (imágenes de los clientes), `caddy_data` y `caddy_config` (certificados). El proyecto se llama `turnoo-prod`, distinto del de desarrollo: probarlo en tu equipo no toca la base de desarrollo.
 
@@ -29,7 +29,7 @@ alias dc='docker compose -f docker-compose.prod.yml --env-file .env.produccion'
 
 ## Probar en tu equipo
 
-Con `DOMINIO_API=localhost`, `DOMINIO_PANEL=app.localhost` y `PANEL_URL=https://app.localhost`, Caddy usa un certificado propio en vez de Let's Encrypt.
+Con `DOMINIO_API=localhost`, `DOMINIO_PANEL=app.localhost`, `DOMINIO_LANDING=landing.localhost` y `PANEL_URL=https://app.localhost`, Caddy usa un certificado propio en vez de Let's Encrypt.
 
 1. Crea los dos archivos de configuración con valores de prueba (contraseñas nuevas, no las de desarrollo).
 2. Sigue los pasos 4 a 6 de "Primer despliegue", con `sudo` delante de `docker` si tu usuario no está en el grupo `docker`.
@@ -41,7 +41,7 @@ Si los puertos 80 o 443 de tu equipo están ocupados, Caddy no arranca; los dem�
 ## Primer despliegue
 
 1. **Servidor.** Un VPS con Ubuntu 24.04 y al menos 2 GB de RAM. Entrada por SSH con llave, sin contraseña. Cortafuegos con solo los puertos 22, 80 y 443 abiertos (`ufw allow OpenSSH`, `ufw allow 80`, `ufw allow 443`, `ufw enable`). Instala Docker con su guía oficial para Ubuntu.
-2. **DNS.** En el registrador del dominio, dos registros `A` con la IP del servidor: `api` (`api.turnooapp.com`) y `app` (`app.turnooapp.com`). Comprueba que ya apuntan con `dig +short api.turnooapp.com` y `dig +short app.turnooapp.com` antes de arrancar Caddy: si no apunta, Let's Encrypt rechaza el certificado y, tras varios intentos, bloquea el dominio por un rato.
+2. **DNS.** En el registrador del dominio, cuatro registros `A` con la IP del servidor: `api` (`api.turnooapp.com`), `app` (`app.turnooapp.com`), la raíz (`turnooapp.com`, la landing) y `www`. Comprueba que ya apuntan con `dig +short api.turnooapp.com` y `dig +short app.turnooapp.com` antes de arrancar Caddy: si no apunta, Let's Encrypt rechaza el certificado y, tras varios intentos, bloquea el dominio por un rato.
 3. **Código y configuración.** Clona el repositorio en el servidor y crea `.env.produccion` y `backend/.env.produccion` a partir de los ejemplos. Genera cada contraseña con `openssl rand -hex 24` y la clave de cifrado con `openssl rand -base64 32`. Guarda una copia de los dos archivos en un gestor de contraseñas: las copias de seguridad no los incluyen.
 4. **Base y migraciones.**
    ```bash

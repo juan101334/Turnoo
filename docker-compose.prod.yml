@@ -94,8 +94,14 @@ services:
       - api
     <<: *registros
 
+  # Caddy con la landing adentro: la imagen se arma con landing/Dockerfile.
   caddy:
-    image: caddy:2
+    build:
+      context: .
+      dockerfile: landing/Dockerfile
+      args:
+        # Público: queda escrito en los enlaces de la landing. Sin él, la imagen no se construye.
+        NEXT_PUBLIC_WHATSAPP: ${SOPORTE_WHATSAPP:?falta en .env.produccion (la landing lo usa en sus botones)}
     restart: unless-stopped
     ports:
       - '80:80'
@@ -104,6 +110,7 @@ services:
     environment:
       DOMINIO_API: ${DOMINIO_API:?falta en .env.produccion}
       DOMINIO_PANEL: ${DOMINIO_PANEL:?falta en .env.produccion}
+      DOMINIO_LANDING: ${DOMINIO_LANDING:?falta en .env.produccion}
     volumes:
       - ./despliegue/Caddyfile:/etc/caddy/Caddyfile:ro
       # Certificados de HTTPS: si se pierden, Caddy los pide de nuevo (con límite de Let's Encrypt).
