@@ -17,3 +17,5 @@ panel/pruebas
 panel/test-results
 panel/playwright-report
 **/*.tsbuildinfo
+landing/.next
+landing/out

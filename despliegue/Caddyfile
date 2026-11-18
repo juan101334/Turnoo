@@ -1,5 +1,6 @@
-# Caddy saca y renueva solo los certificados de HTTPS de la API y del panel.
-# DOMINIO_API y DOMINIO_PANEL vienen de .env.produccion (api.turnooapp.com y app.turnooapp.com).
+# Caddy saca y renueva solo los certificados de HTTPS de la API, del panel y de la landing.
+# DOMINIO_API, DOMINIO_PANEL y DOMINIO_LANDING vienen de .env.produccion
+# (api.turnooapp.com, app.turnooapp.com y turnooapp.com).
 # Para probar en tu equipo: DOMINIO_API=localhost y DOMINIO_PANEL=app.localhost (certificado propio).
 {$DOMINIO_API} {
 	encode zstd gzip
@@ -11,4 +12,30 @@
 {$DOMINIO_PANEL} {
 	encode zstd gzip
 	reverse_proxy panel:3001
+}
+
+# La landing es un sitio estático: sus archivos van dentro de la imagen de Caddy (landing/Dockerfile).
+{$DOMINIO_LANDING} {
+	encode zstd gzip
+	root * /srv/landing
+	# /algo sirve algo.html; lo que no existe, la página 404 del sitio.
+	try_files {path} {path}.html {path}/index.html
+	file_server
+	handle_errors {
+		rewrite * /404.html
+		file_server {
+			status {err.status_code}
+		}
+	}
+	# Los archivos de /_next/static llevan su huella en el nombre: se pueden guardar un año.
+	@huella path /_next/static/*
+	header @huella Cache-Control "public, max-age=31536000, immutable"
+	header X-Content-Type-Options nosniff
+	header Referrer-Policy strict-origin-when-cross-origin
+	header X-Frame-Options DENY
+}
+
+# Con www se va al mismo sitio sin www.
+www.{$DOMINIO_LANDING} {
+	redir https://{$DOMINIO_LANDING}{uri} permanent
 }
