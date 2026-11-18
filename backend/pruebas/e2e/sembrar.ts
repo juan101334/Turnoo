@@ -28,6 +28,8 @@ await conSistema(async (tx) => {
   await tx.consultar("DELETE FROM negocios WHERE nombre LIKE 'Barbería Superadmin %'");
   // Los de la pantalla Uso del superadmin (más abajo).
   await tx.consultar("DELETE FROM negocios WHERE nombre LIKE 'Uso E2E %'");
+  // El de las capturas de la landing (sembrar-landing.ts): está activo y con plan, y cambiaría los totales de Uso.
+  await tx.consultar("DELETE FROM negocios WHERE nombre = 'Barbería La Esquina'");
   await tx.consultar('DELETE FROM usuarios WHERE email LIKE $1', [`%@${DOMINIO}`]);
   await tx.consultar('DELETE FROM intentos_login');
 });
