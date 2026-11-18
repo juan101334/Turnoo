@@ -346,11 +346,12 @@ export default function Inicio() {
             {PLANES.map((plan) => (
               <li
                 key={plan.nombre}
-                className={`flex flex-col rounded-xl border-2 border-tinta p-6 ${plan.destacado ? 'bg-marca text-white shadow-[7px_7px_0_var(--color-tinta)] lg:pb-10' : 'bg-hoja'}`}
+                className={`flex flex-col rounded-xl border-2 border-tinta p-5 sm:p-6 ${plan.destacado ? 'bg-marca text-white shadow-[7px_7px_0_var(--color-tinta)] lg:pb-10' : 'bg-hoja'}`}
               >
                 <h3 className="titular text-3xl">{plan.nombre}</h3>
                 <p className={plan.destacado ? 'text-white/85' : 'text-suave'}>{plan.paraQuien}</p>
-                <p className="mt-6 flex items-baseline gap-1.5">
+                {/* A 320 px "$149.900 al mes" no cabe en una línea: "al mes" baja. */}
+                <p className="mt-6 flex flex-wrap items-baseline gap-x-1.5">
                   <span className="titular text-[3.2rem]">{pesos(plan.precio)}</span>
                   <span className={plan.destacado ? 'text-white/85' : 'text-suave'}>al mes</span>
                 </p>

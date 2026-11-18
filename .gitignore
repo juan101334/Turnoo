@@ -37,3 +37,4 @@ panel/playwright-report/
 landing/out/
 landing/next-env.d.ts
 landing/*.tsbuildinfo
+landing/AGENTS.md
