@@ -393,6 +393,84 @@ describe('autenticación', () => {
       expect((await pedir('/auth/yo', 'GET', undefined, token)).status).toBe(200);
     });
 
+    const entrar = async (email: string): Promise<string> =>
+      (await (await pedir('/auth/login', 'POST', { email, password: CLAVE })).json()).token;
+    const nombreEnBase = async (id: string) =>
+      (await conSistema((tx) => tx.consultar<{ nombre: string }>('SELECT nombre FROM usuarios WHERE id = $1', [id]))).rows[0]!.nombre;
+
+    it('GET /auth/yo trae el correo de la cuenta, también para el superadmin', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      expect((await (await pedir('/auth/yo', 'GET', undefined, await entrar(u.email))).json()).usuario.email).toBe(u.email);
+      const s = await crearUsuario(null, 'superadmin');
+      const yo = await (await pedir('/auth/yo', 'GET', undefined, await entrar(s.email))).json();
+      expect(yo).toMatchObject({ usuario: { email: s.email, rol: 'superadmin' }, negocio: null });
+    });
+
+    it('PATCH /auth/yo cambia el nombre de la propia cuenta, sin espacios de más, y no el del barbero', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      const profesionalId = await crearProfesional(a);
+      await conNegocio(a.negocioId, (tx) => tx.consultar('UPDATE profesionales SET usuario_id = $1 WHERE id = $2', [u.id, profesionalId]));
+      const barberoAntes = (await conNegocio(a.negocioId, (tx) => tx.consultar<{ nombre: string }>('SELECT nombre FROM profesionales WHERE id = $1', [profesionalId]))).rows[0]!.nombre;
+      const token = await entrar(u.email);
+
+      const res = await pedir('/auth/yo', 'PATCH', { nombre: '  Andrés   Felipe  ' }, token);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ nombre: 'Andrés Felipe' });
+      expect(await nombreEnBase(u.id)).toBe('Andrés Felipe');
+      expect((await (await pedir('/auth/yo', 'GET', undefined, token)).json()).usuario.nombre).toBe('Andrés Felipe');
+      const barbero = (await conNegocio(a.negocioId, (tx) => tx.consultar<{ nombre: string }>('SELECT nombre FROM profesionales WHERE id = $1', [profesionalId]))).rows[0]!.nombre;
+      expect(barbero).toBe(barberoAntes);
+
+      const s = await crearUsuario(null, 'superadmin');
+      expect((await pedir('/auth/yo', 'PATCH', { nombre: 'Soporte Turnoo' }, await entrar(s.email))).status).toBe(200);
+      expect(await nombreEnBase(s.id)).toBe('Soporte Turnoo');
+    });
+
+    it('PATCH /auth/yo: 400 si el nombre es corto, largo o falta; 401 sin sesión', async () => {
+      const u = await crearUsuario(a, 'dueno');
+      const token = await entrar(u.email);
+      for (const nombre of ['A', '   ', ' a ', 'x'.repeat(101), 5]) {
+        expect((await pedir('/auth/yo', 'PATCH', { nombre }, token)).status).toBe(400);
+      }
+      expect((await pedir('/auth/yo', 'PATCH', {}, token)).status).toBe(400);
+      expect((await pedir('/auth/yo', 'PATCH', { nombre: 'x'.repeat(100) }, token)).status).toBe(200);
+      expect((await pedir('/auth/yo', 'PATCH', { nombre: 'Sin sesión' })).status).toBe(401);
+    });
+
+    it('PATCH /auth/yo no deja editar a otro usuario, ni del mismo negocio ni de otro', async () => {
+      const dueno = await crearUsuario(a, 'dueno');
+      const companero = await crearUsuario(a, 'empleado');
+      const deOtroNegocio = await crearUsuario(b, 'dueno');
+      const token = await entrar(dueno.email);
+      for (const otro of [companero, deOtroNegocio]) {
+        for (const cuerpo of [{ nombre: 'Intruso', usuarioId: otro.id }, { nombre: 'Intruso', id: otro.id }]) {
+          expect((await pedir('/auth/yo', 'PATCH', cuerpo, token)).status).toBe(400);
+        }
+        expect((await pedir(`/auth/yo?usuarioId=${otro.id}`, 'PATCH', { nombre: 'Intruso' }, token)).status).toBe(200);
+        expect(await nombreEnBase(otro.id)).toBe('Persona');
+      }
+      // El de la query se ignora: el cambio cayó en la propia cuenta.
+      expect(await nombreEnBase(dueno.id)).toBe('Intruso');
+    });
+
+    it('POST /auth/sesiones/cerrar-otras cierra las demás sesiones del usuario y conserva la actual', async () => {
+      const u = await crearUsuario(a, 'empleado');
+      const otro = await crearUsuario(a, 'empleado');
+      const [actual, celular, pc] = [await entrar(u.email), await entrar(u.email), await entrar(u.email)];
+      const delOtro = await entrar(otro.email);
+
+      const res = await pedir('/auth/sesiones/cerrar-otras', 'POST', undefined, actual);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ cerradas: 2 });
+      expect((await pedir('/auth/yo', 'GET', undefined, actual)).status).toBe(200);
+      expect((await pedir('/auth/yo', 'GET', undefined, celular)).status).toBe(401);
+      expect((await pedir('/auth/yo', 'GET', undefined, pc)).status).toBe(401);
+      expect((await pedir('/auth/yo', 'GET', undefined, delOtro)).status).toBe(200);
+
+      expect(await (await pedir('/auth/sesiones/cerrar-otras', 'POST', undefined, actual)).json()).toEqual({ cerradas: 0 });
+      expect((await pedir('/auth/sesiones/cerrar-otras', 'POST')).status).toBe(401);
+    });
+
     it('responde 401, 403 y 400 con el formato de error del proyecto', async () => {
       expect((await pedir('/auth/yo')).status).toBe(401);
       expect((await pedir('/auth/login', 'POST', { email: correo(), password: CLAVE })).status).toBe(401);

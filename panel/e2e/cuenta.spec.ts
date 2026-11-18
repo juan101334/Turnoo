@@ -62,6 +62,73 @@ test('cambiar la contraseña: pide la actual, cierra las otras sesiones y esta s
   await expect(page).toHaveURL('/hoy');
 });
 
+test('editar el nombre de la cuenta: correo, rol y negocio solo se leen', async ({ page }) => {
+  await entrarYEsperar(page, datos().perfil);
+  await page.goto('/cuenta');
+  const perfil = page.getByRole('region', { name: 'Perfil' });
+  await expect(perfil).toContainText(datos().perfil);
+  await expect(perfil).toContainText('Dueño del negocio');
+  await expect(perfil).toContainText('Barbería E2E');
+  // Solo el nombre se edita.
+  await expect(perfil.getByRole('textbox')).toHaveCount(0);
+
+  const cambiar = perfil.getByRole('button', { name: 'Cambiar nombre' });
+  await cambiar.click();
+  const campo = perfil.getByLabel('Nombre', { exact: true });
+  await expect(campo).toBeFocused();
+  await expect(campo).toHaveValue('Dueña Perfil');
+  await expect(perfil.getByRole('textbox')).toHaveCount(1);
+
+  // Cancelar no guarda nada y devuelve el foco a "Cambiar".
+  await campo.fill('No se guarda');
+  await perfil.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(cambiar).toBeFocused();
+  await expect(perfil).toContainText('Dueña Perfil');
+
+  // Los espacios de más se quitan al guardar.
+  await cambiar.click();
+  await perfil.getByLabel('Nombre', { exact: true }).fill('  Daniela   Perfil  ');
+  await perfil.getByRole('button', { name: 'Guardar nombre' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Nombre guardado.' })).toBeVisible();
+  await expect(perfil.getByLabel('Nombre', { exact: true })).toHaveCount(0);
+  await expect(perfil).toContainText('Daniela Perfil');
+  await expect(cambiar).toBeFocused();
+
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Perfil' })).toContainText('Daniela Perfil');
+});
+
+test('cerrar sesión en los demás dispositivos: pide confirmar y esta sesión sigue abierta', async ({ page, browser }) => {
+  const otro = await browser.newPage();
+  await entrarYEsperar(otro, datos().sesiones);
+  await entrarYEsperar(page, datos().sesiones);
+  await page.goto('/cuenta');
+
+  const seccion = page.getByRole('region', { name: 'Otros dispositivos' });
+  await seccion.getByRole('button', { name: 'Cerrar sesión en los demás dispositivos' }).click();
+  // Volver no cierra nada.
+  await seccion.getByRole('button', { name: 'Volver' }).click();
+  await otro.goto('/hoy');
+  await expect(otro).toHaveURL('/hoy');
+
+  await seccion.getByRole('button', { name: 'Cerrar sesión en los demás dispositivos' }).click();
+  await expect(seccion).toContainText('¿Cerrar la sesión en los demás dispositivos?');
+  await seccion.getByRole('button', { name: 'Cerrar sesiones' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Se cerró la sesión en 1 dispositivo.' })).toBeVisible();
+
+  await page.goto('/hoy');
+  await expect(page).toHaveURL('/hoy');
+  await otro.goto('/hoy');
+  await expect(otro).not.toHaveURL('/hoy');
+  await otro.close();
+
+  // Ya no quedan otras.
+  await page.goto('/cuenta');
+  await page.getByRole('button', { name: 'Cerrar sesión en los demás dispositivos' }).click();
+  await page.getByRole('button', { name: 'Cerrar sesiones' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'No había sesiones abiertas en otros dispositivos.' })).toBeVisible();
+});
+
 test('el login deja ver la contraseña con "Mostrar"', async ({ page }) => {
   await page.goto('/login');
   const clave = page.getByLabel('Contraseña');

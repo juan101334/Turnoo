@@ -26,6 +26,8 @@ export interface Usuario {
   negocioId: string | null;
   rol: Rol;
   nombre: string;
+  /** Correo con el que entra. Solo se muestra: no se cambia desde el panel. */
+  email: string;
   /** null solo para el superadmin. */
   negocio: NegocioDeLaSesion | null;
 }

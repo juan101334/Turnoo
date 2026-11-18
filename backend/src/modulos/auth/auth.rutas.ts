@@ -34,6 +34,24 @@ rutasAuth.get('/yo', exigirSesion, async (req, res) => {
   res.json(await servicio.quienSoy(usuarioDe(req)));
 });
 
+/** Nombre de la cuenta: de 2 a 100 caracteres (como en la invitación), sin espacios de más. */
+const nombreDeCuenta = z
+  .string()
+  .max(500)
+  .transform((s) => s.trim().replace(/\s+/g, ' '))
+  .pipe(z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100, 'El nombre puede tener hasta 100 caracteres'));
+
+/** Cambiar el nombre de la propia cuenta. Estricto: un id u otro campo en el cuerpo se rechaza. */
+rutasAuth.patch('/yo', exigirSesion, async (req, res) => {
+  const { nombre } = validarEsquema(z.strictObject({ nombre: nombreDeCuenta }), req.body);
+  res.json(await servicio.cambiarMiNombre(usuarioDe(req), nombre));
+});
+
+/** Cerrar la sesión en los demás dispositivos; la de esta petición sigue abierta. */
+rutasAuth.post('/sesiones/cerrar-otras', exigirSesion, async (req, res) => {
+  res.json(await servicio.cerrarOtrasSesiones(req.tokenSesion));
+});
+
 /** Cambiar la propia contraseña, con la actual. Las demás sesiones del usuario se cierran. */
 rutasAuth.post('/contrasena', exigirSesion, async (req, res) => {
   const { actual, nueva } = validarEsquema(z.object({ actual: contrasena, nueva: contrasena }), req.body);

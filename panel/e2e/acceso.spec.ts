@@ -69,7 +69,7 @@ test.describe('acceso', () => {
     const token = (await context.cookies()).find((c) => c.name === COOKIE)!.value;
 
     await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Cuenta' }).click();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
     await expect(page).toHaveURL('/login');
     expect((await context.cookies()).some((c) => c.name === COOKIE)).toBe(false);
 

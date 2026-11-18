@@ -68,7 +68,7 @@ export function SelectorDeTema({ tema: delServidor, variante = 'completo' }: { t
 
 /**
  * Un solo botón que pasa al tema siguiente (Sistema → Claro → Oscuro), para donde no caben tres:
- * el menú de la tablet y la barra del superadmin.
+ * el menú de la tablet.
  */
 export function BotonDeTema({ tema: delServidor, className = '' }: { tema: Tema; className?: string }) {
   const [tema, elegir] = useTema(delServidor);

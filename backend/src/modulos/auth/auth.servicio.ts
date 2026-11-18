@@ -137,10 +137,34 @@ export async function autenticar(token: unknown, ahora: Date = new Date()): Prom
  */
 export async function quienSoy(
   usuario: UsuarioAutenticado,
-): Promise<{ usuario: UsuarioAutenticado; negocio: { nombre: string; zonaHoraria: string } | null }> {
+): Promise<{ usuario: UsuarioAutenticado & { email: string }; negocio: { nombre: string; zonaHoraria: string } | null }> {
   const { negocioId } = usuario;
-  if (!negocioId) return { usuario, negocio: null };
-  return { usuario, negocio: await conNegocio(negocioId, (tx) => repositorio.negocioDeLaSesion(tx, negocioId)) };
+  return enAmbito(negocioId, async (tx) => {
+    const email = await repositorio.emailDeUsuario(tx, usuario.usuarioId);
+    if (email === null) throw new NoAutorizado(MENSAJE_SESION);
+    return { usuario: { ...usuario, email }, negocio: negocioId ? await repositorio.negocioDeLaSesion(tx, negocioId) : null };
+  });
+}
+
+/**
+ * Cambia el nombre de la propia cuenta (el nombre ya viene validado por la ruta). Solo la de la
+ * sesión: no recibe un id, así que no hay forma de pedir el cambio de otra persona.
+ */
+export async function cambiarMiNombre(usuario: UsuarioAutenticado, nombre: string): Promise<{ nombre: string }> {
+  const cambiado = await enAmbito(usuario.negocioId, (tx) => repositorio.cambiarNombre(tx, usuario.usuarioId, nombre));
+  if (!cambiado) throw new NoAutorizado(MENSAJE_SESION);
+  return { nombre };
+}
+
+/** Cierra las demás sesiones de quien tiene esta; ella sigue abierta. Devuelve cuántas cerró. */
+export async function cerrarOtrasSesiones(token: unknown, ahora: Date = new Date()): Promise<{ cerradas: number }> {
+  const leido = leerToken(token);
+  if (!leido) throw new NoAutorizado(MENSAJE_SESION);
+  return enAmbito(leido.negocioId, async (tx) => {
+    const usuario = await repositorio.buscarSesion(tx, leido.hash, leido.negocioId, ahora);
+    if (!usuario) throw new NoAutorizado(MENSAJE_SESION);
+    return { cerradas: await repositorio.revocarOtrasSesiones(tx, usuario.usuarioId, leido.hash, ahora) };
+  });
 }
 
 export async function cerrarSesion(token: unknown, ahora: Date = new Date()): Promise<void> {

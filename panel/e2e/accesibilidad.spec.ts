@@ -88,6 +88,17 @@ for (const modo of ['light', 'dark'] as const) {
       await page.getByRole('list', { name: 'Alertas' }).getByRole('link', { name: /Barbería E2E/ }).click();
       await expect(page.getByRole('region', { name: 'Asistente' })).toBeVisible();
       await revisar(page, 'uso de un negocio');
+      await page.goto('/superadmin/cuenta');
+      await revisar(page, '/superadmin/cuenta');
+    });
+
+    test('Cuenta con el nombre en edición y la confirmación de cerrar las otras sesiones', async ({ page }) => {
+      await entrarYEsperar(page, datos().dueno);
+      await page.goto('/cuenta');
+      await page.getByRole('button', { name: 'Cambiar nombre' }).click();
+      await page.getByRole('button', { name: 'Cerrar sesión en los demás dispositivos' }).click();
+      await expect(page.getByText('¿Cerrar la sesión en los demás dispositivos?')).toBeVisible();
+      await revisar(page, '/cuenta con los formularios abiertos');
     });
   });
 }
