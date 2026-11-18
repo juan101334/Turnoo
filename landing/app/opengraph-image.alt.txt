@@ -1,0 +1,1 @@
+Turnoo: tu barbería agenda sola por WhatsApp. Un chat donde un cliente pide turno y el asistente se lo da.

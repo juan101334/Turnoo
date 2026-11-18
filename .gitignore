@@ -32,3 +32,8 @@ panel/e2e/.datos.json
 panel/.next-e2e/
 panel/test-results/
 panel/playwright-report/
+
+# Landing: sitio estático que genera Next y tipos
+landing/out/
+landing/next-env.d.ts
+landing/*.tsbuildinfo

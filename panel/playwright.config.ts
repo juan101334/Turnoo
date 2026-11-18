@@ -11,6 +11,8 @@ const PANEL = 'http://localhost:3101';
 
 export default defineConfig({
   testDir: './e2e',
+  // Las capturas de la landing no son una prueba: solo corren con CAPTURAS=1 (ver landing/README.md).
+  testIgnore: process.env.CAPTURAS ? [] : ['**/capturas-landing.spec.ts'],
   globalSetup: './e2e/preparar.ts',
   // Comparten una sola base y los contadores de intentos: de una en una.
   workers: 1,
