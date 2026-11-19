@@ -72,25 +72,21 @@ Si los puertos 80 o 443 de tu equipo están ocupados, Caddy no arranca; los dem�
 
 ## Copias de seguridad
 
-`./despliegue/respaldar.sh` deja en `backups/` la base (`turnoo-FECHA.dump`) y las imágenes de los clientes (`archivos-FECHA.tar.gz`), y borra las de más de 14 días (`DIAS_RETENCION`). Para que corra todas las noches a las 3:00 (UTC), con `crontab -e`:
+`./despliegue/respaldar.sh` deja en `backups/` la base (`turnoo-FECHA.dump.gpg`) y las imágenes de los clientes (`archivos-FECHA.tar.gz.gpg`), **cifradas con gpg**, y borra las de más de 14 días (`DIAS_RETENCION`). Antes de la primera vez, genera la llave y pon su huella en `RESPALDO_GPG_DESTINATARIO` (`.env.produccion`): ver [SEGURIDAD.md](SEGURIDAD.md#copias-de-seguridad-cifradas). El servidor solo tiene la llave pública: puede cifrar, pero no abrir las copias. Para que corra todas las noches a las 3:00 (UTC), con `crontab -e`:
 
 ```
 0 3 * * * cd /ruta/a/Turnoo && ./despliegue/respaldar.sh >> backups/respaldo.log 2>&1
 ```
 
-Una copia que vive en el mismo servidor se pierde con el servidor. Antes de tener clientes reales, hay que copiar `backups/` a otro lugar (otro proveedor o un almacenamiento en la nube) de forma automática.
+Una copia que vive en el mismo servidor se pierde con el servidor: hay que copiar `backups/` fuera (ver [SEGURIDAD.md](SEGURIDAD.md#copiar-las-copias-fuera-del-equipo)).
 
-**Restaurar** (borra lo que haya en la base y lo reemplaza por la copia; para el servidor nuevo, primero haz los pasos 1 a 5):
+**Restaurar** se hace en el equipo que tiene la llave privada, siempre en una base y una carpeta **nuevas** (el script se niega a escribir sobre algo que ya existe):
 
 ```bash
-dc stop api
-dc exec -T db pg_restore -U turnoo_admin -d turnoo --clean --if-exists < backups/turnoo-FECHA.dump
-dc run --rm --no-deps -v turnoo-prod_archivos:/datos/archivos --entrypoint tar herramientas \
-  -C /datos -xzf - < backups/archivos-FECHA.tar.gz
-dc up -d
+./despliegue/restaurar.sh backups/turnoo-FECHA.dump.gpg turnoo_restaurada backups/archivos-FECHA.tar.gz.gpg ./archivos-restaurados
 ```
 
-El rol `turnoo_app` no viaja en la copia (es de todo el servidor de PostgreSQL): por eso, en un servidor nuevo, las migraciones del paso 4 lo crean antes de restaurar.
+Revisa la base restaurada y, si está bien, cámbiala por la de producción a mano (con la API detenida: `dc stop api`, `ALTER DATABASE turnoo RENAME TO turnoo_vieja; ALTER DATABASE turnoo_restaurada RENAME TO turnoo;`, y copia las imágenes al volumen). El rol `turnoo_app` no viaja en la copia (es de todo el servidor de PostgreSQL): por eso, en un servidor nuevo, las migraciones del paso 4 lo crean antes de restaurar. `npm run respaldo:probar` (en `backend/`) prueba el ciclo completo en tu equipo con una llave de prueba.
 
 ## Actualizar
 

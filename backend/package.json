@@ -16,6 +16,7 @@
     "recuperar-superadmin": "tsx --env-file=.env scripts/recuperar-superadmin.ts",
     "db:migrar": "tsx --env-file=.env --env-file=../.env scripts/migrar.ts",
     "db:pruebas": "tsx --env-file=.env --env-file=../.env scripts/preparar-base-pruebas.ts",
+    "respaldo:probar": "tsx --env-file=.env --env-file=../.env scripts/probar-respaldo.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "ia:evaluar": "vitest run --config vitest.evaluacion.config.ts"
