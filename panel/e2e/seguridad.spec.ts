@@ -42,7 +42,7 @@ test.describe('cabeceras de seguridad del panel', () => {
     // un script con nonce. Un script inyectado en el HTML no tendría el nonce y no correría.
     const respuesta = await request.get('/login');
     const nonce = /'nonce-([^']+)'/.exec(respuesta.headers()['content-security-policy']!)![1];
-    const etiquetas = (await respuesta.text()).match(/<script\b[^>]*>/g) ?? [];
+    const etiquetas = (await respuesta.text()).match(/<script\b[^>]*>/gi) ?? [];
     expect(etiquetas.length).toBeGreaterThan(0);
     for (const etiqueta of etiquetas) expect(etiqueta).toContain(`nonce="${nonce}"`);
   });
