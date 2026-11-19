@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   Conflicto,
   DatosInvalidos,
+  DemasiadosIntentos,
   NoAutorizado,
   NoEncontrado,
   Prohibido,
@@ -12,6 +13,7 @@ import { conNegocio, conSistema, type Transaccion } from '../../db/contexto.js';
 import { usuarioParaLogin } from '../../db/previas.js';
 import { estadoDeNegocio } from '../negocios/negocios.reglas.js';
 import { asociarUsuarioABarbero } from '../profesionales/profesionales.reglas.js';
+import { registrar, registrarAparte } from '../auditoria/auditoria.js';
 import { liberarIntento, reservarIntento } from './auth.intentos.js';
 import * as repositorio from './auth.repositorio.js';
 import type {
@@ -93,12 +95,21 @@ export async function iniciarSesion(
   if (typeof email !== 'string' || typeof password !== 'string' || email.length > 254 || password.length > PASSWORD_MAX) {
     throw new NoAutorizado(MENSAJE_LOGIN);
   }
-  await reservarIntento(email, ip, ahora);
+  try {
+    await reservarIntento(email, ip, ahora);
+  } catch (error) {
+    // Frenado por el límite: no se busca la cuenta (sería trabajo gratis para quien ataca).
+    if (error instanceof DemasiadosIntentos) await registrarAparte({ accion: 'login_fallido', ip, detalle: { motivo: 'limite' } });
+    throw error;
+  }
   const usuario = await usuarioParaLogin(email.trim());
   const coincide = await argon2
     .verify(usuario?.passwordHash ?? (await hashDeRelleno()), password)
     .catch(() => false);
   if (!usuario || !usuario.activo || !usuario.passwordHash || !coincide) {
+    // El correo escrito no se guarda: a veces es la contraseña escrita en el campo equivocado.
+    const motivo = !usuario ? 'cuenta_inexistente' : !usuario.activo ? 'inactivo' : 'clave';
+    await registrarAparte({ accion: 'login_fallido', usuarioId: usuario?.id ?? null, negocioId: usuario?.negocioId ?? null, ip, detalle: { motivo } });
     throw new NoAutorizado(MENSAJE_LOGIN);
   }
   await liberarIntento(email, ip);
@@ -113,6 +124,7 @@ export async function iniciarSesion(
       expiraEn,
     });
     await repositorio.registrarLogin(tx, usuario.id, ahora);
+    await registrar(tx, { accion: 'login_correcto', usuarioId: usuario.id, negocioId: usuario.negocioId, ip });
   });
   return {
     token,
@@ -307,24 +319,25 @@ async function usarToken(
   tipo: 'invitacion' | 'recuperacion',
   password: unknown,
   ahora: Date,
-): Promise<void> {
+): Promise<{ usuarioId: string; negocioId: string | null }> {
   validarPassword(password);
   const leido = leerToken(token);
   if (!leido) throw new NoAutorizado(MENSAJE_ENLACE);
 
-  await enAmbito(leido.negocioId, async (tx) => {
+  return enAmbito(leido.negocioId, async (tx) => {
     const usuarioId = await repositorio.consumirToken(tx, leido.hash, tipo, ahora);
     if (!usuarioId) throw new NoAutorizado(MENSAJE_ENLACE);
     const passwordHash = await argon2.hash(password);
     if (tipo === 'invitacion') {
       await repositorio.activarConPassword(tx, usuarioId, passwordHash);
-      return;
+      return { usuarioId, negocioId: leido.negocioId };
     }
     // La recuperación nunca reactiva: a un usuario desactivado su enlace no le sirve.
     if (!(await repositorio.cambiarPasswordDeActivo(tx, usuarioId, passwordHash))) {
       throw new NoAutorizado(MENSAJE_ENLACE);
     }
     await repositorio.revocarSesionesDeUsuario(tx, usuarioId, ahora);
+    return { usuarioId, negocioId: leido.negocioId };
   });
 }
 

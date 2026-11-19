@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { auditar } from '../auditoria/auditoria.http.js';
 import { z } from 'zod';
 import { instanteIso, validarEsquema } from '../../compartido/validacion.js';
 import { exigirRol, exigirSesion, negocioDeSesion as negocioDe } from '../auth/auth.middleware.js';
@@ -28,7 +29,9 @@ rutasNegocios.post('/', async (req, res) => {
     }),
     req.body,
   );
-  res.status(201).json(await servicio.crearNegocio(entrada));
+  const negocio = await servicio.crearNegocio(entrada);
+  await auditar(req, 'crear_negocio', { negocioId: negocio.id, detalle: { planId: entrada.planId ?? null } });
+  res.status(201).json(negocio);
 });
 
 rutasNegocios.get('/', async (_req, res) => {
@@ -48,7 +51,12 @@ rutasNegocios.patch('/:id', async (req, res) => {
     }),
     req.body,
   );
-  res.json(await servicio.cambiarPlanYEstado(String(req.params.id), cambios));
+  const negocio = await servicio.cambiarPlanYEstado(String(req.params.id), cambios);
+  await auditar(req, 'cambiar_plan_estado', {
+    negocioId: negocio.id,
+    detalle: { planId: cambios.planId ?? null, estado: cambios.estado ?? null, pruebaHasta: cambios.pruebaHasta?.toISOString() ?? null },
+  });
+  res.json(negocio);
 });
 
 // Cuentas de WhatsApp del negocio. El token se recibe, se cifra y nunca se devuelve.
@@ -70,7 +78,10 @@ rutasNegocios.post('/:id/whatsapp', async (req, res) => {
     z.strictObject({ phoneNumberId: idMeta, wabaId: idMeta, numeroVisible, token: tokenMeta }),
     req.body,
   );
-  res.status(201).json(await cuentasWhatsapp.registrarCuenta(String(req.params.id), entrada));
+  const cuenta = await cuentasWhatsapp.registrarCuenta(String(req.params.id), entrada);
+  // El token de Meta nunca va a la auditoría: solo qué cuenta se registró.
+  await auditar(req, 'registrar_whatsapp', { negocioId: String(req.params.id), detalle: { cuentaId: cuenta.id } });
+  res.status(201).json(cuenta);
 });
 
 rutasNegocios.patch('/:id/whatsapp/:cuentaId', async (req, res) => {
@@ -78,7 +89,17 @@ rutasNegocios.patch('/:id/whatsapp/:cuentaId', async (req, res) => {
     z.strictObject({ numeroVisible: numeroVisible.optional(), token: tokenMeta.optional(), activa: z.boolean().optional() }),
     req.body,
   );
-  res.json(await cuentasWhatsapp.cambiarCuenta(String(req.params.id), String(req.params.cuentaId), cambios));
+  const cuenta = await cuentasWhatsapp.cambiarCuenta(String(req.params.id), String(req.params.cuentaId), cambios);
+  await auditar(req, 'cambiar_whatsapp', {
+    negocioId: String(req.params.id),
+    detalle: {
+      cuentaId: String(req.params.cuentaId),
+      numeroVisible: cambios.numeroVisible !== undefined,
+      token: cambios.token !== undefined,
+      activa: cambios.activa ?? null,
+    },
+  });
+  res.json(cuenta);
 });
 
 /** El negocio de quien hace la petición: el id sale de la sesión, nunca de la URL. */
