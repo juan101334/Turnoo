@@ -1,3 +1,4 @@
+import type { Limite } from '../../compartido/limite.js';
 export type TipoMensaje = 'texto' | 'audio' | 'imagen' | 'otro';
 
 /** Un mensaje de WhatsApp ya validado y en los términos de Turnoo. */
@@ -73,4 +74,6 @@ export interface ConfiguracionWebhook {
   verifyToken: string;
   /** Solo en pruebas: reemplaza la llamada a Meta al enviar el aviso de datos. */
   pedir?: typeof fetch;
+  /** Cuántos eventos firmados se aceptan por ventana; sin límite si falta. */
+  limiteEventos?: Limite;
 }

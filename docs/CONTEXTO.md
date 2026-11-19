@@ -357,7 +357,7 @@ Decisiones ya tomadas para estos puntos:
 - **Fechas:** solo `compartido/tiempo.ts` hace cuentas de fechas. Instantes en UTC; la hora local del negocio se calcula con `negocios.zona_horaria`.
 - **Migraciones:** una vez aplicada, una migración nunca se edita; un cambio es una migración nueva (numerada, en una transacción, probada desde la 001 sobre una base vacía). Si cambia el modelo, se actualiza ARQUITECTURA.md.
 - **Meta:** las respuestas dentro de la ventana de 24 h no tienen costo; los recordatorios y avisos al dueño son plantillas de utilidad con costo. Los mensajes de promoción son mucho más caros (fase 3).
-- **Seguridad:** secretos solo en `.env`; token de Meta cifrado en la base con la clave fuera de ella; no registrar contenido de mensajes ni teléfonos completos en los logs.
+- **Seguridad:** secretos solo en `.env`; token de Meta cifrado en la base con la clave fuera de ella; no registrar contenido de mensajes ni teléfonos completos en los logs. Refuerzo del 19 de noviembre de 2026 (rama `feat/seguridad`, antes de exponer Turnoo por un túnel de Cloudflare): límite de peticiones en memoria (global por IP, auth, invitaciones y webhook), CSP con nonce + HSTS + Permissions-Policy en el panel, registro de auditoría solo para agregar (migración 018), `redact` de pino con teléfonos enmascarados, retención de imágenes (`RETENCION_IMAGENES_DIAS`, migración 019), pruebas de inyección de prompt, copias cifradas con gpg y `restaurar.sh`, Pwned Passwords opcional, gitleaks (hook y CI), Dependabot y CodeQL. Todo en `docs/SEGURIDAD.md`. Las cabeceras de la landing y el ajuste de Caddy para el túnel van en `fix/tunel-caddy`, sobre el PR #77.
 
 ## 8.1 Qué funciona ya
 

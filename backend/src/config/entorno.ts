@@ -40,6 +40,9 @@ const esquema = z.object({
   OPENAI_MODELO_AUDIO: z.string().min(1).default('gpt-transcribe'),
   // Carpeta donde se guardan las imágenes de los clientes. Datos personales: va en los backups y nunca en git.
   ARCHIVOS_DIR: z.string().min(1).default('archivos'),
+  // Días que se guarda cada imagen de un cliente, contados desde que llegó. Después se borra del
+  // disco (y deja de verse en la cita). 0 = no borrar nunca.
+  RETENCION_IMAGENES_DIAS: z.preprocess((valor) => (valor === '' ? undefined : valor), z.coerce.number().int().min(0).max(3650).default(180)),
   // Cuánto razona el modelo antes de responder. Más esfuerzo, más tokens de salida y más demora.
   OPENAI_ESFUERZO: z.enum(['none', 'low', 'medium', 'high']).default('low'),
   // Tarifas para estimar el costo de cada negocio en el panel del superadmin, en pesos colombianos.
@@ -51,6 +54,12 @@ const esquema = z.object({
   // Mensajes de servicio (texto libre dentro de la ventana de 24 h) que Meta no cobra al mes por
   // cada número. Desde el siguiente se estiman con TARIFA_PLANTILLA_UTILIDAD_COP. Meta puede cambiarlo.
   MENSAJES_SERVICIO_GRATIS_MES: z.preprocess((valor) => (valor === '' ? undefined : valor), z.coerce.number().int().min(0).default(1000)),
+  // Rechaza contraseñas nuevas que aparecen en filtraciones públicas (Pwned Passwords; solo viajan 5
+  // caracteres del hash). Apagada por defecto; si el servicio no responde, la contraseña se acepta.
+  REVISAR_CONTRASENAS_FILTRADAS: z
+    .enum(['true', 'false', '1', '0', ''])
+    .default('false')
+    .transform((valor) => valor === 'true' || valor === '1'),
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
   // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),

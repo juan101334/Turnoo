@@ -3,15 +3,18 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   Conflicto,
   DatosInvalidos,
+  DemasiadosIntentos,
   NoAutorizado,
   NoEncontrado,
   Prohibido,
 } from '../../compartido/errores.js';
+import { estaFiltrada } from '../../compartido/contrasenas-filtradas.js';
 import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio, conSistema, type Transaccion } from '../../db/contexto.js';
 import { usuarioParaLogin } from '../../db/previas.js';
 import { estadoDeNegocio } from '../negocios/negocios.reglas.js';
 import { asociarUsuarioABarbero } from '../profesionales/profesionales.reglas.js';
+import { registrar, registrarAparte } from '../auditoria/auditoria.js';
 import { liberarIntento, reservarIntento } from './auth.intentos.js';
 import * as repositorio from './auth.repositorio.js';
 import type {
@@ -76,6 +79,15 @@ function validarPassword(password: unknown): asserts password is string {
   }
 }
 
+/** Una contraseña nueva: largo válido y, si está activado, que no aparezca en filtraciones públicas. */
+async function validarPasswordNueva(password: unknown): Promise<string> {
+  validarPassword(password);
+  if (await estaFiltrada(password)) {
+    throw new DatosInvalidos('Esa contraseña aparece en filtraciones de datos públicas. Elige otra');
+  }
+  return password;
+}
+
 let hashFalso: Promise<string> | undefined;
 /** Para que un correo inexistente tarde lo mismo que uno existente (no revelar cuáles existen). */
 const hashDeRelleno = () => (hashFalso ??= argon2.hash('relleno-sin-uso-real'));
@@ -93,12 +105,21 @@ export async function iniciarSesion(
   if (typeof email !== 'string' || typeof password !== 'string' || email.length > 254 || password.length > PASSWORD_MAX) {
     throw new NoAutorizado(MENSAJE_LOGIN);
   }
-  await reservarIntento(email, ip, ahora);
+  try {
+    await reservarIntento(email, ip, ahora);
+  } catch (error) {
+    // Frenado por el límite: no se busca la cuenta (sería trabajo gratis para quien ataca).
+    if (error instanceof DemasiadosIntentos) await registrarAparte({ accion: 'login_fallido', ip, detalle: { motivo: 'limite' } });
+    throw error;
+  }
   const usuario = await usuarioParaLogin(email.trim());
   const coincide = await argon2
     .verify(usuario?.passwordHash ?? (await hashDeRelleno()), password)
     .catch(() => false);
   if (!usuario || !usuario.activo || !usuario.passwordHash || !coincide) {
+    // El correo escrito no se guarda: a veces es la contraseña escrita en el campo equivocado.
+    const motivo = !usuario ? 'cuenta_inexistente' : !usuario.activo ? 'inactivo' : 'clave';
+    await registrarAparte({ accion: 'login_fallido', usuarioId: usuario?.id ?? null, negocioId: usuario?.negocioId ?? null, ip, detalle: { motivo } });
     throw new NoAutorizado(MENSAJE_LOGIN);
   }
   await liberarIntento(email, ip);
@@ -113,6 +134,7 @@ export async function iniciarSesion(
       expiraEn,
     });
     await repositorio.registrarLogin(tx, usuario.id, ahora);
+    await registrar(tx, { accion: 'login_correcto', usuarioId: usuario.id, negocioId: usuario.negocioId, ip });
   });
   return {
     token,
@@ -307,24 +329,26 @@ async function usarToken(
   tipo: 'invitacion' | 'recuperacion',
   password: unknown,
   ahora: Date,
-): Promise<void> {
-  validarPassword(password);
+): Promise<{ usuarioId: string; negocioId: string | null }> {
+  // Antes de usar el token: una contraseña rechazada no gasta el enlace.
+  const clave = await validarPasswordNueva(password);
   const leido = leerToken(token);
   if (!leido) throw new NoAutorizado(MENSAJE_ENLACE);
 
-  await enAmbito(leido.negocioId, async (tx) => {
+  return enAmbito(leido.negocioId, async (tx) => {
     const usuarioId = await repositorio.consumirToken(tx, leido.hash, tipo, ahora);
     if (!usuarioId) throw new NoAutorizado(MENSAJE_ENLACE);
-    const passwordHash = await argon2.hash(password);
+    const passwordHash = await argon2.hash(clave);
     if (tipo === 'invitacion') {
       await repositorio.activarConPassword(tx, usuarioId, passwordHash);
-      return;
+      return { usuarioId, negocioId: leido.negocioId };
     }
     // La recuperación nunca reactiva: a un usuario desactivado su enlace no le sirve.
     if (!(await repositorio.cambiarPasswordDeActivo(tx, usuarioId, passwordHash))) {
       throw new NoAutorizado(MENSAJE_ENLACE);
     }
     await repositorio.revocarSesionesDeUsuario(tx, usuarioId, ahora);
+    return { usuarioId, negocioId: leido.negocioId };
   });
 }
 
@@ -339,7 +363,7 @@ export async function cambiarContrasena(
   nueva: unknown,
   ahora: Date = new Date(),
 ): Promise<void> {
-  validarPassword(nueva);
+  const claveNueva = await validarPasswordNueva(nueva);
   if (typeof actual !== 'string' || actual.length === 0 || actual.length > PASSWORD_MAX) {
     throw new DatosInvalidos(MENSAJE_ACTUAL);
   }
@@ -353,7 +377,7 @@ export async function cambiarContrasena(
     const hashActual = await repositorio.passwordDeActivoParaCambio(tx, usuario.usuarioId);
     const coincide = hashActual !== null && (await argon2.verify(hashActual, actual).catch(() => false));
     if (!coincide) throw new DatosInvalidos(MENSAJE_ACTUAL);
-    await repositorio.cambiarPasswordDeActivo(tx, usuario.usuarioId, await argon2.hash(nueva));
+    await repositorio.cambiarPasswordDeActivo(tx, usuario.usuarioId, await argon2.hash(claveNueva));
     await repositorio.revocarOtrasSesiones(tx, usuario.usuarioId, leido.hash, ahora);
     await repositorio.invalidarTokensDeUsuario(tx, usuario.usuarioId, ahora);
   });

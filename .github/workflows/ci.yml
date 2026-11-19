@@ -1,0 +1,49 @@
+# Revisión de cada PR y de main: instala con npm ci (lo que dice package-lock.json, nada más),
+# revisa tipos y compila los tres proyectos, y busca secretos en el historial con gitleaks.
+# Las pruebas del backend y las e2e necesitan PostgreSQL y corren en tu equipo (ver README).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        proyecto: [backend, panel, landing]
+    defaults:
+      run:
+        working-directory: ${{ matrix.proyecto }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.proyecto }}/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          # La landing no compila sin número de WhatsApp. Este es ficticio, solo para compilar.
+          NEXT_PUBLIC_WHATSAPP: '+57 300 000 0000'
+      - run: npm audit --audit-level=high
+
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Todo el historial: un secreto que se borró en un commit posterior sigue en git.
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

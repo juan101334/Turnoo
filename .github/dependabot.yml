@@ -1,0 +1,33 @@
+# Dependabot abre un PR cuando sale una versión nueva (o un arreglo de seguridad) de una
+# dependencia. Una vez por semana, agrupado por carpeta para no llenar la lista de PRs.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule: { interval: weekly }
+    groups:
+      backend: { patterns: ['*'] }
+  - package-ecosystem: npm
+    directory: /panel
+    schedule: { interval: weekly }
+    groups:
+      panel: { patterns: ['*'] }
+  - package-ecosystem: npm
+    directory: /landing
+    schedule: { interval: weekly }
+    groups:
+      landing: { patterns: ['*'] }
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /panel
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /landing
+    schedule: { interval: weekly }
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
