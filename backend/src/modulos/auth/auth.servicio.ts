@@ -8,6 +8,7 @@ import {
   NoEncontrado,
   Prohibido,
 } from '../../compartido/errores.js';
+import { estaFiltrada } from '../../compartido/contrasenas-filtradas.js';
 import { esUuid } from '../../compartido/validacion.js';
 import { conNegocio, conSistema, type Transaccion } from '../../db/contexto.js';
 import { usuarioParaLogin } from '../../db/previas.js';
@@ -76,6 +77,15 @@ function validarPassword(password: unknown): asserts password is string {
       `La contraseña debe tener entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`,
     );
   }
+}
+
+/** Una contraseña nueva: largo válido y, si está activado, que no aparezca en filtraciones públicas. */
+async function validarPasswordNueva(password: unknown): Promise<string> {
+  validarPassword(password);
+  if (await estaFiltrada(password)) {
+    throw new DatosInvalidos('Esa contraseña aparece en filtraciones de datos públicas. Elige otra');
+  }
+  return password;
 }
 
 let hashFalso: Promise<string> | undefined;
@@ -320,14 +330,15 @@ async function usarToken(
   password: unknown,
   ahora: Date,
 ): Promise<{ usuarioId: string; negocioId: string | null }> {
-  validarPassword(password);
+  // Antes de usar el token: una contraseña rechazada no gasta el enlace.
+  const clave = await validarPasswordNueva(password);
   const leido = leerToken(token);
   if (!leido) throw new NoAutorizado(MENSAJE_ENLACE);
 
   return enAmbito(leido.negocioId, async (tx) => {
     const usuarioId = await repositorio.consumirToken(tx, leido.hash, tipo, ahora);
     if (!usuarioId) throw new NoAutorizado(MENSAJE_ENLACE);
-    const passwordHash = await argon2.hash(password);
+    const passwordHash = await argon2.hash(clave);
     if (tipo === 'invitacion') {
       await repositorio.activarConPassword(tx, usuarioId, passwordHash);
       return { usuarioId, negocioId: leido.negocioId };
@@ -352,7 +363,7 @@ export async function cambiarContrasena(
   nueva: unknown,
   ahora: Date = new Date(),
 ): Promise<void> {
-  validarPassword(nueva);
+  const claveNueva = await validarPasswordNueva(nueva);
   if (typeof actual !== 'string' || actual.length === 0 || actual.length > PASSWORD_MAX) {
     throw new DatosInvalidos(MENSAJE_ACTUAL);
   }
@@ -366,7 +377,7 @@ export async function cambiarContrasena(
     const hashActual = await repositorio.passwordDeActivoParaCambio(tx, usuario.usuarioId);
     const coincide = hashActual !== null && (await argon2.verify(hashActual, actual).catch(() => false));
     if (!coincide) throw new DatosInvalidos(MENSAJE_ACTUAL);
-    await repositorio.cambiarPasswordDeActivo(tx, usuario.usuarioId, await argon2.hash(nueva));
+    await repositorio.cambiarPasswordDeActivo(tx, usuario.usuarioId, await argon2.hash(claveNueva));
     await repositorio.revocarOtrasSesiones(tx, usuario.usuarioId, leido.hash, ahora);
     await repositorio.invalidarTokensDeUsuario(tx, usuario.usuarioId, ahora);
   });

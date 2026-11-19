@@ -54,6 +54,12 @@ const esquema = z.object({
   // Mensajes de servicio (texto libre dentro de la ventana de 24 h) que Meta no cobra al mes por
   // cada número. Desde el siguiente se estiman con TARIFA_PLANTILLA_UTILIDAD_COP. Meta puede cambiarlo.
   MENSAJES_SERVICIO_GRATIS_MES: z.preprocess((valor) => (valor === '' ? undefined : valor), z.coerce.number().int().min(0).default(1000)),
+  // Rechaza contraseñas nuevas que aparecen en filtraciones públicas (Pwned Passwords; solo viajan 5
+  // caracteres del hash). Apagada por defecto; si el servicio no responde, la contraseña se acepta.
+  REVISAR_CONTRASENAS_FILTRADAS: z
+    .enum(['true', 'false', '1', '0', ''])
+    .default('false')
+    .transform((valor) => valor === 'true' || valor === '1'),
   // Cuántos proxies propios hay delante de la API (1 con Caddy). Con 0 se ignora X-Forwarded-For.
   // Un valor mayor al real deja a cualquiera falsificar su IP y evadir el límite de login.
   SALTOS_PROXY: z.coerce.number().int().min(0).max(5).default(0),
