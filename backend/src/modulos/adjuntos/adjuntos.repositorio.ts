@@ -86,3 +86,26 @@ export async function tokenCifradoDeConversacion(tx: Transaccion, conversacionId
   );
   return rows[0]?.token ?? null;
 }
+
+/**
+ * Suelta las imágenes que llegaron antes de `antesDe`: el mensaje queda sin archivo, sin cita y
+ * sin el id del archivo en Meta (así tampoco vuelve a contar como pendiente de descargar).
+ * Devuelve las rutas que había, para borrarlas del disco después de confirmar.
+ */
+export async function soltarImagenesVencidas(tx: Transaccion, antesDe: Date, limite: number): Promise<string[]> {
+  const { rows } = await tx.consultar<{ archivo_ruta: string }>(
+    `WITH vencidas AS (
+       SELECT id, archivo_ruta FROM mensajes
+        WHERE archivo_ruta IS NOT NULL AND creado_en < $1
+        ORDER BY creado_en
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+     ), soltadas AS (
+       UPDATE mensajes m SET archivo_ruta = NULL, cita_id = NULL, media_id = NULL
+         FROM vencidas v WHERE m.id = v.id
+     )
+     SELECT archivo_ruta FROM vencidas`,
+    [antesDe, limite],
+  );
+  return rows.map((f) => f.archivo_ruta);
+}

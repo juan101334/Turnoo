@@ -1,5 +1,8 @@
 import { errorParaLog, logger } from '../compartido/logger.js';
+import { entorno } from '../config/entorno.js';
 import { conSistema, type Transaccion } from '../db/contexto.js';
+import { borrarArchivos } from '../modulos/adjuntos/adjuntos.archivos.js';
+import { soltarImagenesVencidas } from '../modulos/adjuntos/adjuntos.repositorio.js';
 import { inicioDeVentanaVigente } from '../modulos/auth/auth.intentos.js';
 import { borrarIntentosVencidos } from '../modulos/auth/auth.repositorio.js';
 import { avisarDerivaciones, avisarLimitesDelPlan } from '../modulos/avisos/avisos.servicio.js';
@@ -17,14 +20,14 @@ export const LIMITE_POR_CICLO = 500;
 
 /** Identifican los candados de PostgreSQL de estas tareas: el primer número es el de Turnoo. */
 export const ESPACIO_CANDADOS = 7001;
-export const CANDADOS = { autocompletar: 1, expirar: 2, limpiar: 3 } as const;
+export const CANDADOS = { autocompletar: 1, expirar: 2, limpiar: 3, retencion: 4 } as const;
 
 /**
  * Si otra instancia ya corre esta tarea, se salta el ciclo y devuelve null. El candado evita
  * trabajo doble; que una cita no se procese dos veces lo garantiza la condición de cada consulta.
  * Es de transacción: se suelta solo al terminar, aunque la instancia se caiga.
  */
-function conCandado(candado: number, trabajo: (tx: Transaccion) => Promise<number>): Promise<number | null> {
+function conCandado<T = number>(candado: number, trabajo: (tx: Transaccion) => Promise<T>): Promise<T | null> {
   return conSistema(async (tx) => {
     const { rows } = await tx.consultar<{ tomado: boolean }>(
       'SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS tomado',
@@ -48,6 +51,24 @@ export function limpiarIntentosLogin(ahora: Date): Promise<number | null> {
   return conCandado(CANDADOS.limpiar, (tx) => borrarIntentosVencidos(tx, inicioDeVentanaVigente(ahora)));
 }
 
+/**
+ * Borra las imágenes de los clientes que cumplieron RETENCION_IMAGENES_DIAS (0 = nunca). Primero la
+ * base deja de apuntarlas y, ya confirmado, se borran del disco: si el disco falla, queda un
+ * archivo suelto (en el log) y no una cita que apunta a un archivo que no existe.
+ */
+export async function borrarImagenesVencidas(ahora: Date, dias = entorno.RETENCION_IMAGENES_DIAS, limite = LIMITE_POR_CICLO): Promise<number | null> {
+  if (dias === 0) return 0;
+  const antesDe = new Date(ahora.getTime() - dias * 86_400_000);
+  const rutas = await conCandado(CANDADOS.retencion, (tx) => soltarImagenesVencidas(tx, antesDe, limite));
+  if (rutas === null) return null;
+  try {
+    await borrarArchivos(rutas);
+  } catch (error) {
+    logger.error({ archivos: rutas.length, fallo: errorParaLog(error) }, 'No se pudieron borrar del disco imágenes vencidas');
+  }
+  return rutas.length;
+}
+
 export interface Tarea {
   nombre: string;
   ejecutar: (ahora: Date) => Promise<number | null>;
@@ -57,6 +78,7 @@ const TAREAS: Tarea[] = [
   { nombre: 'expirar_aprobaciones', ejecutar: (ahora) => expirarAprobaciones(ahora) },
   { nombre: 'autocompletar_citas', ejecutar: (ahora) => autocompletarCitas(ahora) },
   { nombre: 'limpiar_intentos_login', ejecutar: limpiarIntentosLogin },
+  { nombre: 'borrar_imagenes_vencidas', ejecutar: (ahora) => borrarImagenesVencidas(ahora) },
   // Estas no usan candado: reservan cada envío con SKIP LOCKED, como el procesador.
   { nombre: 'avisar_derivaciones', ejecutar: (ahora) => avisarDerivaciones(ahora) },
   { nombre: 'avisar_limites_del_plan', ejecutar: (ahora) => avisarLimitesDelPlan(ahora) },

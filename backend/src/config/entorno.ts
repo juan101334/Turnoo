@@ -40,6 +40,9 @@ const esquema = z.object({
   OPENAI_MODELO_AUDIO: z.string().min(1).default('gpt-transcribe'),
   // Carpeta donde se guardan las imágenes de los clientes. Datos personales: va en los backups y nunca en git.
   ARCHIVOS_DIR: z.string().min(1).default('archivos'),
+  // Días que se guarda cada imagen de un cliente, contados desde que llegó. Después se borra del
+  // disco (y deja de verse en la cita). 0 = no borrar nunca.
+  RETENCION_IMAGENES_DIAS: z.preprocess((valor) => (valor === '' ? undefined : valor), z.coerce.number().int().min(0).max(3650).default(180)),
   // Cuánto razona el modelo antes de responder. Más esfuerzo, más tokens de salida y más demora.
   OPENAI_ESFUERZO: z.enum(['none', 'low', 'medium', 'high']).default('low'),
   // Tarifas para estimar el costo de cada negocio en el panel del superadmin, en pesos colombianos.
