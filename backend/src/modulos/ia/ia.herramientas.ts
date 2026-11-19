@@ -265,7 +265,9 @@ export async function ejecutarHerramienta(
   argumentos: string,
   contexto: ContextoHerramienta,
 ): Promise<{ salida: string; derivada: boolean }> {
-  const ejecutor = EJECUTORES[nombre];
+  // Object.hasOwn: el nombre lo elige el modelo, y EJECUTORES[nombre] también encuentra lo heredado
+  // de Object ("constructor", "toString", "__proto__"), que no son funciones de la IA.
+  const ejecutor = Object.hasOwn(EJECUTORES, nombre) ? EJECUTORES[nombre] : undefined;
   if (!ejecutor) return { salida: JSON.stringify({ ok: false, error: `No existe la función ${nombre}` }), derivada: false };
   try {
     const resultado = await ejecutor(argumentos, contexto);
