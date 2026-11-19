@@ -1,0 +1,16 @@
+#!/bin/sh
+# Antes de cada commit, gitleaks revisa lo que está en el área de preparación (git add) en busca
+# de secretos: claves de API, tokens, llaves privadas. Si encuentra algo, el commit no se hace.
+#
+# Se activa una vez por copia del repositorio:
+#   git config core.hooksPath .githooks
+# Requiere gitleaks en el PATH (https://github.com/gitleaks/gitleaks/releases).
+# Un falso positivo se marca en la línea con el comentario  gitleaks:allow
+set -eu
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks no está instalado. Instálalo o desactiva el hook con: git config --unset core.hooksPath" >&2
+  exit 1
+fi
+
+exec gitleaks git --pre-commit --staged --redact --no-banner .
