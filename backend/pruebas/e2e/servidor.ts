@@ -36,7 +36,9 @@ let soltar: () => void = () => {};
 let suelta = Promise.resolve();
 const coincide = (camino: string, ruta: string) => camino === ruta || camino.startsWith(`${ruta}?`) || camino.startsWith(`${ruta}/`);
 
-const app = crearApp({ envio: { pedir: metaDePrueba } });
+// Toda la suite e2e sale de 127.0.0.1 y navega mucho más rápido que una persona: el límite global
+// por IP la frenaría. Los límites se prueban en pruebas/limite.test.ts.
+const app = crearApp({ envio: { pedir: metaDePrueba }, limites: { global: { ventanaMs: 60_000, maximo: 100_000 }, enlaces: { ventanaMs: 60_000, maximo: 100_000 } } });
 createServer((req, res) => {
   const camino = req.url ?? '/';
   if (req.method === 'POST' && camino.startsWith('/__e2e/')) {

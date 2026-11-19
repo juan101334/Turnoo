@@ -99,6 +99,16 @@ export class DemasiadosIntentos extends ErrorDominio {
   }
 }
 
+/** Límite general de peticiones (compartido/limite.ts): mensaje genérico, sin decir qué se contó. */
+export class DemasiadasPeticiones extends ErrorDominio {
+  readonly reintentarEnSegundos: number;
+
+  constructor(reintentarEnSegundos: number) {
+    super('DEMASIADAS_PETICIONES', 'Demasiadas peticiones. Vuelve a intentar en unos minutos', 429);
+    this.reintentarEnSegundos = reintentarEnSegundos;
+  }
+}
+
 /**
  * Convierte los errores de PostgreSQL que significan una regla del negocio
  * en errores del dominio. Cualquier otro error se devuelve sin cambios.

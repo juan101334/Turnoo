@@ -1,10 +1,11 @@
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
-import { DemasiadosIntentos, ErrorDominio } from './compartido/errores.js';
+import { DemasiadasPeticiones, DemasiadosIntentos, ErrorDominio } from './compartido/errores.js';
+import { limitar, porIp, type Limite } from './compartido/limite.js';
 import { logger } from './compartido/logger.js';
 import { entorno } from './config/entorno.js';
 import { pool } from './db/pool.js';
-import { rutasAuth } from './modulos/auth/auth.rutas.js';
+import { crearRutasAuth, type LimitesAuth } from './modulos/auth/auth.rutas.js';
 import { rutasCitas } from './modulos/citas/citas.rutas.js';
 import { rutasClientes } from './modulos/clientes/clientes.rutas.js';
 import { rutasConocimiento } from './modulos/conocimiento/conocimiento.rutas.js';
@@ -17,26 +18,50 @@ import { rutasConsumo } from './modulos/uso/consumo.rutas.js';
 import { crearRutasWhatsapp } from './modulos/whatsapp/whatsapp.rutas.js';
 import type { ConfiguracionWebhook } from './modulos/whatsapp/whatsapp.tipos.js';
 
+const MINUTO = 60_000;
+
+/** Límites de peticiones. Holgados para una persona; solo frenan a un bot. */
+export interface Limites extends LimitesAuth {
+  /** Todas las rutas menos el webhook, por IP. El panel reenvía la IP de quien navega. */
+  global: Limite;
+  /** Eventos firmados del webhook de WhatsApp, en total. */
+  webhook: Limite;
+}
+
+export const LIMITES: Limites = {
+  global: { ventanaMs: MINUTO, maximo: 300 },
+  publicas: { ventanaMs: 15 * MINUTO, maximo: 20 },
+  contrasena: { ventanaMs: 15 * MINUTO, maximo: 10 },
+  enlaces: { ventanaMs: 60 * MINUTO, maximo: 30 },
+  webhook: { ventanaMs: MINUTO, maximo: 600 },
+};
+
 interface OpcionesApp {
   saltosProxy?: number;
   whatsapp?: ConfiguracionWebhook;
   /** Solo en pruebas: reemplaza la llamada a Meta cuando el dueño responde una conversación. */
   envio?: DependenciasEnvio;
+  /** Para pruebas: cambia uno o más límites de peticiones. */
+  limites?: Partial<Limites>;
 }
 
 export function crearApp({
   saltosProxy = entorno.SALTOS_PROXY,
   whatsapp = { appSecret: entorno.WHATSAPP_APP_SECRET, verifyToken: entorno.WHATSAPP_VERIFY_TOKEN },
   envio = {},
+  limites: cambiosDeLimites = {},
 }: OpcionesApp = {}) {
+  const limites = { ...LIMITES, ...cambiosDeLimites };
   const app = express();
   app.disable('x-powered-by');
-  // Define de dónde sale req.ip, que usa el límite de intentos de login.
+  // Define de dónde sale req.ip, que usan el límite de intentos de login y el de peticiones.
   app.set('trust proxy', saltosProxy);
 
   // IMPORTANTE: el webhook de WhatsApp necesita el cuerpo SIN procesar para
   // verificar la firma de Meta. Por eso va ANTES de express.json().
-  app.use('/webhooks/whatsapp', crearRutasWhatsapp(whatsapp));
+  app.use('/webhooks/whatsapp', crearRutasWhatsapp({ limiteEventos: limites.webhook, ...whatsapp }));
+  // Después del webhook: Meta no debe gastar el cupo de una IP, y su límite es otro.
+  app.use(limitar(limites.global, porIp));
   app.use(express.json({ limit: '100kb' }));
 
   // Comprobación de que la API y la base de datos responden.
@@ -46,7 +71,7 @@ export function crearApp({
   });
 
   // Rutas de cada módulo.
-  app.use('/auth', rutasAuth);
+  app.use('/auth', crearRutasAuth(limites));
   app.use('/citas', rutasCitas);
   app.use('/clientes', rutasClientes);
   app.use('/conocimiento', rutasConocimiento);
@@ -70,7 +95,7 @@ export function crearApp({
 /** Único lugar donde los errores se convierten en respuestas HTTP. */
 function manejarErrores(error: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (error instanceof ErrorDominio) {
-    if (error instanceof DemasiadosIntentos) res.set('Retry-After', String(error.reintentarEnSegundos));
+    if (error instanceof DemasiadosIntentos || error instanceof DemasiadasPeticiones) res.set('Retry-After', String(error.reintentarEnSegundos));
     res.status(error.estadoHttp).json({
       error: { codigo: error.codigo, mensaje: error.message },
     });

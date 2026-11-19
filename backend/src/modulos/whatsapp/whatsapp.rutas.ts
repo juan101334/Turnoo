@@ -1,5 +1,6 @@
 import express, { Router } from 'express';
-import { NoAutorizado } from '../../compartido/errores.js';
+import { DemasiadasPeticiones, NoAutorizado } from '../../compartido/errores.js';
+import { ContadorPorVentana } from '../../compartido/limite.js';
 import { logger } from '../../compartido/logger.js';
 import { enviarAvisoDeDatos } from './whatsapp.aviso.js';
 import { firmaValida, textosIguales } from './whatsapp.firma.js';
@@ -9,8 +10,11 @@ import type { ConfiguracionWebhook } from './whatsapp.tipos.js';
 const LIMITE_CUERPO = '3mb';
 
 /** Webhook de Meta. No lleva sesión: lo que prueba el origen es la firma o el token de verificación. */
-export function crearRutasWhatsapp({ appSecret, verifyToken, pedir }: ConfiguracionWebhook) {
+export function crearRutasWhatsapp({ appSecret, verifyToken, pedir, limiteEventos }: ConfiguracionWebhook) {
   const rutas = Router();
+  // Un solo contador para todo el webhook: los eventos llegan de muchas IP de Meta. Se cuenta
+  // DESPUÉS de la firma, así una petición falsa nunca gasta el cupo de los mensajes reales.
+  const eventos = limiteEventos ? new ContadorPorVentana(limiteEventos) : null;
 
   // Meta comprueba la URL al configurarla: hay que devolverle su `challenge` tal cual, en texto plano.
   rutas.get('/', (req, res) => {
@@ -40,6 +44,9 @@ export function crearRutasWhatsapp({ appSecret, verifyToken, pedir }: Configurac
     if (!Buffer.isBuffer(req.body) || !firmaValida(req.body, req.get('x-hub-signature-256'), appSecret)) {
       throw new NoAutorizado('Firma no válida');
     }
+    // 429: Meta reintenta más tarde, así que el mensaje no se pierde.
+    const espera = eventos?.sumar('meta') ?? null;
+    if (espera !== null) throw new DemasiadasPeticiones(espera);
 
     let datos: unknown;
     try {
